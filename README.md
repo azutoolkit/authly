@@ -43,7 +43,6 @@ Authly.secret = "Some secret"
 Setup Resource Server (Client) and Resource Owner (Owner)
 
 ```crystal
-
 Authly.client = ->(client_id : String, client_secret : String, redirect_uri : String) { true | false }
 Authly.owner = ->(username : String, password : String) { true | false }
 ```
