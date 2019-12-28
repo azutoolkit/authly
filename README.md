@@ -1,5 +1,3 @@
-[![Build Status](https://travis-ci.com/eliasjpr/authly.svg?branch=master)](https://travis-ci.com/eliasjpr/authly)
-
 # Authly
 
 ### OAuth2 Provider Library for the Crystal Language.
@@ -99,4 +97,4 @@ access_denied:          "The user or authorization server denied the request",
 
 ## Contributors
 
-- [Elias Perez](https://github.com/your-github-user) - creator and maintainer
+- [Elias Perez](https://github.com/your-github-user) - Initial work
