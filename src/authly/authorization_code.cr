@@ -7,8 +7,10 @@ module Authly
       scope : String = "",
       state : String = ""
 
+    @token : Token
+
     def initialize(@client_id, @client_secret, @redirect_uri, @code, @scope, @state = "")
-      @token = Token.new code
+      @token = Authly.token_provider.new code
     end
 
     def authorize! : AccessToken

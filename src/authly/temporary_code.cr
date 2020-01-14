@@ -1,5 +1,3 @@
-require "json"
-
 module Authly
   class TemporaryCode
     include JSON::Serializable
@@ -14,7 +12,7 @@ module Authly
     end
 
     private def token(data : CodeRequest)
-      Token.new data.client_id,
+      Authly.token_provider.new data.client_id,
         1.minute.from_now.to_unix,
         data.redirect_uri.to_s,
         data.state.to_s,

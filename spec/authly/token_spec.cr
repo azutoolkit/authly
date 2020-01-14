@@ -7,7 +7,7 @@ module Authly
     exp = 1.minute.from_now.to_unix
     scope = "read write"
     state = "d07d3632-4f09-49c2-b6a4-38accec79d68"
-    code = Token.new(cid, exp, uri, state, scope).to_s
+    code = Authly.token_provider.new(cid, exp, uri, state, scope).to_s
 
     it "writes code" do
       payload = {"cid" => cid, "uri" => uri, "exp" => exp, "state" => state, "scope" => scope}
@@ -17,10 +17,10 @@ module Authly
     context "with invalid claims" do
       it "raises error if expired" do
         exp = 1.minute.ago.to_unix
-        expired_code = Token.new(cid, exp, uri).to_s
+        expired_code = Authly.token_provider.new(cid, exp, uri).to_s
 
         expect_raises JWT::ExpiredSignatureError do
-          Token.new(expired_code)
+          Authly.token_provider.new(expired_code)
         end
       end
     end

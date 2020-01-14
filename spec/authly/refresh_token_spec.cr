@@ -3,7 +3,7 @@ require "../spec_helper"
 module Authly
   describe RefreshToken do
     cid, secret, scope = "1", "secret", "read write"
-    token = Token.new(cid, 1.minute.from_now.to_unix, scope: scope).to_s
+    token = Authly.token_provider.new(cid, 1.minute.from_now.to_unix, scope: scope).to_s
     refresh_token = RefreshToken.new(
       client_id: cid, client_secret: secret, refresh_token: token, scope: scope,
     )

@@ -1,12 +1,10 @@
-require "json"
-
 module Authly
   struct AccessToken
     include JSON::Serializable
 
     def self.create(client_id, redirect_uri = "")
-      access_token = Token.new(client_id, 1.hour.from_now.to_unix, redirect_uri).to_s
-      refresh_token = Token.new(client_id, 1.day.from_now.to_unix, redirect_uri).to_s
+      access_token = Authly.token_provider.new(client_id, 1.hour.from_now.to_unix, redirect_uri).to_s
+      refresh_token = Authly.token_provider.new(client_id, 1.day.from_now.to_unix, redirect_uri).to_s
       new(access_token, refresh_token, 1.hour.from_now.to_unix)
     end
 

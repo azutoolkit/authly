@@ -10,7 +10,7 @@ describe Authly do
 
   describe ".authorize" do
     grant = "authorization_code"
-    code = Authly::Token.new(cid, exp, uri.to_s, state, scope).to_s
+    code = Authly.token_provider.new(cid, exp, uri.to_s, state, scope).to_s
 
     it "returns an access token" do
       request = {grant, cid, secret, uri, code, scope, state}

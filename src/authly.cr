@@ -1,4 +1,6 @@
 require "jwt"
+require "json"
+
 require "./authly/**"
 
 module Authly
