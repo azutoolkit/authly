@@ -8,7 +8,7 @@ module Authly
       state : String = ""
 
     def initialize(@client_id, @client_secret, @redirect_uri, @code, @scope, @state = "")
-      @token = Token.read code
+      @token = Token.new code
     end
 
     def authorize! : AccessToken

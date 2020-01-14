@@ -1,29 +1,21 @@
 module Authly
   struct Token
-    def self.write(cid, uri = "", exp = 30.seconds.from_now.to_unix, state = "", scope = "")
-      new(cid, uri, exp, state, scope).to_s
-    end
-
-    def self.matches!(code, request)
-      read(code).matches! request
-    end
-
-    def self.read(code)
-      payload = JWT.decode(code, Authly.secret, JWT::Algorithm::HS256).first
-      new payload["cid"].to_s,
-        payload["uri"].to_s,
-        payload["exp"].to_s.to_i64,
-        payload["state"].to_s,
-        payload["scope"].to_s
-    end
-
     getter cid : String
     getter exp : Int64 = 30.seconds.from_now.to_unix
-    getter uri : String
+    getter uri : String = ""
     getter state : String = ""
     getter scope : String = ""
 
-    def initialize(@cid, @uri, @exp, @state, @scope)
+    def initialize(code : String)
+      data = JWT.decode(code, Authly.secret, JWT::Algorithm::HS256).first
+      @cid = data["cid"].to_s
+      @uri = data["uri"].to_s
+      @exp = data["exp"].to_s.to_i64
+      @state = data["state"].to_s
+      @scope = data["scope"].to_s
+    end
+
+    def initialize(@cid, @exp, @uri = "", @state = "", @scope = "")
     end
 
     def to_s

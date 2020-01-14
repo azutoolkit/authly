@@ -4,7 +4,7 @@ module Authly
   describe AuthorizationCode do
     describe "#authorize" do
       cid, secret, uri, scope, state = "1", "secret", URI.parse("https://www.example.com/callback"), "scope", "state"
-      code = Token.write cid, uri.to_s, 1.minute.from_now.to_unix, state, scope
+      code = Token.new(cid, 1.minute.from_now.to_unix, uri.to_s, state, scope).to_s
 
       it "returns AccessToken" do
         authorization_code = AuthorizationCode.new(cid, secret, uri, code, scope, state)

@@ -9,14 +9,14 @@ module Authly
     getter code : String
 
     def initialize(data : CodeRequest)
-      @code = token(data)
+      @code = token(data).to_s
       @state = data.state
     end
 
     private def token(data : CodeRequest)
-      Token.write data.client_id,
-        data.redirect_uri.to_s,
+      Token.new data.client_id,
         1.minute.from_now.to_unix,
+        data.redirect_uri.to_s,
         data.state.to_s,
         data.scope
     end

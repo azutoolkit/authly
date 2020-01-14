@@ -12,7 +12,7 @@ module Authly
     end
 
     private def validate_code!
-      Token.read refresh_token.not_nil!
+      Token.new refresh_token.not_nil!
     rescue e
       raise Error.invalid_grant
     end
