@@ -1,8 +1,6 @@
-module Authly
-  class ClientCredentials < Authorization
-    getter client_id : String, client_secret : String, scope : String = ""
-
-    def initialize(@client_id, @client_secret, @scope)
+module Grants
+  class ClientCredentials < Base
+    def initialize(@client_id, @client_secret, @scope = "")
     end
 
     def authorize!

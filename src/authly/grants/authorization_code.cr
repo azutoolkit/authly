@@ -1,11 +1,6 @@
-module Authly
-  class AuthorizationCode < Authorization
-    getter client_id : String,
-      client_secret : String,
-      redirect_uri : URI,
-      code : String,
-      scope : String = "",
-      state : String = ""
+module Grants
+  class AuthorizationCode < Base
+    getter code : String, state : String
 
     @token : Token
 

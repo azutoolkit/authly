@@ -1,8 +1,8 @@
-module Authly
-  class RefreshToken < Authorization
-    getter client_id : String, client_secret : String, refresh_token : String, scope : String = ""
+module Grants
+  class RefreshToken < Base
+    getter refresh_token : String
 
-    def initialize(@client_id, @client_secret, @refresh_token, @scope)
+    def initialize(@client_id, @client_secret, @refresh_token, @scope = "")
     end
 
     def authorize!

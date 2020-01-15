@@ -1,8 +1,8 @@
-module Authly
-  class Password < Authorization
-    getter client_id : String, client_secret : String, username : String, password : String, scope : String = ""
+module Grants
+  class Password < Base
+    getter username : String, password : String
 
-    def initialize(@client_id, @client_secret, @username, @password, @scope)
+    def initialize(@client_id, @client_secret, @username, @password, @scope = "")
     end
 
     def authorize!
