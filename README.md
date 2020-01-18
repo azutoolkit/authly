@@ -1,6 +1,6 @@
 # Authly
 
-### OAuth2 Provider Library for the Crystal Language.
+## OAuth2 Provider Library for the Crystal Language.
 
 The OAuth 2.0 specification is a flexibile authorization framework that describes a number of grants (“methods”) for a client application to acquire an access token (which represents a user’s permission for the client to access their data) which can be used to authenticate a request to an API endpoint.
 
@@ -30,49 +30,58 @@ The specification describes five grants for acquiring an access token:
 require "authly"
 ```
 
-Define the `client` and `user` procs that performa the authentication checks.
-
-Encryption secret key
+### Configuration
 
 ```crystal
-Authly.secret = "Some secret"
+Authly.configure do |c|
+  # Secret Key for JWT Tokens
+  c.secret = "Some Secret"
+
+  # Refresh Token Time To Live
+  c.refresh_ttl = 1.hour
+
+  # Authorization Code Time To Live
+  c.code_ttl = 1.hour
+
+  # Access Token Time To Live
+  c.access_ttl = 1.hour
+
+  # Setup Client validation check
+  c.client = ->(client_id : String, client_secret : String, redirect_uri : String?) do
+    if !redirect_uri.nil?
+      client_id == "1" && client_secret == "secret" && redirect_uri == "https://www.example.com/callback"
+    else
+      client_id == "1" && client_secret == "secret"
+    end
+  end
+
+  # Setup Owner validation check
+  c.owner = ->(username : String, password : String) do
+    username == "username" && password == "password"
+  end
+end
 ```
 
-Setup Resource Server (Client) and Resource Owner (Owner)
+Perform Authorizations
 
 ```crystal
-Authly.client = ->(client_id : String, client_secret : String, redirect_uri : String) { true | false }
-Authly.owner = ->(username : String, password : String) { true | false }
-```
 
-Required for Authorization Code Grant
+Authly.authorize(*all_args)
 
-```crystal
-Authly.code(code : CodeRequest)
-```
+# Or do it yourself
 
-Perform Authorization
-
-```crystal
-Authly.authorize(
-    grant_type,
-    client_id,
-    client_secret,
-    redirect_uri,
-    code,
-    scope,
-    state,
-    username,
-    password,
-    refresh_token
-  )
+Authly::ClientCredentials.new(client_id, client_secret, scope).authorize!
+Authly::AuthorizationCode.new(client_id, client_secret, redirect_uri, code, scope, state).authorize!
+Authly::Password.new(client_id, client_secret, username, password, scope).authorize!
+Authly::RefreshToken.new(client_id, client_secret, refresh_token, scope).authorize!
+Authly::Implicit.new(client_id, redirect_uri, scope, state).authorize!
 ```
 
 ### Exceptions
 
-Authly returns exceptions according to the OAuth2 protocol of type `OAuthError` with `code`, `type` and `message` properties.
+Authly returns exceptions according to the OAuth2 protocol of type `Error` with `code`, `type` and `message` properties.
 
-**Error Type and Messages**
+### Error Type and Messages
 
 ```crystal
 invalid_redirect_uri:   "Invalid redirect uri",

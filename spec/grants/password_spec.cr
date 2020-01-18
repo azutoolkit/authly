@@ -9,7 +9,7 @@ module Authly
     )
 
     it "returns nil" do
-      (password_authorization.authorize!).should be_a AccessToken
+      (password_authorization.authorize!).should be_nil
     end
 
     it "raises error for invalid client credentials" do
@@ -17,7 +17,7 @@ module Authly
         client_id: cid, client_secret: "bad secret", username: username, password: password, scope: scope
       )
 
-      expect_raises OAuthError, ERROR_MSG[:unauthorized_client] do
+      expect_raises Error, ERROR_MSG[:unauthorized_client] do
         invalid_auth.authorize!
       end
     end
@@ -27,7 +27,7 @@ module Authly
         client_id: cid, client_secret: secret, username: username, password: "bad password", scope: scope
       )
 
-      expect_raises OAuthError, ERROR_MSG[:owner_credentials] do
+      expect_raises Error, ERROR_MSG[:owner_credentials] do
         invalid_owner.authorize!
       end
     end

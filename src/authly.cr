@@ -1,23 +1,24 @@
 require "jwt"
 require "json"
 
-require "./authly/grant"
-require "./authly/error"
-require "./authly/grant"
+require "./authly/**"
 
 module Authly
-  class_property secret = "SOME SECRET KEY"
-  class_property client : Proc(String, String, String?, Bool) = ->(client_id : String, client_secret : String, redirect_uri : String?) { true }
-  class_property owner : Proc(String, String, Bool) = ->(username : String, password : String) { true }
+  CONFIG = Configuration.new
 
-  def self.authorize(*args)
-    Grant.strategy(*args).authorize!.not_nil!
+  def self.configure
+    yield CONFIG
   end
 
-  def self.code(request : CodeRequest)
-    raise Error.invalid_redirect_uri unless request.valid?
-    raise Error.unauthorized_client unless yield
+  def self.config
+    CONFIG
+  end
 
-    TemporaryCode.new(request)
+  def self.authorize(grant_type, *args)
+    GrantStrategy.parse(grant_type).strategy(*args)
+  end
+
+  def self.response(response_type, *args)
+    ResponseStrategy.parse(response_type).strategy(*args)
   end
 end

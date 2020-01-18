@@ -1,6 +1,9 @@
-module Grants
-  class RefreshToken < Base
-    getter refresh_token : String
+module Authly
+  struct RefreshToken
+    getter client_id : String,
+      client_secret : String,
+      refresh_token : String,
+      scope : String
 
     def initialize(@client_id, @client_secret, @refresh_token, @scope = "")
     end
@@ -8,17 +11,18 @@ module Grants
     def authorize!
       validate_code!
       raise Error.unauthorized_client unless client_authorized?
-      AccessToken.create(client_id)
+
+      Response::AccessToken.new(client_id)
     end
 
     private def validate_code!
-      Authly.token_provider.new refresh_token.not_nil!
+      Token.decode refresh_token
     rescue e
       raise Error.invalid_grant
     end
 
     private def client_authorized?
-      Authly.client.call(client_id, client_secret, nil)
+      Authly.config.client.call(client_id, client_secret, nil)
     end
   end
 end

@@ -4,51 +4,52 @@ module Authly
     invalid_state:          "Invalid state",
     invalid_scope:          "Invalid scope value in the request",
     invalid_client:         "Client authentication failed, such as if the request contains an invalid client ID or secret.",
-    owner_credentials:      "Invalid owner credentials",
     invalid_request:        "The request is missing a parameter so the server can’t proceed with the request",
     invalid_grant:          "The authorization code is invalid or expired.",
+    invalid_response_type:  "The response type is invalid.",
+    owner_credentials:      "Invalid owner credentials",
     unauthorized_client:    "This client is not authorized to use the requested grant type",
     unsupported_grant_type: "Invalid or unknown grant type",
     access_denied:          "The user or authorization server denied the request",
   }
 
-  module Error
-    extend self
-
-    def owner_credentials
-      raise OAuthError(400).new(:owner_credentials)
+  class Error(Code) < Exception
+    def self.owner_credentials
+      raise Error(400).new(:owner_credentials)
     end
 
-    def unsupported_grant_type
-      raise OAuthError(400).new(:unsupported_grant_type)
+    def self.unsupported_grant_type
+      raise Error(400).new(:unsupported_grant_type)
     end
 
-    def unauthorized_client
-      raise OAuthError(401).new(:unauthorized_client)
+    def self.unauthorized_client
+      raise Error(401).new(:unauthorized_client)
     end
 
-    def invalid_redirect_uri
-      raise OAuthError(400).new(:invalid_redirect_uri)
+    def self.invalid_redirect_uri
+      raise Error(400).new(:invalid_redirect_uri)
     end
 
-    def invalid_state
-      raise OAuthError(400).new(:invalid_state)
+    def self.invalid_state
+      raise Error(400).new(:invalid_state)
     end
 
-    def invalid_grant
-      raise OAuthError(400).new(:invalid_grant)
+    def self.invalid_grant
+      raise Error(400).new(:invalid_grant)
     end
 
-    def invalid_scope
-      raise OAuthError(400).new(:invalid_scope)
+    def self.invalid_scope
+      raise Error(400).new(:invalid_scope)
     end
 
-    def bad_request(type : Symbol)
-      raise OAuthError(400).new(type)
+    def self.invalid_response_type
+      raise Error(400).new(:invalid_response_type)
     end
-  end
 
-  class OAuthError(Code) < Exception
+    def self.bad_request(type : Symbol)
+      raise Error(400).new(type)
+    end
+
     getter code : Int32 = Code
     getter type : Symbol
 
