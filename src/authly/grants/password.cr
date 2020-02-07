@@ -12,6 +12,7 @@ module Authly
     def authorize!
       raise Error.unauthorized_client unless client_authorized?
       raise Error.owner_credentials unless owner_authorized?
+      Response::AccessToken.new(client_id)
     end
 
     private def client_authorized?
