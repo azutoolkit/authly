@@ -9,8 +9,6 @@ module Authly
 
     @token : JSON::Any
 
-    delegate validate, to: Authly.clients
-
     def initialize(@client_id, @client_secret, @redirect_uri, @code, @scope, @state)
       @token = Token.decode(code).first
     end
@@ -26,7 +24,7 @@ module Authly
     end
 
     private def client_authorized?
-      validate(client_id, client_secret, redirect_uri)
+      Authly.clients.authorized?(client_id, client_secret, redirect_uri)
     end
   end
 end

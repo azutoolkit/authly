@@ -4,8 +4,7 @@ require "json"
 require "./authly/**"
 
 module Authly
-  CONFIG  = Configuration.new
-  CLIENTS = Clients.new
+  CONFIG = Configuration.new
 
   def self.configure
     yield CONFIG
@@ -16,7 +15,11 @@ module Authly
   end
 
   def self.clients
-    CLIENTS
+    CONFIG.clients
+  end
+
+  def self.owners
+    CONFIG.owners
   end
 
   def self.authorize(grant_type, *args)

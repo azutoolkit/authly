@@ -2,8 +2,6 @@ module Authly
   struct ClientCredentials
     getter client_id : String, client_secret : String, scope : String
 
-    delegate validate, to: Authly.clients
-
     def initialize(@client_id, @client_secret, @scope = "")
     end
 
@@ -13,7 +11,7 @@ module Authly
     end
 
     private def client_authorized?
-      validate(client_id, client_secret)
+      Authly.clients.authorized?(client_id, client_secret)
     end
   end
 end

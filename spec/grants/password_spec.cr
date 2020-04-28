@@ -1,7 +1,7 @@
 require "../spec_helper"
 
 module Authly
-  cid, secret, username, password, scope = "1", "secret", "username", "password", "read write"
+  cid, secret, username, password, scope = "1", "secret", "username", "password", "read"
 
   describe Password do
     password_authorization = Password.new(
@@ -9,8 +9,7 @@ module Authly
     )
 
     it "returns AccessToken" do
-      password_authorization.authorize!
-      (password_authorization.authorize!).should be_a Response::AccessToken
+      password_authorization.authorize!.should be_a Response::AccessToken
     end
 
     it "raises error for invalid client credentials" do

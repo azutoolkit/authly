@@ -1,6 +1,8 @@
 # Authly
 
-## OAuth2 Provider Library for the Crystal Language.
+## OAuth2 Provider (Server) Library for the Crystal Language.
+
+Authly is an OAuth2 Library for creating servers that supports OAuth2 authorization mechanisms and can be added to any application server.
 
 The OAuth 2.0 specification is a flexibile authorization framework that describes a number of grants (“methods”) for a client application to acquire an access token (which represents a user’s permission for the client to access their data) which can be used to authenticate a request to an API endpoint.
 
@@ -11,6 +13,9 @@ The specification describes five grants for acquiring an access token:
 - Resource owner credentials grant
 - Client credentials grant
 - Refresh token grant
+
+> **Note** 
+> This implementation uses JWT tokens for storage by default.
 
 ## Installation
 
@@ -33,13 +38,26 @@ require "authly"
 ### Configuration
 
 ```crystal
-# Load Clients
+# In memory storage of clients and owners 
 Authly.clients << Authly::Client.new("example", "secret", "https://www.example.com/callback", "1")
+Authly.owners << Authly::Owner.new("username", "password")
+
+# Or use your own classes and implement interface
+
+# Clients
+class AppService
+  include AuthorizableClient
+end 
+
+# Owners
+class UserService
+  include AuthorizableOwner
+end 
 
 # Configure
 Authly.configure do |c|
   # Secret Key for JWT Tokens
-  c.secret = "Some Secret"
+  c.secret_key = "Some Secret"
 
   # Refresh Token Time To Live
   c.refresh_ttl = 1.hour
@@ -50,9 +68,9 @@ Authly.configure do |c|
   # Access Token Time To Live
   c.access_ttl = 1.hour
 
-  # Setup Owner validation check
-  # Using your own ORM
-  c.owner = ->User.valid?(username, password)
+  # Using your own classes
+  c.owners = UserService.new
+  c.clients = AppService.new
 end
 ```
 

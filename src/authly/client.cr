@@ -13,6 +13,7 @@ module Authly
   end
 
   class Clients
+    include AuthorizableClient
     include Enumerable(Authly::Client)
 
     def initialize
@@ -23,19 +24,19 @@ module Authly
       @clients << client
     end
 
-    def validate_redirect(id, redirect_uri)
+    def valid_redirect?(id, redirect_uri)
       any? do |client|
         client.id == id && client.redirect_uri == redirect_uri
       end
     end
 
-    def validate(id, secret)
+    def authorized?(id, secret)
       any? do |client|
         client.id == id && client.secret == secret
       end
     end
 
-    def validate(id, secret, redirect_uri)
+    def authorized?(id, secret, redirect_uri)
       any? do |client|
         client.id == id && client.secret == secret && redirect_uri == redirect_uri
       end
