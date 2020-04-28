@@ -1,6 +1,6 @@
 module Authly
   module Token
-    SECRET      = Authly.config.secret
+    SECRET      = Authly.config.secret_key
     CODE_TTL    = Authly.config.code_ttl
     ACCESS_TTL  = Authly.config.access_ttl
     REFRESH_TTL = Authly.config.refresh_ttl
