@@ -19,7 +19,7 @@ module Authly
     end
 
     private def authorize_client(client_id, redirect_uri)
-      Authly.config.client.call(client_id, nil, redirect_uri)
+      Authly.clients.validate_redirect(client_id, redirect_uri)
     end
   end
 end

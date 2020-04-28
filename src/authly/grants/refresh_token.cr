@@ -5,6 +5,8 @@ module Authly
       refresh_token : String,
       scope : String
 
+    delegate validate, to: Authly.clients
+
     def initialize(@client_id, @client_secret, @refresh_token, @scope = "")
     end
 
@@ -22,7 +24,7 @@ module Authly
     end
 
     private def client_authorized?
-      Authly.config.client.call(client_id, client_secret, nil)
+      validate(client_id, client_secret)
     end
   end
 end

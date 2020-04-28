@@ -8,8 +8,9 @@ module Authly
       client_id: cid, client_secret: secret, username: username, password: password, scope: scope
     )
 
-    it "returns nil" do
-      (password_authorization.authorize!).should be_nil
+    it "returns AccessToken" do
+      password_authorization.authorize!
+      (password_authorization.authorize!).should be_a Response::AccessToken
     end
 
     it "raises error for invalid client credentials" do

@@ -6,7 +6,7 @@ module Authly
       "cid"          => "1",
       "secret"       => "secret",
       "redirect_uri" => "https://www.example.com/callback",
-      "scope"        => "scope",
+      "scope"        => "read",
       "state"        => "state",
     }
 
@@ -14,7 +14,7 @@ module Authly
       cid, secret, uri, scope, state = code_data.values
       code = Token::Code.new(cid, uri, state, scope).to_s
 
-      it "returns nil" do
+      it "returns AccessToken" do
         authorization_code = AuthorizationCode.new(cid, secret, uri, code, scope, state)
         authorization_code.authorize!.should be_a Response::AccessToken
       end

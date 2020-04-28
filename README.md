@@ -33,6 +33,10 @@ require "authly"
 ### Configuration
 
 ```crystal
+# Load Clients
+Authly.clients << Authly::Client.new("example", "secret", "https://www.example.com/callback", "1")
+
+# Configure
 Authly.configure do |c|
   # Secret Key for JWT Tokens
   c.secret = "Some Secret"
@@ -45,15 +49,6 @@ Authly.configure do |c|
 
   # Access Token Time To Live
   c.access_ttl = 1.hour
-
-  # Setup Client validation check
-  c.client = ->(client_id : String, client_secret : String, redirect_uri : String?) do
-    if !redirect_uri.nil?
-      client_id == "1" && client_secret == "secret" && redirect_uri == "https://www.example.com/callback"
-    else
-      client_id == "1" && client_secret == "secret"
-    end
-  end
 
   # Setup Owner validation check
   c.owner = ->(username : String, password : String) do

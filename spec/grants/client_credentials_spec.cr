@@ -4,7 +4,7 @@ module Authly
   describe ClientCredentials do
     cid, secret = "1", "secret"
 
-    it "returns nil" do
+    it "returns AccessToken" do
       client_credentials = ClientCredentials.new(
         client_id: cid, client_secret: secret, scope: ""
       )

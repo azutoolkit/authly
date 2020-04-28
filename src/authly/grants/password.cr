@@ -6,6 +6,8 @@ module Authly
       password : String,
       scope : String
 
+    delegate validate, to: Authly.clients
+
     def initialize(@client_id, @client_secret, @username, @password, @scope = "")
     end
 
@@ -16,7 +18,7 @@ module Authly
     end
 
     private def client_authorized?
-      Authly.config.client.call(client_id, client_secret, nil)
+      validate(client_id, client_secret)
     end
 
     private def owner_authorized?

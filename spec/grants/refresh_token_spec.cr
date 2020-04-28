@@ -9,7 +9,7 @@ module Authly
       client_id: cid, client_secret: secret, refresh_token: token, scope: scope,
     )
 
-    it "returns nil" do
+    it "returns RefreshToken" do
       refresh_token.authorize!.should be_a Response::AccessToken
     end
 
