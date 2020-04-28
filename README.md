@@ -51,9 +51,8 @@ Authly.configure do |c|
   c.access_ttl = 1.hour
 
   # Setup Owner validation check
-  c.owner = ->(username : String, password : String) do
-    username == "username" && password == "password"
-  end
+  # Using your own ORM
+  c.owner = ->User.valid?(username, password)
 end
 ```
 
