@@ -1,5 +1,7 @@
 # Authly
 
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/747eef2e02594d40b63c9f05c6b94cd9)](https://app.codacy.com/manual/eliasjpr/authly?utm_source=github.com&utm_medium=referral&utm_content=eliasjpr/authly&utm_campaign=Badge_Grade_Settings)
+
 ## OAuth2 Provider Server Library for the Crystal Language
 
   Authly is an OAuth2 Library for creating servers that supports OAuth2 authorization mechanisms and can be added to any application server.
