@@ -1,33 +1,33 @@
 # Authly
 
-## OAuth2 Provider (Server) Library for the Crystal Language.
+## OAuth2 Provider Server Library for the Crystal Language
 
-Authly is an OAuth2 Library for creating servers that supports OAuth2 authorization mechanisms and can be added to any application server.
+  Authly is an OAuth2 Library for creating servers that supports OAuth2 authorization mechanisms and can be added to any application server.
 
-The OAuth 2.0 specification is a flexibile authorization framework that describes a number of grants (“methods”) for a client application to acquire an access token (which represents a user’s permission for the client to access their data) which can be used to authenticate a request to an API endpoint.
+  The OAuth 2.0 specification is a flexibile authorization framework that describes a number of grants (“methods”) for a client application to acquire an access token (which represents a user’s permission for the client to access their data) which can be used to authenticate a request to an API endpoint.
 
-The specification describes five grants for acquiring an access token:
+  The specification describes five grants for acquiring an access token:
 
-- Authorization code grant
-- Implicit grant
-- Resource owner credentials grant
-- Client credentials grant
-- Refresh token grant
+-   Authorization code grant
+-   Implicit grant
+-   Resource owner credentials grant
+-   Client credentials grant
+-   Refresh token grant
 
-> **Note** 
+> **Note**
 > This implementation uses JWT tokens for storage by default.
 
 ## Installation
 
-1. Add the dependency to your `shard.yml`:
+1.  Add the dependency to your `shard.yml`:
 
-   ```yaml
-   dependencies:
-     authly:
-       github: eliasjpr/authly
-   ```
+    ```yaml
+    dependencies:
+      authly:
+        github: eliasjpr/authly
+    ```
 
-2. Run `shards install`
+2.  Run `shards install`
 
 ## Usage
 
@@ -38,7 +38,7 @@ require "authly"
 ### Configuration
 
 ```crystal
-# In memory storage of clients and owners 
+# In memory storage of clients and owners
 Authly.clients << Authly::Client.new("example", "secret", "https://www.example.com/callback", "1")
 Authly.owners << Authly::Owner.new("username", "password")
 
@@ -47,12 +47,12 @@ Authly.owners << Authly::Owner.new("username", "password")
 # Clients
 class AppService
   include AuthorizableClient
-end 
+end
 
 # Owners
 class UserService
   include AuthorizableOwner
-end 
+end
 
 # Configure
 Authly.configure do |c|
@@ -110,12 +110,12 @@ access_denied:          "The user or authorization server denied the request",
 
 ## Contributing
 
-1. Fork it (<https://github.com/your-github-user/authly/fork>)
-2. Create your feature branch (`git checkout -b my-new-feature`)
-3. Commit your changes (`git commit -am 'Add some feature'`)
-4. Push to the branch (`git push origin my-new-feature`)
-5. Create a new Pull Request
+1.  Fork it (<https://github.com/your-github-user/authly/fork>)
+2.  Create your feature branch (`git checkout -b my-new-feature`)
+3.  Commit your changes (`git commit -am 'Add some feature'`)
+4.  Push to the branch (`git push origin my-new-feature`)
+5.  Create a new Pull Request
 
 ## Contributors
 
-- [Elias Perez](https://github.com/your-github-user) - Initial work
+-   [Elias Perez](https://github.com/your-github-user) - Initial work
