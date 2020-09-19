@@ -4,7 +4,7 @@
 
 ## OAuth2 Provider Server Library for the Crystal Language
 
-  Authly is an OAuth2 Library for creating servers that supports OAuth2 authorization mechanisms and can be added to any application server.
+  Authly is an OAuth2 Library for creating Authorization Servers that supports OAuth2 authorization mechanisms.
 
   The OAuth 2.0 specification is a flexibile authorization framework that describes a number of grants (“methods”) for a client application to acquire an access token (which represents a user’s permission for the client to access their data) which can be used to authenticate a request to an API endpoint.
 
@@ -15,6 +15,39 @@
 -   Resource owner credentials grant
 -   Client credentials grant
 -   Refresh token grant
+
+## Authorization Use Cases
+
+The first step of OAuth 2 is to get authorization from the user. For browser-based or mobile apps, this is usually accomplished by displaying an interface provided by the service to the user.
+
+OAuth 2 provides several "grant types" for different use cases. The grant types defined are:
+
+  * **Authorization code grant** for apps running on a web server, browser-based and mobile apps
+  * **Resource owner credentials grant** for logging in with a username and password (only for first-party apps)
+  * **Client credentials** grant for application access without a user present, think microservices
+  * **Implicit grant** was previously recommended for clients without a secret, but has been superseded by using the Authorization Code grant with PKCE
+
+### Terinology
+
+**Resource owner (the user)**
+
+Entity that can grant access to a protected resource. Typically, this is the end-user.
+
+**Resource server (the API)**
+
+Server hosting the protected resources. This is the API you want to access.
+
+**Authorization server (can be the same server as the API)**
+
+Server that authenticates the Resource Owner and issues Access Tokens after getting proper authorization. In this case, Auth0.
+
+**Client (the third-party app)**
+
+Application requesting access to a protected resource on behalf of the Resource Owner.
+
+**User Agent**
+
+Agent used by the Resource Owner to interact with the Client (for example, a browser or a native application).
 
 > **Note**
 > This implementation uses JWT tokens for storage by default.
@@ -40,8 +73,10 @@ require "authly"
 ### Configuration
 
 ```crystal
-# In memory storage of clients and owners
+# In memory storage of clients (3rd Party Apps)
 Authly.clients << Authly::Client.new("example", "secret", "https://www.example.com/callback", "1")
+
+# 
 Authly.owners << Authly::Owner.new("username", "password")
 
 # Or use your own classes and implement interface
