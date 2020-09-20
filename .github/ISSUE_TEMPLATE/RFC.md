@@ -1,4 +1,4 @@
-# RFC Template
+# RFC Authorization Code With PKCE (Proof Key for Code Exchange)
 
 **Feature Name:** Authorization Code With PKCE (Proof Key for Code Exchange)
 
