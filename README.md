@@ -27,7 +27,7 @@ OAuth 2 provides several "grant types" for different use cases. The grant types 
   * **Client credentials** grant for application access without a user present, think microservices
   * **Implicit grant** was previously recommended for clients without a secret, but has been superseded by using the Authorization Code grant with PKCE
 
-### Terinology
+### Terminology
 
 **Resource owner (the user)**
 
