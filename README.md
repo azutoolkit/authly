@@ -59,7 +59,7 @@ Agent used by the Resource Owner to interact with the Client (for example, a bro
     ```yaml
     dependencies:
       authly:
-        github: eliasjpr/authly
+        github: azutoolkit/authly
     ```
 
 2.  Run `shards install`
