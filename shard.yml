@@ -1,10 +1,10 @@
 name: authly
-version: 0.1.0
+version: 0.1.1
 
 authors:
   - Elias Perez <elias.perez@nytimes.com>
 
-crystal: 0.31.1
+crystal: ">=0.31.1"
 
 license: MIT
 
@@ -15,4 +15,3 @@ dependencies:
 development_dependencies:
   ameba:
     github: crystal-ameba/ameba
-    version: ~> 0.10.1
