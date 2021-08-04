@@ -1,3 +1,5 @@
+require "random"
+
 module Authly
   enum ResponseStrategy
     Code
@@ -9,7 +11,7 @@ module Authly
 
       case self
       when Code
-        code = Authly::Token::Code.new(client_id, redirect_uri, state, scope).to_s
+        code = Random::Secure.hex(16)
         Response::Code.new(code, state)
       when Token
         Response::AccessToken.new(client_id)

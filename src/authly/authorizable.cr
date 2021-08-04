@@ -6,6 +6,6 @@ module Authly
   module AuthorizableClient
     abstract def valid_redirect?(id : String, redirect_uri : String)
     abstract def authorized?(id : String, secret : String)
-    abstract def authorized?(id : String, secret : String, redirect_uri : String)
+    abstract def authorized?(id : String, secret : String, redirect_uri : String, code : String)
   end
 end

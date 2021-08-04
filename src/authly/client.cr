@@ -36,7 +36,7 @@ module Authly
       end
     end
 
-    def authorized?(id, secret, redirect_uri)
+    def authorized?(id, secret, redirect_uri, code)
       any? do |client|
         client.id == id && client.secret == secret && redirect_uri == redirect_uri
       end
