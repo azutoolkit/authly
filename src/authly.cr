@@ -22,11 +22,11 @@ module Authly
     CONFIG.owners
   end
 
-  def self.authorize(grant_type, *args)
-    GrantStrategy.parse(grant_type).strategy(*args)
+  def self.authorization(response_type, *args)
+    ResponseType.decode(*args)
   end
 
-  def self.response(response_type, *args)
-    ResponseStrategy.parse(response_type).strategy(*args)
+  def self.token(grant_type, **args)
+    Grant.new(grant_type, **args).access_token
   end
 end

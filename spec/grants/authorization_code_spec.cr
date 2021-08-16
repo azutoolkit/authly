@@ -14,6 +14,26 @@ module Authly
       cid, secret, uri = code_data.values
       code = Random::Secure.hex(16)
 
+      describe "code challenge" do
+        code = Random::Secure.hex(32)
+        code_verifier = Base64.urlsafe_encode(code).gsub(/{\+|\=|\/}/, "")
+        code_challenge = Digest::SHA256.base64digest(code_verifier)
+
+        it "peforms plain code challenge authorization" do
+          authorization_code = AuthorizationCode.new(cid, secret, uri, code, code_challenge, "plain")
+          token = authorization_code.authorize!(code_challenge)
+
+          token.should be_a Response::AccessToken
+        end
+
+        it "peforms S256 code challenge authorization" do
+          authorization_code = AuthorizationCode.new(cid, secret, uri, code, code_challenge, "S256")
+          token = authorization_code.authorize!(code_verifier)
+
+          token.should be_a Response::AccessToken
+        end
+      end
+
       it "returns AccessToken" do
         authorization_code = AuthorizationCode.new(cid, secret, uri, code)
         authorization_code.authorize!.should be_a Response::AccessToken

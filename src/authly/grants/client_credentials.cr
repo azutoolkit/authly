@@ -1,13 +1,13 @@
 module Authly
-  struct ClientCredentials
+  class ClientCredentials
     getter client_id : String, client_secret : String, scope : String
 
     def initialize(@client_id, @client_secret, @scope = "")
     end
 
-    def authorize!
+    def authorized? : Boolean
       raise Error.unauthorized_client unless client_authorized?
-      Response::AccessToken.new(client_id)
+      true
     end
 
     private def client_authorized?
