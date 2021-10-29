@@ -21,29 +21,29 @@ module Authly
 
         it "peforms plain code challenge authorization" do
           authorization_code = AuthorizationCode.new(cid, secret, uri, code, code_challenge, "plain")
-          token = authorization_code.authorize!(code_challenge)
+          token = authorization_code.authorized?
 
-          token.should be_a Response::AccessToken
+          token.should be_a AccessToken
         end
 
         it "peforms S256 code challenge authorization" do
           authorization_code = AuthorizationCode.new(cid, secret, uri, code, code_challenge, "S256")
-          token = authorization_code.authorize!(code_verifier)
+          token = authorization_code.authorized?
 
-          token.should be_a Response::AccessToken
+          token.should be_a AccessToken
         end
       end
 
       it "returns AccessToken" do
         authorization_code = AuthorizationCode.new(cid, secret, uri, code)
-        authorization_code.authorize!.should be_a Response::AccessToken
+        authorization_code.authorized?.should be_a AccessToken
       end
 
       it "raises error for invalid client credentials" do
         authorization_code = AuthorizationCode.new(cid, "invalid", uri, code)
 
         expect_raises Error, ERROR_MSG[:unauthorized_client] do
-          authorization_code.authorize!
+          authorization_code.authorized?
         end
       end
 
@@ -51,7 +51,7 @@ module Authly
         authorization_code = AuthorizationCode.new("invalid", secret, uri, code)
 
         expect_raises Error, ERROR_MSG[:unauthorized_client] do
-          authorization_code.authorize!
+          authorization_code.authorized?
         end
       end
 
@@ -60,7 +60,7 @@ module Authly
         authorization_code = AuthorizationCode.new(cid, secret, uri, code)
 
         expect_raises Error, ERROR_MSG[:invalid_redirect_uri] do
-          authorization_code.authorize!
+          authorization_code.authorized?
         end
       end
     end

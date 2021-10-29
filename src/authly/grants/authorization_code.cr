@@ -16,7 +16,7 @@ module Authly
     )
     end
 
-    def authorized? : Boolean
+    def authorized? : Bool
       validate!
       verify_challenge!
       true

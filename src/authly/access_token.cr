@@ -1,9 +1,11 @@
 module Authly
   struct AccessToken
     include JSON::Serializable
+    ACCESS_TTL  = Authly.config.access_ttl
+    REFRESH_TTL = Authly.config.refresh_ttl
 
-    def self.jwt(client_id)
-      new(client_id).jwt
+    def self.jwt(client_id, scope, id_token)
+      new(client_id, scope, id_token).to_json
     end
 
     getter access_token : String
@@ -16,25 +18,26 @@ module Authly
     @[JSON::Field(emit_null: false)]
     getter refresh_token : String?
 
-    def initialize(@client_id, @scope)
+    def initialize(@client_id : String, @scope : String, @id_token = nil)
+      @access_token = generate_token
     end
 
-    def access_token
-      JWT.encode({
-        "sub" => user_id,
-        "iss" => "The Oauth2 Server Provider"
-        "cid" => client_id,
-        "iat" => Time.utc.to_unix,
-        "exp" => ACCESS_TTL.from_now.to_unix,
-        "scope" => scopes,
-      }, SECRET, JWT::Algorithm::HS256)
+    def generate_token
+      Authly.jwt_encode({
+        "sub"   => Random::Secure.hex(32),
+        "iss"   => "The Oauth2 Server Provider",
+        "cid"   => @client_id,
+        "iat"   => Time.utc.to_unix,
+        "exp"   => ACCESS_TTL.from_now.to_unix,
+        "scope" => @scope,
+      })
     end
 
     def refresh_token
-      JWT.encode({
-        "cid" => client_id, 
-        "exp" => REFRESH_TTL.from_now.to_unix
-      }, SECRET, JWT::Algorithm::HS256) 
+      Authly.jwt_encode({
+        "cid" => @client_id,
+        "exp" => REFRESH_TTL.from_now.to_unix,
+      })
     end
   end
 end

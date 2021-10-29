@@ -5,7 +5,7 @@ module Authly
     def initialize(@client_id, @client_secret, @scope = "")
     end
 
-    def authorized? : Boolean
+    def authorized? : Bool
       raise Error.unauthorized_client unless client_authorized?
       true
     end

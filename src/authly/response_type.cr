@@ -4,39 +4,36 @@ module Authly
   class ResponseType
     getter type : String,
       client_id : String,
-      scopes : String = "",
+      redirect_uri : String,
+      scope : String = "",
       state : String = "",
       challenge : String = "",
       challenge_method : String = ""
-
-    STRATEGY = {
-      "code"  => Code,
-      "token" => Token,
-    }
 
     def initialize(
       @type,
       @client_id,
       @redirect_uri,
-      @scope,
-      @state,
-      @challenge,
-      @challenge_method
+      @scope = "",
+      @state = "",
+      @challenge = "",
+      @challenge_method = ""
     )
     end
 
+    def decode
+      case @type
+      when "code"  then code
+      when "token" then token
+      end
+    end
+
     def code
-      Code.new type,
-        client_id,
-        redirect_uri,
-        scope,
-        state,
-        challenge,
-        challenge_method
+      Code.new state, challenge, challenge_method
     end
 
     def token
-      AccessToken.new(client_id)
+      AccessToken.new(client_id, scope)
     end
 
     private def authorize_client(client_id, redirect_uri)

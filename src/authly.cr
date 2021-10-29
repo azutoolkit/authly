@@ -22,11 +22,15 @@ module Authly
     CONFIG.owners
   end
 
-  def self.authorization(response_type, *args)
-    ResponseType.decode(*args)
+  def self.code(response_type, *args)
+    ResponseType.new(response_type, *args).decode
   end
 
-  def self.token(grant_type, **args)
-    Grant.new(grant_type, **args).access_token
+  def self.access_token(grant_type, **args)
+    Grant.new(grant_type, **args).token
+  end
+
+  def self.jwt_encode(payload)
+    JWT.encode(payload, config.secret_key, JWT::Algorithm::HS256)
   end
 end

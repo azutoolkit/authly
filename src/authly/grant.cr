@@ -12,13 +12,6 @@ module Authly
       verifier : String,
       refresh_token : String
 
-    GRANTS = {
-      "authorization_code" => ->authorization_code,
-      "client_credentials" => ->client_credentials,
-      "password"           => ->password_grant,
-      "refresh_token"      => ->refresh_token_grant,
-    }
-
     def initialize(@grant_type,
                    @client_id = "",
                    @client_secret = "",
@@ -32,15 +25,21 @@ module Authly
                    @refresh_token = "")
     end
 
-    def access_token : AccessToken
+    def token : AccessToken
       authorized?
       access_token
     end
 
     def authorized?
-      GRANTS[grant_type].authorized?
-    rescue e
-      raise Error.unsupported_grant_type
+      grant = case grant_type
+              when "authorization_code" then authorization_code
+              when "client_credentials" then client_credentials
+              when "password"           then password_grant
+              when "refresh_token"      then refresh_token_grant
+              else                           raise Error.unsupported_grant_type
+              end
+
+      grant.authorized?
     end
 
     def authorization_code
@@ -60,7 +59,13 @@ module Authly
     end
 
     private def access_token
-      AccessToken.jwt(client_id)
+      AccessToken.new(client_id, scope, generate_id_token)
+    end
+
+    private def generate_id_token
+      if @scope.includes? "openid"
+        Authly.jwt_encode Authly.owners.id_token(username, password)
+      end
     end
   end
 end

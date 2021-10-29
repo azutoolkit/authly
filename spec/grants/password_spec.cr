@@ -9,7 +9,7 @@ module Authly
     )
 
     it "returns AccessToken" do
-      password_authorization.authorize!.should be_a Response::AccessToken
+      password_authorization.authorized?.should be_a AccessToken
     end
 
     it "raises error for invalid client credentials" do
@@ -18,7 +18,7 @@ module Authly
       )
 
       expect_raises Error, ERROR_MSG[:unauthorized_client] do
-        invalid_auth.authorize!
+        invalid_auth.authorized?
       end
     end
 
@@ -28,7 +28,7 @@ module Authly
       )
 
       expect_raises Error, ERROR_MSG[:owner_credentials] do
-        invalid_owner.authorize!
+        invalid_owner.authorized?
       end
     end
   end

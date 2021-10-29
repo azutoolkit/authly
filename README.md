@@ -6,17 +6,17 @@
 
 ## OAuth2 Provider Server Library for the Crystal Language
 
-  Authly is an OAuth2 Library for creating Authorization Servers that supports OAuth2 authorization mechanisms.
+Authly is an OAuth2 Library for creating Authorization Servers that supports OAuth2 authorization mechanisms.
 
-  The OAuth 2.0 specification is a flexibile authorization framework that describes a number of grants (“methods”) for a client application to acquire an access token (which represents a user’s permission for the client to access their data) which can be used to authenticate a request to an API endpoint.
+The OAuth 2.0 specification is a flexibile authorization framework that describes a number of grants (“methods”) for a client application to acquire an access token (which represents a user’s permission for the client to access their data) which can be used to authenticate a request to an API endpoint.
 
-  The specification describes five grants for acquiring an access token:
+The specification describes five grants for acquiring an access token:
 
--   Authorization code grant
--   Implicit grant
--   Resource owner credentials grant
--   Client credentials grant
--   Refresh token grant
+- Authorization code grant
+- Implicit grant
+- Resource owner credentials grant
+- Client credentials grant
+- Refresh token grant
 
 ## Authorization Use Cases
 
@@ -24,10 +24,10 @@ The first step of OAuth 2 is to get authorization from the user. For browser-bas
 
 OAuth 2 provides several "grant types" for different use cases. The grant types defined are:
 
-  * **Authorization code grant** for apps running on a web server, browser-based and mobile apps
-  * **Resource owner credentials grant** for logging in with a username and password (only for first-party apps)
-  * **Client credentials** grant for application access without a user present, think microservices
-  * **Implicit grant** was previously recommended for clients without a secret, but has been superseded by using the Authorization Code grant with PKCE
+- **Authorization code grant** for apps running on a web server, browser-based and mobile apps
+- **Resource owner credentials grant** for logging in with a username and password (only for first-party apps)
+- **Client credentials** grant for application access without a user present, think microservices
+- **Implicit grant** was previously recommended for clients without a secret, but has been superseded by using the Authorization Code grant with PKCE
 
 ### Terminology
 
@@ -78,7 +78,7 @@ require "authly"
 # In memory storage of clients (3rd Party Apps)
 Authly.clients << Authly::Client.new("example", "secret", "https://www.example.com/callback", "1")
 
-# 
+#
 Authly.owners << Authly::Owner.new("username", "password")
 
 # Or use your own classes and implement interface
@@ -121,11 +121,11 @@ Authly.authorize(*all_args)
 
 # Or do it yourself
 
-Authly::ClientCredentials.new(client_id, client_secret, scope).authorize!
-Authly::AuthorizationCode.new(client_id, client_secret, redirect_uri, code, scope, state).authorize!
-Authly::Password.new(client_id, client_secret, username, password, scope).authorize!
-Authly::RefreshToken.new(client_id, client_secret, refresh_token, scope).authorize!
-Authly::Implicit.new(client_id, redirect_uri, scope, state).authorize!
+Authly::ClientCredentials.new(client_id, client_secret, scope).authorized?
+Authly::AuthorizationCode.new(client_id, client_secret, redirect_uri, code, scope, state).authorized?
+Authly::Password.new(client_id, client_secret, username, password, scope).authorized?
+Authly::RefreshToken.new(client_id, client_secret, refresh_token, scope).authorized?
+Authly::Implicit.new(client_id, redirect_uri, scope, state).authorized?
 ```
 
 ### Exceptions
@@ -157,4 +157,4 @@ access_denied:          "The user or authorization server denied the request",
 
 ## Contributors
 
--   [Elias Perez](https://github.com/your-github-user) - Initial work
+- [Elias Perez](https://github.com/your-github-user) - Initial work

@@ -19,10 +19,14 @@ module Authly
       @owners << owner
     end
 
-    def authorized?(username : String, password : String)
+    def authorized?(username : String, password : String) : Bool
       any? do |owner|
         owner.username == username && owner.password == password
       end
+    end
+
+    def id_token(username : String, password : String) : Hash(String, String)
+      {} of String => String
     end
 
     def each

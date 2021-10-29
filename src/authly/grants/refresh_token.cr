@@ -8,14 +8,14 @@ module Authly
     def initialize(@client_id, @client_secret, @refresh_token, @scope = "")
     end
 
-    def authorized? : Boolean
+    def authorized? : Bool
       validate_code!
       raise Error.unauthorized_client unless client_authorized?
       true
     end
 
     private def validate_code!
-      Token.decode refresh_token
+      JWT.decode refresh_token
     rescue e
       raise Error.invalid_grant
     end
