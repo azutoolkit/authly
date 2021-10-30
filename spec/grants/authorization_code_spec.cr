@@ -58,8 +58,7 @@ module Authly
 
       it "raises Error for redirect uri" do
         code = Code.new.to_s
-        uri = ""
-        authorization_code = AuthorizationCode.new(cid, secret, uri, code)
+        authorization_code = AuthorizationCode.new(cid, secret, "", code)
 
         expect_raises Error, ERROR_MSG[:invalid_redirect_uri] do
           authorization_code.authorized?
