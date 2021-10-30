@@ -3,27 +3,25 @@ module Authly
     include JSON::Serializable
     CODE_TTL = Authly.config.code_ttl
 
-    getter state : String,
-      code : String = Random::Secure.hex(16),
+    getter code : String = Random::Secure.hex(16),
       challenge = "",
-      challenge_method = ""
+      method = ""
 
-    def initialize(@state, @challenge, @challenge_method)
+    def initialize(@challenge = "", @method = "")
     end
 
-    def jwt(client_id, uri, state = "", scope = "")
-      @value = Authly.jwt_encode({
-        "cid"   => client_id,
-        "uri"   => uri,
-        "state" => state,
-        "scope" => scope,
-        "iat"   => Time.utc.to_unix,
-        "exp"   => CODE_TTL.from_now.to_unix,
+    def jwt
+      Authly.jwt_encode({
+        "code"      => code,
+        "challenge" => challenge,
+        "method"    => method,
+        "iat"       => Time.utc.to_unix,
+        "exp"       => CODE_TTL.from_now.to_unix,
       })
     end
 
     def to_s
-      @value.to_s
+      jwt
     end
   end
 end

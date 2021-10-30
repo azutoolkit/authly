@@ -32,7 +32,7 @@ module Authly
     end
 
     def code
-      Code.new state, challenge, challenge_method
+      Code.new challenge, challenge_method
     end
 
     def token

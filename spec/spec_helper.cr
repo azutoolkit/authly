@@ -1,6 +1,7 @@
 require "spec"
 require "digest"
 require "base64"
+require "faker"
 require "../src/authly"
 
 # Configure

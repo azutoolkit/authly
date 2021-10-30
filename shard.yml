@@ -13,5 +13,7 @@ dependencies:
     github: crystal-community/jwt
 
 development_dependencies:
+  faker:
+    github: askn/faker
   ameba:
     github: crystal-ameba/ameba

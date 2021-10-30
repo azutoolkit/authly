@@ -4,7 +4,7 @@ module Authly
   module CodeChallengeBuilder
     record Plain, code : String do
       def valid?(code_verifier)
-        @code == code_verifier
+        code == code_verifier
       end
     end
 
@@ -20,11 +20,11 @@ module Authly
       end
     end
 
-    def self.build(code : String = "", method : String = "")
+    def self.build(challenge : String = "", method : String = "")
       case method
-      when "plain" then Plain.new(code)
-      when "S256"  then S256.new(code)
-      else              Empty.new(code)
+      when "plain" then Plain.new(challenge)
+      when "S256"  then S256.new(challenge)
+      else              Empty.new(challenge)
       end
     end
   end

@@ -27,11 +27,14 @@ module Authly
 
     private def verify_challenge!
       return if verifier.empty?
-      raise Error.unauthorized_client unless challenge.try &.valid?(verifier)
+      raise Error.unauthorized_client unless challenge.valid?(verifier)
     end
 
     private def challenge
-      CodeChallengeBuilder.build(code)
+      auth_code = Authly.jwt_decode(code).first
+      challenge = auth_code["challenge"].as_s
+      method = auth_code["method"].as_s
+      CodeChallengeBuilder.build(challenge, method)
     end
 
     private def client_authorized?
