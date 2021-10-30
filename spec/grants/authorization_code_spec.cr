@@ -17,7 +17,6 @@ module Authly
       describe "code challenge" do
         code = Random::Secure.hex(32)
         code_verifier = Base64.urlsafe_encode(code).gsub(/{\+|\=|\/}/, "")
-        code_challenge = Digest::SHA256.base64digest(code_verifier)
 
         it "peforms plain code challenge authorization" do
           authorization_code = AuthorizationCode.new(cid, secret, uri, code)
