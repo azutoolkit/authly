@@ -48,9 +48,9 @@ module Authly
 
       it "raises Error for client id" do
         code = Code.new.to_s
-        authorization_code = AuthorizationCode.new("invalid", secret, uri, code)
+        authorization_code = AuthorizationCode.new("invalid_client", "invalid_client_secret", uri, code)
 
-        expect_raises Error, ERROR_MSG[:unauthorized_client] do
+        expect_raises Error, ERROR_MSG[:invalid_redirect_uri] do
           authorization_code.authorized?
         end
       end

@@ -20,8 +20,7 @@ module Authly
     end
 
     private def validate!
-      raise Error.invalid_redirect_uri if redirect_uri.empty?
-      raise Error.invalid_redirect_uri unless URI.parse(redirect_uri)
+      raise Error.invalid_redirect_uri unless valid_redirect?
       raise Error.unauthorized_client unless client_authorized?
     end
 
@@ -35,6 +34,10 @@ module Authly
       challenge = auth_code["challenge"].as_s
       method = auth_code["method"].as_s
       CodeChallengeBuilder.build(challenge, method)
+    end
+
+    private def valid_redirect?
+      Authly.clients.valid_redirect?(client_id, redirect_uri)
     end
 
     private def client_authorized?
