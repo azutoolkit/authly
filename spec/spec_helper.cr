@@ -5,7 +5,7 @@ require "../src/authly"
 
 # Configure
 Authly.configure do |c|
-  c.secret_key = "Some Secret"
+  c.secret_key = Random::Secure.hex(16)
 end
 
 Authly.clients << Authly::Client.new("example", "secret", "https://www.example.com/callback", "1")

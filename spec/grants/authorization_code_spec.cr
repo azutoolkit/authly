@@ -20,23 +20,21 @@ module Authly
         code_challenge = Digest::SHA256.base64digest(code_verifier)
 
         it "peforms plain code challenge authorization" do
-          authorization_code = AuthorizationCode.new(cid, secret, uri, code, code_challenge, "plain")
-          token = authorization_code.authorized?
+          authorization_code = AuthorizationCode.new(cid, secret, uri, code)
 
-          token.should be_a AccessToken
+          authorization_code.authorized?.should be_truthy
         end
 
         it "peforms S256 code challenge authorization" do
-          authorization_code = AuthorizationCode.new(cid, secret, uri, code, code_challenge, "S256")
-          token = authorization_code.authorized?
+          authorization_code = AuthorizationCode.new(cid, secret, uri, code)
 
-          token.should be_a AccessToken
+          authorization_code.authorized?.should be_truthy
         end
       end
 
-      it "returns AccessToken" do
+      it "returns false" do
         authorization_code = AuthorizationCode.new(cid, secret, uri, code)
-        authorization_code.authorized?.should be_a AccessToken
+        authorization_code.authorized?.should be_truthy
       end
 
       it "raises error for invalid client credentials" do

@@ -8,7 +8,7 @@ module Authly
       client_credentials = ClientCredentials.new(
         client_id: cid, client_secret: secret, scope: ""
       )
-      client_credentials.authorized?.should be_a AccessToken
+      client_credentials.authorized?.should be_truthy
     end
 
     it "raises error for invalid client credentials" do

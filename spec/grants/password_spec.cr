@@ -9,7 +9,7 @@ module Authly
     )
 
     it "returns AccessToken" do
-      password_authorization.authorized?.should be_a AccessToken
+      password_authorization.authorized?.should be_truthy
     end
 
     it "raises error for invalid client credentials" do

@@ -1,6 +1,6 @@
 module Authly
   class Configuration
-    property secret_key : String = "JWT SECRET KEY"
+    property secret_key : String = Random::Secure.hex(16)
     property refresh_ttl : Time::Span = 1.day
     property code_ttl : Time::Span = 5.minutes
     property access_ttl : Time::Span = 1.hour

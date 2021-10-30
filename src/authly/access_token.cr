@@ -35,8 +35,10 @@ module Authly
 
     def refresh_token
       Authly.jwt_encode({
-        "cid" => @client_id,
-        "exp" => REFRESH_TTL.from_now.to_unix,
+        "sub"  => @client_id,
+        "name" => "refresh token",
+        "iat"  => Time.utc.to_unix,
+        "exp"  => REFRESH_TTL.from_now.to_unix,
       })
     end
   end

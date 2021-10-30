@@ -6,13 +6,10 @@ module Authly
       client_secret : String,
       redirect_uri : String,
       code : String,
-      state : String,
-      scope : String,
       verifier : String
 
     def initialize(
-      @client_id, @client_secret, @redirect_uri, @code,
-      @state = "", @scope = "", @verifier = ""
+      @client_id, @client_secret, @redirect_uri, @code, @verifier = ""
     )
     end
 
@@ -25,7 +22,7 @@ module Authly
     private def validate!
       raise Error.invalid_redirect_uri if redirect_uri.empty?
       raise Error.invalid_redirect_uri unless URI.parse(redirect_uri)
-      raise Error.unauthorized_client if client_authorized?
+      raise Error.unauthorized_client unless client_authorized?
     end
 
     private def verify_challenge!
@@ -38,7 +35,7 @@ module Authly
     end
 
     private def client_authorized?
-      Authly.clients.authorized?(client_id, client_secret, redirect_uri, code)
+      Authly.clients.authorized?(client_id, client_secret)
     end
   end
 end

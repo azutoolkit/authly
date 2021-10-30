@@ -33,4 +33,8 @@ module Authly
   def self.jwt_encode(payload)
     JWT.encode(payload, config.secret_key, JWT::Algorithm::HS256)
   end
+
+  def self.jwt_decode(token)
+    JWT.decode token, config.secret_key, JWT::Algorithm::HS256
+  end
 end

@@ -43,7 +43,7 @@ module Authly
     end
 
     def authorization_code
-      AuthorizationCode.new(client_id, redirect_uri, code, state, scope, verifier)
+      AuthorizationCode.new(client_id, client_secret, redirect_uri, code, verifier)
     end
 
     def client_credentials
@@ -55,7 +55,7 @@ module Authly
     end
 
     def refresh_token_grant
-      RefreshToken.new(client_id, client_secret, refresh_token, scope)
+      RefreshToken.new(client_id, client_secret, refresh_token)
     end
 
     private def access_token
