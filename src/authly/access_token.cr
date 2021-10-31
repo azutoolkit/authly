@@ -34,7 +34,7 @@ module Authly
       })
     end
 
-    private def refresh_token
+    def refresh_token
       Authly.jwt_encode({
         "sub"  => @client_id,
         "name" => "refresh token",

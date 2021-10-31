@@ -8,7 +8,8 @@ module Authly
       scope : String = "",
       state : String = "",
       challenge : String = "",
-      challenge_method : String = ""
+      challenge_method : String = "",
+      user_id : String = ""
 
     def initialize(
       @type,
@@ -17,7 +18,8 @@ module Authly
       @scope = "",
       @state = "",
       @challenge = "",
-      @challenge_method = ""
+      @challenge_method = "",
+      @user_id = ""
     )
     end
 
@@ -32,7 +34,7 @@ module Authly
     end
 
     def code
-      Code.new challenge, challenge_method
+      Code.new challenge, challenge_method, scope, user_id, redirect_uri, client_id
     end
 
     def token

@@ -11,20 +11,20 @@ module Authly
     }
 
     describe "#authorize" do
-      client_id, secret, uri = code_data.values
+      client_id, secret, uri, scope = code_data.values
       code_verifier = Faker::Internet.password(43, 128)
 
       describe "code challenge" do
         it "peforms plain code challenge authorization" do
           code_challenge = code_verifier
-          code = Code.new(code_challenge, "plain").to_s
+          code = Code.new(code_challenge, "plain", scope, "user_id", uri, client_id).to_s
           auth_code = AuthorizationCode.new(client_id, secret, uri, code, code_verifier)
           auth_code.authorized?.should be_truthy
         end
 
         it "peforms S256 code challenge authorization" do
           code_challenge = Digest::SHA256.base64digest(code_verifier)
-          code = Code.new(code_challenge, "S256").to_s
+          code = Code.new(code_challenge, "s256", scope, "user_id", uri, client_id).to_s
           authorization_code = AuthorizationCode.new(client_id, secret, uri, code, code_verifier)
 
           authorization_code.authorized?.should be_truthy

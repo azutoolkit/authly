@@ -27,5 +27,18 @@
     "!Select sequence",
     "!Split",
     "!Split sequence"
+  ],
+  "sqltools.connections": [
+    {
+      "previewLimit": 50,
+      "server": "localhost",
+      "port": 5432,
+      "driver": "PostgreSQL",
+      "name": "Localhost",
+      "group": "Docker",
+      "database": "authority_db",
+      "username": "auth_user",
+      "password": "auth_pass"
+    }
   ]
 }

@@ -10,6 +10,12 @@ describe Authly do
   code_challenge_method = "S256"
 
   describe ".access_token" do
+    describe "openid connect" do
+      it "returns access_token with id_token" do
+        code = Authly.code("code", client_id, redirect_uri, scope, state)
+      end
+    end
+
     it "returns access_token for AuthorizationCode grant" do
       code = Authly.code("code", client_id, redirect_uri, scope, state, code_challenge, code_challenge_method).to_json
       token = Authly.access_token(
