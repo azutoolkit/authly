@@ -20,9 +20,10 @@ module Authly
 
     def initialize(@client_id : String, @scope : String, @id_token = nil)
       @access_token = generate_token
+      @refresh_token = refresh_token
     end
 
-    def generate_token
+    private def generate_token
       Authly.jwt_encode({
         "sub"   => Random::Secure.hex(32),
         "iss"   => "The Oauth2 Server Provider",
@@ -33,7 +34,7 @@ module Authly
       })
     end
 
-    def refresh_token
+    private def refresh_token
       Authly.jwt_encode({
         "sub"  => @client_id,
         "name" => "refresh token",
