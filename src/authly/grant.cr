@@ -43,7 +43,14 @@ module Authly
     end
 
     def authorization_code
-      AuthorizationCode.new(client_id, client_secret, redirect_uri, code, verifier)
+      AuthorizationCode.new(
+        client_id,
+        client_secret,
+        redirect_uri,
+        auth_code["challenge"].as_s,
+        auth_code["method"].as_s,
+        verifier
+      )
     end
 
     def client_credentials
@@ -64,8 +71,12 @@ module Authly
 
     private def generate_id_token
       if @scope.includes? "openid"
-        Authly.jwt_encode Authly.owners.id_token(username, password)
+        Authly.jwt_encode Authly.owners.id_token auth_code["user_id"].as_s
       end
+    end
+
+    private def auth_code
+      Authly.jwt_decode(code).first
     end
   end
 end

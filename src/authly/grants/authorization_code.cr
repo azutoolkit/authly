@@ -5,11 +5,12 @@ module Authly
     getter client_id : String,
       client_secret : String,
       redirect_uri : String,
-      code : String,
-      verifier : String
+      verifier : String,
+      challenge : String,
+      method : String
 
     def initialize(
-      @client_id, @client_secret, @redirect_uri, @code, @verifier = ""
+      @client_id, @client_secret, @redirect_uri, @challenge = "", @method = "", @verifier = ""
     )
     end
 
@@ -30,9 +31,6 @@ module Authly
     end
 
     private def challenge
-      auth_code = Authly.jwt_decode(code).first
-      challenge = auth_code["challenge"].as_s
-      method = auth_code["method"].as_s
       CodeChallengeBuilder.build(challenge, method)
     end
 

@@ -17,7 +17,7 @@ describe Authly do
     end
 
     it "returns access_token for AuthorizationCode grant" do
-      code = Authly.code("code", client_id, redirect_uri, scope, state, code_challenge, code_challenge_method).to_json
+      code = Authly.code("code", client_id, redirect_uri, scope, state, code_challenge, code_challenge_method).to_s
       token = Authly.access_token(
         grant_type: "authorization_code",
         client_id: client_id,

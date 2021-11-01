@@ -25,7 +25,7 @@ module Authly
       end
     end
 
-    def id_token(username : String, password : String) : Hash(String, String)
+    def id_token(user_id : String) : Hash(String, String)
       {} of String => String
     end
 
