@@ -6,7 +6,6 @@ module Authly
       client_id : String,
       redirect_uri : String,
       scope : String = "",
-      state : String = "",
       challenge : String = "",
       challenge_method : String = "",
       user_id : String = ""
@@ -15,8 +14,7 @@ module Authly
       @type,
       @client_id,
       @redirect_uri,
-      @scope = "",
-      @state = "",
+      @scope,
       @challenge = "",
       @challenge_method = "",
       @user_id = ""
@@ -34,7 +32,7 @@ module Authly
     end
 
     def code
-      Code.new challenge, challenge_method, scope, user_id, redirect_uri, client_id
+      Code.new client_id, scope, redirect_uri, challenge, challenge_method, user_id
     end
 
     def token

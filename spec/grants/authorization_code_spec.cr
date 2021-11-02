@@ -32,13 +32,13 @@ module Authly
       end
 
       it "returns false" do
-        code = Code.new.to_s
+        code = Code.new(client_id, scope, uri).to_s
         authorization_code = AuthorizationCode.new(client_id, secret, uri, code)
         authorization_code.authorized?.should be_truthy
       end
 
       it "raises error for invalid client credentials" do
-        code = Code.new.to_s
+        code = Code.new(client_id, scope, uri).to_s
         authorization_code = AuthorizationCode.new(client_id, "invalid", uri, code)
 
         expect_raises Error, ERROR_MSG[:unauthorized_client] do
@@ -47,7 +47,7 @@ module Authly
       end
 
       it "raises Error for client id" do
-        code = Code.new.to_s
+        code = Code.new(client_id, scope, uri).to_s
         authorization_code = AuthorizationCode.new("invalid_client", "invalid_client_secret", uri, code)
 
         expect_raises Error, ERROR_MSG[:invalid_redirect_uri] do
@@ -56,7 +56,7 @@ module Authly
       end
 
       it "raises Error for redirect uri" do
-        code = Code.new.to_s
+        code = Code.new(client_id, scope, uri).to_s
         authorization_code = AuthorizationCode.new(client_id, secret, "", code)
 
         expect_raises Error, ERROR_MSG[:invalid_redirect_uri] do

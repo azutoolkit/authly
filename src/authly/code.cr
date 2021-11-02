@@ -4,20 +4,20 @@ module Authly
     CODE_TTL = Authly.config.code_ttl
 
     getter code : String = Random::Secure.hex(16),
+      client_id : String,
+      scope : String,
+      redirect_uri : String,
       challenge = "",
       method = "",
-      scope = "",
-      user_id = "",
-      redirect_uri = "",
-      client_id = ""
+      user_id = ""
 
     def initialize(
-      challenge = "",
-      challenge_method = "",
-      scope = "",
-      user_id = "",
-      redirect_uri = "",
-      client_id = ""
+      @client_id,
+      @scope,
+      @redirect_uri,
+      @challenge = "",
+      @method = "",
+      @user_id = ""
     )
     end
 
