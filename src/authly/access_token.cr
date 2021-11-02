@@ -18,6 +18,9 @@ module Authly
     @[JSON::Field(emit_null: false)]
     getter refresh_token : String?
 
+    @[JSON::Field(ignore: true)]
+    getter client_id : String
+
     def initialize(@client_id : String, @scope : String, @id_token = nil)
       @access_token = generate_token
       @refresh_token = refresh_token
