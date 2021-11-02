@@ -27,10 +27,10 @@ module Authly
 
     private def verify_challenge!
       return if verifier.empty?
-      raise Error.unauthorized_client unless challenge.valid?(verifier)
+      raise Error.unauthorized_client unless code_challenge.valid?(verifier)
     end
 
-    private def challenge
+    private def code_challenge
       CodeChallengeBuilder.build(challenge, method)
     end
 
