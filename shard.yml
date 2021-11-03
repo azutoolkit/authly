@@ -1,5 +1,5 @@
 name: authly
-version: 0.2.0
+version: 1.0
 
 authors:
   - Elias Perez <elias.perez@nytimes.com>
@@ -13,5 +13,7 @@ dependencies:
     github: crystal-community/jwt
 
 development_dependencies:
+  faker:
+    github: askn/faker
   ameba:
     github: crystal-ameba/ameba

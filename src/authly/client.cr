@@ -24,7 +24,7 @@ module Authly
       @clients << client
     end
 
-    def valid_redirect?(id, redirect_uri)
+    def valid_redirect?(id, redirect_uri) : Bool
       any? do |client|
         client.id == id && client.redirect_uri == redirect_uri
       end
@@ -36,7 +36,7 @@ module Authly
       end
     end
 
-    def authorized?(id, secret, redirect_uri, code)
+    def authorized?(id, secret, redirect_uri, code, verifier : String? = nil)
       any? do |client|
         client.id == id && client.secret == secret && redirect_uri == redirect_uri
       end

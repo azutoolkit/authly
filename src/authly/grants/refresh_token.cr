@@ -1,22 +1,20 @@
 module Authly
-  struct RefreshToken
+  class RefreshToken
     getter client_id : String,
       client_secret : String,
-      refresh_token : String,
-      scope : String
+      refresh_token : String
 
-    def initialize(@client_id, @client_secret, @refresh_token, @scope = "")
+    def initialize(@client_id, @client_secret, @refresh_token)
     end
 
-    def authorize!
+    def authorized? : Bool
       validate_code!
       raise Error.unauthorized_client unless client_authorized?
-
-      Response::AccessToken.new(client_id)
+      true
     end
 
     private def validate_code!
-      Token.decode refresh_token
+      Authly.jwt_decode refresh_token
     rescue e
       raise Error.invalid_grant
     end

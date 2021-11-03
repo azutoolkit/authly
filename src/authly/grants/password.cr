@@ -1,5 +1,5 @@
 module Authly
-  struct Password
+  class Password
     getter client_id : String,
       client_secret : String,
       username : String,
@@ -9,10 +9,10 @@ module Authly
     def initialize(@client_id, @client_secret, @username, @password, @scope = "")
     end
 
-    def authorize!
+    def authorized? : Bool
       raise Error.unauthorized_client unless client_authorized?
       raise Error.owner_credentials unless owner_authorized?
-      Response::AccessToken.new(client_id)
+      true
     end
 
     private def client_authorized?
