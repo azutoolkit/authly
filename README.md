@@ -6,17 +6,21 @@
 
 ## OAuth2 Provider Server Library for the Crystal Language
 
-Authly is an OAuth2 Library for creating Authorization Servers that supports OAuth2 authorization mechanisms.
+Authly is an OAuth2 Library for creating Authorization Servers that supports OAuth2 authorization mechanisms. Example OAuth 2.0 Server Implementation https://github.com/azutoolkit/authority/
 
-The OAuth 2.0 specification is a flexibile authorization framework that describes a number of grants (“methods”) for a client application to acquire an access token (which represents a user’s permission for the client to access their data) which can be used to authenticate a request to an API endpoint.
+> Authly implements the OAuth 2.0 specification as described at https://www.oauth.com/
+
+OAuth 2.0 is a flexibile authorization framework that describes a number of grants (“methods”) for a client application to acquire an access token (which represents a user’s permission for the client to access their data) which can be used to authenticate a request to an API endpoint.
 
 The specification describes five grants for acquiring an access token:
 
-- Authorization code grant
-- Implicit grant
-- Resource owner credentials grant
-- Client credentials grant
-- Refresh token grant
+- [x] Authorization code grant
+- [x] Implicit grant
+- [x] Resource owner credentials grant
+- [x] Client credentials grant
+- [x] Refresh token grant
+- [x] OpenID Connect (IdToken)
+- [] Device Code
 
 ## Authorization Use Cases
 
@@ -29,25 +33,25 @@ OAuth 2 provides several "grant types" for different use cases. The grant types 
 - **Client credentials** grant for application access without a user present, think microservices
 - **Implicit grant** was previously recommended for clients without a secret, but has been superseded by using the Authorization Code grant with PKCE
 
-### Terminology
+## Terminology
 
-**Resource owner (the user)**
+### Resource owner (the user)
 
 Entity that can grant access to a protected resource. Typically, this is the end-user.
 
-**Resource server (the API)**
+### Resource server (the API)
 
 Server hosting the protected resources. This is the API you want to access.
 
-**Authorization server (can be the same server as the API)**
+### Authorization server (can be the same server as the API)
 
 Server that authenticates the Resource Owner and issues Access Tokens after getting proper authorization. In this case, Auth0.
 
-**Client (the third-party app)**
+### Client (the third-party app)
 
 Application requesting access to a protected resource on behalf of the Resource Owner.
 
-**User Agent**
+### User Agent
 
 Agent used by the Resource Owner to interact with the Client (for example, a browser or a native application).
 
@@ -56,15 +60,15 @@ Agent used by the Resource Owner to interact with the Client (for example, a bro
 
 ## Installation
 
-1.  Add the dependency to your `shard.yml`:
+1. Add the dependency to your `shard.yml`:
 
-    ```yaml
-    dependencies:
-      authly:
-        github: azutoolkit/authly
-    ```
+   ```yaml
+   dependencies:
+     authly:
+       github: azutoolkit/authly
+   ```
 
-2.  Run `shards install`
+2. Run `shards install`
 
 ## Usage
 
@@ -113,19 +117,16 @@ Authly.configure do |c|
 end
 ```
 
-Perform Authorizations
+#### Token
 
 ```crystal
+Authly.access_token(grant_type, **args)
+```
 
-Authly.authorize(*all_args)
+#### Code
 
-# Or do it yourself
-
-Authly::ClientCredentials.new(client_id, client_secret, scope).authorized?
-Authly::AuthorizationCode.new(client_id, client_secret, redirect_uri, code, scope, state).authorized?
-Authly::Password.new(client_id, client_secret, username, password, scope).authorized?
-Authly::RefreshToken.new(client_id, client_secret, refresh_token, scope).authorized?
-Authly::Implicit.new(client_id, redirect_uri, scope, state).authorized?
+```crystal
+Authly.code(response_type, *args)
 ```
 
 ### Exceptions
@@ -149,11 +150,11 @@ access_denied:          "The user or authorization server denied the request",
 
 ## Contributing
 
-1.  Fork it (<https://github.com/your-github-user/authly/fork>)
-2.  Create your feature branch (`git checkout -b my-new-feature`)
-3.  Commit your changes (`git commit -am 'Add some feature'`)
-4.  Push to the branch (`git push origin my-new-feature`)
-5.  Create a new Pull Request
+1. Fork it (<https://github.com/your-github-user/authly/fork>)
+2. Create your feature branch (`git checkout -b my-new-feature`)
+3. Commit your changes (`git commit -am 'Add some feature'`)
+4. Push to the branch (`git push origin my-new-feature`)
+5. Create a new Pull Request
 
 ## Contributors
 
