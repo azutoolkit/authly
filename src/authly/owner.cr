@@ -25,8 +25,13 @@ module Authly
       end
     end
 
-    def id_token(user_id : String) : Hash(String, String)
-      {} of String => String
+    def id_token(user_id : String) : Hash(String, String | Int64)
+      {
+        "sub"     => Random::Secure.hex(32),
+        "iat"     => Time.utc.to_unix,
+        "exp"     => 1.hour.from_now.to_unix,
+        "user_id" => user_id,
+      }
     end
 
     def each
