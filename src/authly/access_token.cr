@@ -10,7 +10,7 @@ module Authly
 
     getter access_token : String
     getter token_type : String = "Bearer"
-    getter expires_in : Int64 = 1.hour.from_now.to_unix
+    getter expires_in : Int64 = ACCESS_TTL.from_now.to_unix
 
     @[JSON::Field(emit_null: false)]
     getter id_token : String? = nil

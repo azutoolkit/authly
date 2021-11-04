@@ -10,6 +10,27 @@ describe Authly do
   code_challenge_method = "S256"
 
   describe ".access_token" do
+    describe "openid" do
+      it "gets id token" do
+        openid_scope = "openid read"
+        code = Authly::Code.new(
+          client_id, openid_scope, redirect_uri, user_id: "username").to_s
+
+        token = Authly.access_token(
+          grant_type: "authorization_code",
+          client_id: client_id,
+          client_secret: client_secret,
+          redirect_uri: redirect_uri,
+          code: code,
+          state: state,
+          scope: openid_scope)
+        it_token = Authly.jwt_decode(token.id_token.not_nil!).first
+
+        token.should be_a Authly::AccessToken
+        it_token["user_id"].should eq "username"
+      end
+    end
+
     it "returns access_token for AuthorizationCode grant" do
       code = Authly.code("code", client_id, redirect_uri, scope, state, code_challenge, code_challenge_method).to_s
       token = Authly.access_token(

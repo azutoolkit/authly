@@ -31,7 +31,7 @@ module Authly
         end
       end
 
-      it "returns false" do
+      it "returns true" do
         code = Code.new(client_id, scope, uri).to_s
         authorization_code = AuthorizationCode.new(client_id, secret, uri, code)
         authorization_code.authorized?.should be_truthy
