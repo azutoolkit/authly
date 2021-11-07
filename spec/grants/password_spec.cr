@@ -5,7 +5,7 @@ module Authly
 
   describe Password do
     password_authorization = Password.new(
-      client_id: cid, client_secret: secret, username: username, password: password, scope: scope
+      client_id: cid, client_secret: secret, username: username, password: password
     )
 
     it "returns AccessToken" do
@@ -14,7 +14,7 @@ module Authly
 
     it "raises error for invalid client credentials" do
       invalid_auth = Password.new(
-        client_id: cid, client_secret: "bad secret", username: username, password: password, scope: scope
+        client_id: cid, client_secret: "bad secret", username: username, password: password
       )
 
       expect_raises Error, ERROR_MSG[:unauthorized_client] do
@@ -24,7 +24,7 @@ module Authly
 
     it "raises error for invalid owner credentials" do
       invalid_owner = Password.new(
-        client_id: cid, client_secret: secret, username: username, password: "bad password", scope: scope
+        client_id: cid, client_secret: secret, username: username, password: "bad password"
       )
 
       expect_raises Error, ERROR_MSG[:owner_credentials] do

@@ -21,9 +21,7 @@ describe Authly do
           client_id: client_id,
           client_secret: client_secret,
           redirect_uri: redirect_uri,
-          code: code,
-          state: state,
-          scope: openid_scope)
+          code: code)
         it_token = Authly.jwt_decode(token.id_token.not_nil!).first
 
         token.should be_a Authly::AccessToken
@@ -38,9 +36,7 @@ describe Authly do
         client_id: client_id,
         client_secret: client_secret,
         redirect_uri: redirect_uri,
-        code: code,
-        state: state,
-        scope: scope)
+        code: code)
 
       token.should be_a Authly::AccessToken
     end
@@ -49,8 +45,7 @@ describe Authly do
       token = Authly.access_token(
         grant_type: "client_credentials",
         client_id: client_id,
-        client_secret: client_secret,
-        scope: scope)
+        client_secret: client_secret)
 
       token.should be_a Authly::AccessToken
     end
@@ -63,8 +58,7 @@ describe Authly do
         client_id: client_id,
         client_secret: client_secret,
         username: username,
-        password: password,
-        scope: scope)
+        password: password)
 
       token.should be_a Authly::AccessToken
     end
@@ -75,8 +69,7 @@ describe Authly do
         grant_type: "refresh_token",
         client_id: client_id,
         client_secret: client_secret,
-        refresh_token: a_token.refresh_token.to_s,
-        scope: scope)
+        refresh_token: a_token.refresh_token.to_s)
 
       token.should be_a Authly::AccessToken
     end
@@ -84,7 +77,7 @@ describe Authly do
 
   describe ".code" do
     it "returns an temporary code" do
-      code = Authly.code("code", client_id, redirect_uri, scope, state)
+      code = Authly.code("code", client_id, redirect_uri, scope)
       code.should be_a Authly::Code
     end
 

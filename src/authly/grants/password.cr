@@ -3,10 +3,9 @@ module Authly
     getter client_id : String,
       client_secret : String,
       username : String,
-      password : String,
-      scope : String
+      password : String
 
-    def initialize(@client_id, @client_secret, @username, @password, @scope = "")
+    def initialize(@client_id, @client_secret, @username, @password)
     end
 
     def authorized? : Bool

@@ -1,8 +1,8 @@
 module Authly
   class ClientCredentials
-    getter client_id : String, client_secret : String, scope : String
+    getter client_id : String, client_secret : String
 
-    def initialize(@client_id, @client_secret, @scope = "")
+    def initialize(@client_id, @client_secret)
     end
 
     def authorized? : Bool

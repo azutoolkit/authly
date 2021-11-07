@@ -7,8 +7,6 @@ module Authly
       password : String,
       redirect_uri : String,
       code : String,
-      state : String,
-      scope : String,
       verifier : String,
       refresh_token : String
 
@@ -19,8 +17,6 @@ module Authly
                    @password = "",
                    @redirect_uri = "",
                    @code = "",
-                   @state = "",
-                   @scope = "",
                    @verifier = "",
                    @refresh_token = "")
     end
@@ -54,11 +50,11 @@ module Authly
     end
 
     def client_credentials
-      ClientCredentials.new(client_id, client_secret, scope)
+      ClientCredentials.new(client_id, client_secret)
     end
 
     def password_grant
-      Password.new(client_id, client_secret, username, password, scope)
+      Password.new(client_id, client_secret, username, password)
     end
 
     def refresh_token_grant
@@ -70,13 +66,18 @@ module Authly
     end
 
     private def generate_id_token
-      if @scope.includes? "openid"
+      if scope.includes? "openid"
         Authly.jwt_encode Authly.owners.id_token auth_code["user_id"].as_s
       end
     end
 
     private def auth_code
       Authly.jwt_decode(code).first
+    end
+
+    private def scope : String
+      return "" if code.empty?
+      auth_code["scope"].as_s
     end
   end
 end
