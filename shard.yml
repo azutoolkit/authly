@@ -1,17 +1,12 @@
 name: authly
-version: 1.1.1
-
+version: 1.2.0
 authors:
   - Elias Perez <elias.perez@nytimes.com>
-
-crystal: ">=0.31.1"
-
+crystal: '>=0.31.1'
 license: MIT
-
 dependencies:
   jwt:
     github: crystal-community/jwt
-
 development_dependencies:
   faker:
     github: askn/faker
