@@ -24,21 +24,21 @@ module Authly
       @clients << client
     end
 
-    def valid_redirect?(id, redirect_uri) : Bool
+    def valid_redirect?(client_id, redirect_uri) : Bool
       any? do |client|
-        client.id == id && client.redirect_uri == redirect_uri
+        client.id == client_id && client.redirect_uri == redirect_uri
       end
     end
 
-    def authorized?(id, secret)
+    def authorized?(client_id, client_secret)
       any? do |client|
-        client.id == id && client.secret == secret
+        client.id == client_id && client.secret == client_secret
       end
     end
 
-    def authorized?(id, secret, redirect_uri, code, verifier : String? = nil)
+    def authorized?(client_id, secret, redirect_uri, code, verifier : String? = nil)
       any? do |client|
-        client.id == id && client.secret == secret && redirect_uri == redirect_uri
+        client.id == client_id && client.secret == secret && redirect_uri == redirect_uri
       end
     end
 
