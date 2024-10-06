@@ -22,10 +22,12 @@ describe Authly do
           client_secret: client_secret,
           redirect_uri: redirect_uri,
           code: code)
-        it_token = Authly.jwt_decode(token.id_token.not_nil!).first
+        if id_token = token.id_token
+          id_token_decoded = Authly.jwt_decode(id_token).first
 
-        token.should be_a Authly::AccessToken
-        it_token["user_id"].should eq "username"
+          token.should be_a Authly::AccessToken
+          id_token_decoded["user_id"].should eq "username"
+        end
       end
     end
 

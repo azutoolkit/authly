@@ -42,7 +42,7 @@ module Authly
       end
     end
 
-    def each
+    def each(& : Client -> _)
       @clients.each { |client| yield client }
     end
   end

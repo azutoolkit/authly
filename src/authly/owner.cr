@@ -34,7 +34,7 @@ module Authly
       }
     end
 
-    def each
+    def each(& : Owner -> _)
       @owners.each { |owner| yield owner }
     end
   end

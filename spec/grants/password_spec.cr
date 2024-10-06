@@ -1,7 +1,7 @@
 require "../spec_helper"
 
 module Authly
-  cid, secret, username, password, scope = "1", "secret", "username", "password", "read"
+  cid, secret, username, password = "1", "secret", "username", "password"
 
   describe Password do
     password_authorization = Password.new(

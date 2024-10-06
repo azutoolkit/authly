@@ -1,12 +1,13 @@
 require "jwt"
 require "json"
-
+require "./authly/authorizable_owner"
+require "./authly/authorizable_client"
 require "./authly/**"
 
 module Authly
   CONFIG = Configuration.new
 
-  def self.configure
+  def self.configure(&)
     yield CONFIG
   end
 
