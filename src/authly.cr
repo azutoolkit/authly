@@ -38,4 +38,28 @@ module Authly
   def self.jwt_decode(token, secret_key = config.public_key)
     JWT.decode token, secret_key, config.algorithm
   end
+
+  def self.introspect(token : String)
+    # Decode the JWT, verify the signature and expiration
+    payload, header = JWT.decode(token, SECRET, algorithm: "HS256")
+
+    # Check if the token is expired (exp claim is typically in seconds since epoch)
+    exp = payload["exp"].to_i
+    if Time.now.to_unix > exp
+      return  { active: false,  exp: exp }
+    end
+
+    # Return the token metadata
+    {
+      active: true,
+      scope: payload["scope"],
+      client_id: payload["client_id"],
+      username: payload["sub"],  # 'sub' is commonly used for the user identifier in JWTs
+      exp: exp
+    }
+  rescue JWT::DecodeError
+    return {
+      active: false
+    }
+  end
 end
