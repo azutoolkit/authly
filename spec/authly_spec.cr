@@ -77,6 +77,35 @@ describe Authly do
     end
   end
 
+  describe ".introspect" do
+    it "returns active token" do
+      a_token = Authly::AccessToken.new(client_id, scope)
+      expected_token = Authly.jwt_decode(a_token.access_token).first
+      token = Authly.introspect(a_token.access_token)
+
+      token.should eq({
+        active: true,
+        scope:  scope,
+        cid:    client_id,
+        exp:    a_token.expires_in,
+        sub:    expected_token["sub"],
+      })
+    end
+
+    it "returns inactive token" do
+      token = Authly.introspect("invalid_token")
+
+      token.should eq({active: false})
+    end
+
+    it "returns inactive token" do
+      a_token = Authly::AccessToken.new(client_id, scope)
+      token = Authly.introspect(a_token.to_s + "invalid")
+
+      token.should eq({active: false})
+    end
+  end
+
   describe ".code" do
     it "returns an temporary code" do
       code = Authly.code("code", client_id, redirect_uri, scope)
