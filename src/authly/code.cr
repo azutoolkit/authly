@@ -1,7 +1,7 @@
 module Authly
   struct Code
     include JSON::Serializable
-    CODE_TTL = Authly.config.code_ttl
+    CODE_TTL = Authly.config.ttl.code_ttl
 
     getter code : String = Random::Secure.hex(16),
       client_id : String,

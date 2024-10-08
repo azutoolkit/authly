@@ -1,7 +1,7 @@
 require "../spec_helper"
 
 module Authly
-  describe AuthorizationCode do
+  describe AuthorizationCodeGrant do
     code_data = {
       "client_id"    => "1",
       "secret"       => "secret",
@@ -18,14 +18,14 @@ module Authly
         it "peforms plain code challenge authorization" do
           code_challenge = code_verifier
           code = Code.new(code_challenge, "plain", scope, "user_id", uri, client_id).to_s
-          auth_code = AuthorizationCode.new(client_id, secret, uri, code, code_verifier)
+          auth_code = AuthorizationCodeGrant.new(client_id, secret, uri, code, code_verifier)
           auth_code.authorized?.should be_truthy
         end
 
         it "peforms S256 code challenge authorization" do
           code_challenge = Digest::SHA256.base64digest(code_verifier)
           code = Code.new(code_challenge, "s256", scope, "user_id", uri, client_id).to_s
-          authorization_code = AuthorizationCode.new(client_id, secret, uri, code, code_verifier)
+          authorization_code = AuthorizationCodeGrant.new(client_id, secret, uri, code, code_verifier)
 
           authorization_code.authorized?.should be_truthy
         end
@@ -33,13 +33,13 @@ module Authly
 
       it "returns true" do
         code = Code.new(client_id, scope, uri).to_s
-        authorization_code = AuthorizationCode.new(client_id, secret, uri, code)
+        authorization_code = AuthorizationCodeGrant.new(client_id, secret, uri, code)
         authorization_code.authorized?.should be_truthy
       end
 
       it "raises error for invalid client credentials" do
         code = Code.new(client_id, scope, uri).to_s
-        authorization_code = AuthorizationCode.new(client_id, "invalid", uri, code)
+        authorization_code = AuthorizationCodeGrant.new(client_id, "invalid", uri, code)
 
         expect_raises Error, ERROR_MSG[:unauthorized_client] do
           authorization_code.authorized?
@@ -48,7 +48,7 @@ module Authly
 
       it "raises Error for client id" do
         code = Code.new(client_id, scope, uri).to_s
-        authorization_code = AuthorizationCode.new("invalid_client", "invalid_client_secret", uri, code)
+        authorization_code = AuthorizationCodeGrant.new("invalid_client", "invalid_client_secret", uri, code)
 
         expect_raises Error, ERROR_MSG[:invalid_redirect_uri] do
           authorization_code.authorized?
@@ -57,7 +57,7 @@ module Authly
 
       it "raises Error for redirect uri" do
         code = Code.new(client_id, scope, uri).to_s
-        authorization_code = AuthorizationCode.new(client_id, secret, "", code)
+        authorization_code = AuthorizationCodeGrant.new(client_id, secret, "", code)
 
         expect_raises Error, ERROR_MSG[:invalid_redirect_uri] do
           authorization_code.authorized?

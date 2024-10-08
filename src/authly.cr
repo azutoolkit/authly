@@ -18,11 +18,11 @@ module Authly
   end
 
   def self.clients
-    CONFIG.owner_client.clients
+    CONFIG.providers.clients
   end
 
   def self.owners
-    CONFIG.owner_client.owners
+    CONFIG.providers.owners
   end
 
   def self.code(response_type, *args)
@@ -34,19 +34,19 @@ module Authly
   end
 
   def self.jwt_encode(payload)
-    JWT.encode(payload, config.secret.secret_key, config.secret.algorithm)
+    JWT.encode(payload, config.security.secret_key, config.security.algorithm)
   end
 
-  def self.jwt_decode(token, secret_key = config.secret.public_key)
-    JWT.decode token, secret_key, config.algorithm
+  def self.jwt_decode(token, secret_key = config.security.public_key)
+    JWT.decode token, secret_key, config.security.algorithm
   end
 
   def self.revoke(jti)
-    Authly.config.jti_provider.revoke(jti)
+    Authly.config.providers.jti_provider.revoke(jti)
   end
 
   def self.revoked?(jti)
-    Authly.config.jti_provider.revoked?(jti)
+    Authly.config.providers.jti_provider.revoked?(jti)
   end
 
   def self.valid?(token)

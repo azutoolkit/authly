@@ -1,8 +1,9 @@
 module Authly
-  class ClientCredentials
-    getter client_id : String, client_secret : String
+  class ClientCredentialsGrant < GrantStrategy
+    getter client_id : String
+    @client_secret : String
 
-    def initialize(@client_id, @client_secret)
+    def initialize(@client_id : String, @client_secret : String)
     end
 
     def authorized? : Bool
@@ -11,7 +12,7 @@ module Authly
     end
 
     private def client_authorized?
-      Authly.clients.authorized?(client_id, client_secret)
+      Authly.clients.authorized?(@client_id, @client_secret)
     end
   end
 end

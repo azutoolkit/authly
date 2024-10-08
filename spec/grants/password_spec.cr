@@ -3,8 +3,8 @@ require "../spec_helper"
 module Authly
   cid, secret, username, password = "1", "secret", "username", "password"
 
-  describe Password do
-    password_authorization = Password.new(
+  describe PasswordGrant do
+    password_authorization = PasswordGrant.new(
       client_id: cid, client_secret: secret, username: username, password: password
     )
 
@@ -13,7 +13,7 @@ module Authly
     end
 
     it "raises error for invalid client credentials" do
-      invalid_auth = Password.new(
+      invalid_auth = PasswordGrant.new(
         client_id: cid, client_secret: "bad secret", username: username, password: password
       )
 
@@ -23,7 +23,7 @@ module Authly
     end
 
     it "raises error for invalid owner credentials" do
-      invalid_owner = Password.new(
+      invalid_owner = PasswordGrant.new(
         client_id: cid, client_secret: secret, username: username, password: "bad password"
       )
 

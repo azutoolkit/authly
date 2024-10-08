@@ -38,13 +38,13 @@ describe Authly::Configuration do
 
   describe Authly::ProvidersConfiguration do
     it "creates default owners and clients" do
-      provider_config = Authly::Configuration.instance.owner_client
+      provider_config = Authly::Configuration.instance.providers
       provider_config.owners.should_not be_nil
       provider_config.clients.should_not be_nil
     end
 
     it "sets a default JTI provider" do
-      provider_config = Authly::Configuration.instance.owner_client
+      provider_config = Authly::Configuration.instance.providers
       provider_config.jti_provider.should be_a(Authly::InMemoryJTIProvider)
     end
   end

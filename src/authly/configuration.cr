@@ -4,7 +4,6 @@ module Authly
     property secret_key : String = Random::Secure.hex(16)
     property public_key : String = Random::Secure.hex(16)
     property algorithm : JWT::Algorithm = JWT::Algorithm::HS256
-    
   end
 
   # Time-To-Live Configuration
@@ -26,7 +25,7 @@ module Authly
     property issuer : String = "The Authority Server Provider"
     property security : SecurityConfiguration = SecurityConfiguration.new
     property ttl : TTLConfiguration = TTLConfiguration.new
-    property owner_client : ProvidersConfiguration = ProvidersConfiguration.new
+    property providers : ProvidersConfiguration = ProvidersConfiguration.new
 
     # Singleton instance
     @@instance : Configuration?
