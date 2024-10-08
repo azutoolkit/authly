@@ -11,9 +11,14 @@ module Authly
     unauthorized_client:    "This client is not authorized to use the requested grant type",
     unsupported_grant_type: "Invalid or unknown grant type",
     access_denied:          "The user or authorization server denied the request",
+    unsupported_token_type: "The authorization server does not support the revocation of the presented token type",
   }
 
   class Error(Code) < Exception
+    def self.unsupported_token_type
+      raise Error(400).new(:unsupported_token_type)
+    end
+
     def self.owner_credentials
       raise Error(400).new(:owner_credentials)
     end

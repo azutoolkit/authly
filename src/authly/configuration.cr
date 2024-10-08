@@ -26,6 +26,7 @@ module Authly
     property security : SecurityConfiguration = SecurityConfiguration.new
     property ttl : TTLConfiguration = TTLConfiguration.new
     property providers : ProvidersConfiguration = ProvidersConfiguration.new
+    property token_type : String = "jwt"
 
     # Singleton instance
     @@instance : Configuration?

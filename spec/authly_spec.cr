@@ -24,7 +24,7 @@ describe Authly do
           code: code)
 
         if id_token = token.id_token
-          id_token_decoded = Authly.jwt_decode(id_token).first
+          id_token_decoded = Authly.decode_token(id_token).first
 
           token.should be_a Authly::AccessToken
           id_token_decoded["user_id"].should eq "username"
@@ -122,7 +122,7 @@ describe Authly do
   describe ".introspect" do
     it "returns active token" do
       a_token = Authly::AccessToken.new(client_id, scope)
-      expected_token = Authly.jwt_decode(a_token.access_token).first
+      expected_token = Authly.decode_token(a_token.access_token).first
       token = Authly.introspect(a_token.access_token)
 
       token.should eq({

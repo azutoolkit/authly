@@ -28,7 +28,7 @@ module Authly
     end
 
     private def generate_token
-      Authly.jwt_encode({
+      Authly.encode_token({
         "sub"   => Random::Secure.hex(32),
         "iss"   => Authly.config.issuer,
         "cid"   => @client_id,
@@ -40,7 +40,7 @@ module Authly
     end
 
     def refresh_token
-      Authly.jwt_encode({
+      Authly.encode_token({
         "sub"  => @client_id,
         "name" => "refresh token",
         "iat"  => Time.utc.to_unix,

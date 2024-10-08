@@ -14,7 +14,7 @@ module Authly
     end
 
     private def validate_refresh_token!
-      Authly.jwt_decode(@refresh_token)
+      Authly.decode_token(@refresh_token)
     rescue e
       raise Error.invalid_grant
     end

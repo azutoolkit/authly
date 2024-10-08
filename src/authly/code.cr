@@ -22,7 +22,7 @@ module Authly
     end
 
     def jwt
-      Authly.jwt_encode({
+      Authly.encode_token({
         "code"         => code,
         "challenge"    => challenge,
         "method"       => method,

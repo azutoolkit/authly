@@ -61,12 +61,12 @@ module Authly
 
     private def generate_id_token
       if scope.includes? "openid"
-        Authly.jwt_encode Authly.owners.id_token auth_code["user_id"].as_s
+        Authly.encode_token Authly.owners.id_token auth_code["user_id"].as_s
       end
     end
 
     private def auth_code
-      Authly.jwt_decode(@code).first
+      Authly.decode_token(@code).first
     end
 
     private def scope : String
