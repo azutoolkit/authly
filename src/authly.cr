@@ -7,7 +7,7 @@ require "./authly/**"
 require "log"
 
 module Authly
-  CONFIG = Configuration.new
+  CONFIG = Configuration.instance
 
   def self.configure(&)
     yield CONFIG
@@ -18,11 +18,11 @@ module Authly
   end
 
   def self.clients
-    CONFIG.clients
+    CONFIG.owner_client.clients
   end
 
   def self.owners
-    CONFIG.owners
+    CONFIG.owner_client.owners
   end
 
   def self.code(response_type, *args)
@@ -34,10 +34,10 @@ module Authly
   end
 
   def self.jwt_encode(payload)
-    JWT.encode(payload, config.secret_key, config.algorithm)
+    JWT.encode(payload, config.secret.secret_key, config.secret.algorithm)
   end
 
-  def self.jwt_decode(token, secret_key = config.public_key)
+  def self.jwt_decode(token, secret_key = config.secret.public_key)
     JWT.decode token, secret_key, config.algorithm
   end
 

@@ -1,8 +1,8 @@
 module Authly
   struct AccessToken
     include JSON::Serializable
-    ACCESS_TTL  = Authly.config.access_ttl
-    REFRESH_TTL = Authly.config.refresh_ttl
+    ACCESS_TTL  = Authly.config.ttl.access_ttl
+    REFRESH_TTL = Authly.config.ttl.refresh_ttl
 
     # The JWT ID (jti), used to track and revoke individual tokens
     getter jti : String
