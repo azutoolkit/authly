@@ -22,6 +22,7 @@ describe Authly do
           client_secret: client_secret,
           redirect_uri: redirect_uri,
           code: code)
+
         if id_token = token.id_token
           id_token_decoded = Authly.jwt_decode(id_token).first
 
@@ -74,6 +75,47 @@ describe Authly do
         refresh_token: a_token.refresh_token.to_s)
 
       token.should be_a Authly::AccessToken
+    end
+  end
+
+  describe ".revoke" do
+    it "revokes token" do
+      a_token = Authly::AccessToken.new(client_id, scope)
+      Authly.revoke(a_token.jti)
+      Authly.revoked?(a_token.jti).should eq true
+    end
+
+    it "does not revoke token" do
+      a_token = Authly::AccessToken.new(client_id, scope)
+      Authly.revoked?(a_token.jti).should eq false
+    end
+
+    it "does not revoke token" do
+      Authly.revoked?("invalid_jti").should eq false
+    end
+  end
+
+  describe ".valid?" do
+    it "returns true" do
+      a_token = Authly::AccessToken.new(client_id, scope)
+      token = a_token.access_token
+      Authly.valid?(token).should eq true
+    end
+
+    it "returns false" do
+      a_token = Authly::AccessToken.new(client_id, scope)
+      token = a_token.access_token
+
+      Authly.revoke(a_token.jti)
+
+      Authly.valid?(token).should eq false
+    end
+
+    it "returns false" do
+      a_token = Authly::AccessToken.new(client_id, scope)
+      token = a_token.access_token
+      Authly.revoke(a_token.jti)
+      Authly.valid?(token + "invalid").should eq false
     end
   end
 
