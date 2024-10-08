@@ -5,6 +5,7 @@ require "./authly/authorizable_client"
 require "./authly/jti_provider"
 require "./authly/**"
 require "log"
+
 module Authly
   CONFIG = Configuration.new
 
