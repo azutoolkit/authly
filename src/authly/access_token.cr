@@ -9,7 +9,7 @@ module Authly
     getter access_token : String
     getter token_type : String = "Bearer"
     getter expires_in : Int64 = ACCESS_TTL.from_now.to_unix
-    getter revoked : Bool = false
+    getter? revoked : Bool = false
     @[JSON::Field(emit_null: false)]
     getter refresh_token : String
     @[JSON::Field(emit_null: false)]

@@ -9,7 +9,7 @@ module Authly
     end
 
     # Implement the each method to make the class enumerable
-    def each
+    def each(&)
       @revoked_tokens.each { |jti| yield jti }
     end
 
