@@ -2,6 +2,8 @@ require "uri"
 
 module Authly
   class AuthorizationCode
+    include GrantStrategy
+
     getter client_id : String,
       client_secret : String,
       redirect_uri : String,

@@ -1,5 +1,6 @@
 module Authly
   class RefreshToken
+    include GrantStrategy
     getter client_id : String,
       client_secret : String,
       refresh_token : String

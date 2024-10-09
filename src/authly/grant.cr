@@ -1,24 +1,48 @@
 module Authly
-  class Grant
-    getter grant_type : String,
-      client_id : String,
-      client_secret : String,
-      username : String,
-      password : String,
-      redirect_uri : String,
-      code : String,
-      verifier : String,
-      refresh_token : String
+  module GrantStrategy
+    abstract def authorized? : Bool
+  end
 
-    def initialize(@grant_type,
-                   @client_id = "",
-                   @client_secret = "",
-                   @username = "",
-                   @password = "",
-                   @redirect_uri = "",
-                   @code = "",
-                   @verifier = "",
-                   @refresh_token = "")
+  class GrantFactory
+    def self.create(grant_type : String, **args) : GrantStrategy
+      case grant_type
+      when "authorization_code"
+        AuthorizationCode.new(
+          args["client_id"],
+          args["client_secret"],
+          args.fetch("redirect_uri", ""),
+          args.fetch("challenge", ""),
+          args.fetch("method", ""),
+          args.fetch("verifier", "")
+        )
+      when "client_credentials"
+        ClientCredentials.new(args["client_id"], args["client_secret"])
+      when "password"
+        Password.new(
+          args["client_id"],
+          args["client_secret"],
+          args.fetch("username", ""),
+          args.fetch("password", "")
+        )
+      when "refresh_token"
+        RefreshToken.new(
+          args["client_id"],
+          args["client_secret"],
+          args.fetch("refresh_token", "")
+        )
+      else
+        raise Error.unsupported_grant_type
+      end
+    end
+  end
+
+  class Grant
+    @grant_strategy : GrantStrategy
+    @code : String
+
+    def initialize(grant_type : String, **args)
+      @grant_strategy = GrantFactory.create(grant_type, **args)
+      @code = args.fetch("code", "")
     end
 
     def token : AccessToken
@@ -27,34 +51,7 @@ module Authly
     end
 
     def authorized?
-      grant = case grant_type
-              when "authorization_code" then authorization_code
-              when "client_credentials" then client_credentials
-              when "password"           then password_grant
-              when "refresh_token"      then refresh_token_grant
-              else                           raise Error.unsupported_grant_type
-              end
-
-      grant.authorized?
-    end
-
-    def authorization_code
-      AuthorizationCode.new(
-        client_id,
-        client_secret,
-        redirect_uri,
-        auth_code["challenge"].as_s,
-        auth_code["method"].as_s,
-        verifier
-      )
-    end
-
-    def client_credentials
-      ClientCredentials.new(client_id, client_secret)
-    end
-
-    def password_grant
-      Password.new(client_id, client_secret, username, password)
+      @grant_strategy.authorized?
     end
 
     def refresh_token_grant
@@ -62,7 +59,7 @@ module Authly
     end
 
     private def access_token
-      AccessToken.new(client_id, scope, generate_id_token)
+      AccessToken.new(@grant_strategy.client_id, scope, generate_id_token)
     end
 
     private def generate_id_token
@@ -72,11 +69,11 @@ module Authly
     end
 
     private def auth_code
-      Authly.jwt_decode(code).first
+      Authly.jwt_decode(@code).first
     end
 
     private def scope : String
-      return "" if code.empty?
+      return "" if @code.empty?
       auth_code["scope"].as_s
     end
   end

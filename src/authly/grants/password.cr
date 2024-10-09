@@ -1,5 +1,6 @@
 module Authly
   class Password
+    include GrantStrategy
     getter client_id : String,
       client_secret : String,
       username : String,

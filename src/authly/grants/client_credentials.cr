@@ -1,5 +1,6 @@
 module Authly
   class ClientCredentials
+    include GrantStrategy
     getter client_id : String, client_secret : String
 
     def initialize(@client_id, @client_secret)
