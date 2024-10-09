@@ -1,6 +1,6 @@
 module Authly
-  class InMemoryJTIProvider
-    include Authly::JTIProvider
+  class InMemoryRevokeStore
+    include Authly::TokenRevokeStore
     include Enumerable(String)
 
     # Use a set to track revoked tokens by their jti
