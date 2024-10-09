@@ -1,8 +1,8 @@
 # Authly - Simplify Authentication for Your Application
 
-![Authly Logo](images/authly-logo.png)
+<div style="text-align:center"><img src="https://raw.githubusercontent.com/azutoolkit/authly/master/authly.png" /></div>
 
-[![Build Status](https://img.shields.io/github/actions/workflow/status/yourusername/authly/build.yml)](https://github.com/yourusername/authly/actions) [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/747eef2e02594d40b63c9f05c6b94cd9)](https://app.codacy.com/manual/eliasjpr/authly?utm_source=github.com&utm_medium=referral&utm_content=eliasjpr/authly&utm_campaign=Badge_Grade_Settings) ![Crystal CI](https://github.com/eliasjpr/authly/workflows/Crystal%20CI/badge.svg?branch=master)
 
 Authly is an open-source Crystal library that helps developers integrate secure and robust authentication capabilities into their applications with ease. Supporting various OAuth2 grants and providing straightforward APIs, Authly aims to streamline the process of managing authentication in a modern software environment.
 
@@ -150,7 +150,8 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## Contact
 
-Project Link: [https://github.com/yourusername/authly](https://github.com/yourusername/authly)
+[Elias Perez](https://github.com/eliasjpr) - Initial work
+Project Link: [https://github.com/azutoolkit/authly](https://github.com/azutoolkit/authly)
 
 ## Acknowledgments
 
