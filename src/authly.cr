@@ -2,15 +2,17 @@ require "jwt"
 require "json"
 require "./authly/authorizable_owner"
 require "./authly/authorizable_client"
-require "./authly/jti_provider"
+require "./authly/token_store_provider"
 require "./authly/**"
 require "log"
 
 module Authly
   CONFIG = Configuration.instance
 
+  alias HashToken = Hash(String, Int64 | String)
+
   def self.configure(&)
-    yield CONFIG
+    with CONFIG yield CONFIG
   end
 
   def self.config
@@ -18,11 +20,11 @@ module Authly
   end
 
   def self.clients
-    CONFIG.providers.clients
+    CONFIG.clients
   end
 
   def self.owners
-    CONFIG.providers.owners
+    CONFIG.owners
   end
 
   def self.code(response_type, *args)
@@ -34,32 +36,26 @@ module Authly
   end
 
   def self.encode_token(payload)
-    token_manager = TokenManager.new
-    token_manager.encode(payload)
+    config.token_strategy.encode(payload)
   end
 
   def self.decode_token(token)
-    token_manager = TokenManager.new
-    token_manager.decode(token)
+    config.token_strategy.decode(token)
   end
 
   def self.revoke(token)
-    token_manager = TokenManager.new
-    token_manager.revoke(token)
+    config.token_strategy.revoke!(token)
   end
 
-  def self.revoke?(token)
-    token_manager = TokenManager.new
-    token_manager.revoke?(token)
+  def self.revoked?(token)
+    config.token_strategy.revoked?(token)
   end
 
   def self.valid?(token)
-    token_manager = TokenManager.new
-    token_manager.valid?(token)
+    config.token_strategy.valid?(token)
   end
 
-  def self.introspect(token : String)
-    token_manager = TokenManager.new
-    token_manager.introspect(token)
+  def self.inspect(token : String)
+    config.token_strategy.inspect(token)
   end
 end

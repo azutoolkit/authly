@@ -22,7 +22,7 @@ module Authly
           method: "S256",
           verifier: "valid_verifier")
 
-          expect_raises(Authly::Error(400)) { grant.authorized? }
+        expect_raises(Authly::Error(400)) { grant.authorized? }
       end
     end
 

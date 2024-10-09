@@ -61,17 +61,20 @@ module Authly
 
     private def generate_id_token
       if scope.includes? "openid"
-        Authly.encode_token Authly.owners.id_token auth_code["user_id"].as_s
+        user_id = auth_code["user_id"].to_s
+        Authly.encode_token Authly.owners.id_token(user_id)
       end
     end
 
     private def auth_code
-      Authly.decode_token(@code).first
+      puts Authly.decode_token(@code)
+      Authly.decode_token(@code)
     end
 
     private def scope : String
       return "" if @code.empty?
-      auth_code["scope"].as_s
+      puts
+      auth_code["scope"].to_s
     end
   end
 end

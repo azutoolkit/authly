@@ -1,8 +1,8 @@
 module Authly
   struct AccessToken
     include JSON::Serializable
-    ACCESS_TTL  = Authly.config.ttl.access_ttl
-    REFRESH_TTL = Authly.config.ttl.refresh_ttl
+    ACCESS_TTL  = Authly.config.access_ttl
+    REFRESH_TTL = Authly.config.refresh_ttl
 
     # The JWT ID (jti), used to track and revoke individual tokens
     getter jti : String
@@ -22,14 +22,14 @@ module Authly
     end
 
     def initialize(@client_id : String, @scope : String, @id_token : String? = nil)
-      @jti = Random::Secure.hex(32) # Generate a unique jti for each token
+      @jti = Random::Secure.base64 # Generate a unique jti for each token
       @access_token = generate_token
       @refresh_token = refresh_token
     end
 
     private def generate_token
       Authly.encode_token({
-        "sub"   => Random::Secure.hex(32),
+        "sub"   => Random::Secure.base64,
         "iss"   => Authly.config.issuer,
         "cid"   => @client_id,
         "iat"   => Time.utc.to_unix,
@@ -42,6 +42,7 @@ module Authly
     def refresh_token
       Authly.encode_token({
         "sub"  => @client_id,
+        "iss"  => Authly.config.issuer,
         "name" => "refresh token",
         "iat"  => Time.utc.to_unix,
         "exp"  => REFRESH_TTL.from_now.to_unix,

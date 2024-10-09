@@ -24,7 +24,7 @@ describe Authly do
           code: code)
 
         if id_token = token.id_token
-          id_token_decoded = Authly.decode_token(id_token).first
+          id_token_decoded = Authly.decode_token(id_token)
 
           token.should be_a Authly::AccessToken
           id_token_decoded["user_id"].should eq "username"
@@ -119,30 +119,24 @@ describe Authly do
     end
   end
 
-  describe ".introspect" do
+  describe ".inspect" do
     it "returns active token" do
       a_token = Authly::AccessToken.new(client_id, scope)
-      expected_token = Authly.decode_token(a_token.access_token).first
-      token = Authly.introspect(a_token.access_token)
+      expected_token = Authly.decode_token(a_token.access_token)
+      token = Authly.inspect(a_token.access_token)
 
-      token.should eq({
-        active: true,
-        scope:  scope,
-        cid:    client_id,
-        exp:    a_token.expires_in,
-        sub:    expected_token["sub"],
-      })
+      token.should eq({active: true, token: expected_token})
     end
 
     it "returns inactive token" do
-      token = Authly.introspect("invalid_token")
+      token = Authly.inspect("invalid_token")
 
       token.should eq({active: false})
     end
 
     it "returns inactive token" do
       a_token = Authly::AccessToken.new(client_id, scope)
-      token = Authly.introspect(a_token.to_s + "invalid")
+      token = Authly.inspect(a_token.to_s + "invalid")
 
       token.should eq({active: false})
     end

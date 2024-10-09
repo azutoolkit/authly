@@ -15,7 +15,8 @@ module Authly
       @redirect_uri : String,
       @challenge : String = "",
       @method : String = "",
-      @verifier : String= "")
+      @verifier : String = ""
+    )
     end
 
     def authorized? : Bool
