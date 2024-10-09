@@ -7,7 +7,7 @@ module Authly
     it "returns authorization code with valid client_id and redirect_uri" do
       response = HTTP::Client.get("http://127.0.0.1:8080/oauth/authorize?client_id=1&redirect_uri=https://www.example.com/callback&response_type=code")
       body = response.body
-      puts body
+       body
 
       response.status_code.should eq 302
 
@@ -33,7 +33,7 @@ module Authly
       })
       response.status_code.should eq 200
       body = JSON.parse(response.body)
-      puts body["access_token"]
+       body["access_token"]
       body["access_token"].should_not be_nil
     end
 
