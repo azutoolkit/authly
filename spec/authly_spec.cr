@@ -126,25 +126,25 @@ describe Authly do
       token = Authly.introspect(a_token.access_token)
 
       token.should eq({
-        active: true,
-        scope:  scope,
-        cid:    client_id,
-        exp:    a_token.expires_in,
-        sub:    expected_token["sub"],
+        "active" => true,
+        "scope" =>  scope,
+        "cid" =>    client_id,
+        "exp" =>    a_token.expires_in,
+        "sub" =>    expected_token["sub"],
       })
     end
 
     it "returns inactive token" do
       token = Authly.introspect("invalid_token")
 
-      token.should eq({active: false})
+      token.should eq({"active" => false})
     end
 
     it "returns inactive token" do
       a_token = Authly::AccessToken.new(client_id, scope)
       token = Authly.introspect(a_token.to_s + "invalid")
 
-      token.should eq({active: false})
+      token.should eq({"active" => false})
     end
   end
 

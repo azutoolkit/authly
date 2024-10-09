@@ -8,7 +8,8 @@ module Authly
     property access_ttl : Time::Span = 1.hour
     property owners : AuthorizableOwner = Owners.new
     property clients : AuthorizableClient = Clients.new
-    property revoke_provider : TokenRevokeStore = InMemoryRevokeStore.new
+    property token_store : TokenStore = InMemoryStore.new
     property algorithm : JWT::Algorithm = JWT::Algorithm::HS256
+    property token_strategy : Symbol = :jwt
   end
 end

@@ -2,7 +2,7 @@ require "jwt"
 require "json"
 require "./authly/authorizable_owner"
 require "./authly/authorizable_client"
-require "./authly/token_revoke_store"
+require "./authly/token_store"
 require "./authly/**"
 require "log"
 

@@ -1,23 +1,40 @@
 module Authly
-  class TokenManager
+  module TokenStrategy
+    abstract def revoke(token : String)
+    abstract def revoked?(token : String) : Bool
+    abstract def valid?(token : String) : Bool
+    abstract def introspect(token : String)
+  end
 
-    def self.instance
-      @@instance ||= new
+  class TokenStrategyFactory
+    TOKEN_MANAGERS = {
+      jwt: JWTToken.new,
+      opaque: OpaqueToken.new,
+    }
+
+    def self.create
+      TOKEN_MANAGERS.fetch(Authly.config.token_strategy) do
+        raise Error.unsupported_token_type
+      end
     end
+  end
+
+  class JWTToken
+    include TokenStrategy
 
     def initialize
       @config = Authly.config
     end
 
-    def revoke(jti)
-      @config.revoke_provider.revoke(jti)
+    def revoke(token)
+      @config.token_store.revoke(token)
     end
 
-    def revoked?(jti)
-      @config.revoke_provider.revoked?(jti)
+    def revoked?(token) : Bool
+      @config.token_store.revoked?(token)
     end
 
-    def valid?(token)
+    def valid?(token) : Bool
       decoded_token, _header = Authly.jwt_decode(token)
       jti = decoded_token["jti"].to_s
       return false if revoked?(jti)
@@ -35,19 +52,80 @@ module Authly
 
       # Check if the token is expired (exp claim is typically in seconds since epoch)
       if Time.local.to_unix > payload["exp"].to_s.to_i
-        return {active: false, exp: payload["exp"]}
+        return {"active" => false, "exp"=> payload["exp"].as_i64}
       end
 
       # Return authly access token
       {
-        active: true,
-        scope:  payload["scope"],
-        cid:    payload["cid"],
-        exp:    payload["exp"],
-        sub:    payload["sub"],
+        "active"=> true,
+        "scope"=>  payload["scope"].as_s,
+        "cid"=>  payload["cid"].as_s,
+        "exp"=>    payload["exp"].as_i64,
+        "sub"=>    payload["sub"].as_s,
       }
     rescue JWT::DecodeError
-      {active: false}
+      {"active"=> false}
     end
+  end
+
+  class OpaqueToken
+    include TokenStrategy
+
+    def initialize
+      @config = Authly.config
+      @token_store = @config.token_store
+    end
+
+    def revoke(token)
+      @token_store.revoke(token)
+    end
+
+    def revoked?(token) : Bool
+      @token_store.revoked?(token)
+    end
+
+    def valid?(token) : Bool
+      @token_store.valid?(token)
+    end
+
+    def introspect(token : String)
+      payload  = @token_store.fetch(token)
+      return {"active"=> false} if payload.nil?
+
+      {"active"=> true, "token"=> payload}
+
+    rescue e : Error
+      {"active"=> false}
+    end
+  end
+
+
+  class TokenManager
+    def self.instance
+      @@instance ||= new
+    end
+
+    def initialize(
+      @config = Authly.config,
+      @token_manager : TokenStrategy = TokenStrategyFactory.create
+    )
+    end
+
+    def revoke(token)
+      @token_manager.revoke(token)
+    end
+
+    def revoked?(token)
+      @token_manager.revoked?(token)
+    end
+
+    def valid?(token)
+      @token_manager.valid?(token)
+    end
+
+    def introspect(token : String)
+      @token_manager.introspect(token)
+    end
+
   end
 end
