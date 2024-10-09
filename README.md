@@ -68,7 +68,7 @@ To install Authly, add it to your `shard.yml`:
 ```yaml
 dependencies:
   authly:
-    github: yourusername/authly
+    github: azutoolkit/authly
 ```
 
 Run `shards install` to add the dependency to your project.
