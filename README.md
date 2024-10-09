@@ -1,162 +1,160 @@
-<div style="text-align:center"><img src="https://raw.githubusercontent.com/azutoolkit/authly/master/authly.png" /></div>
+# Authly - Simplify Authentication for Your Application
 
-# Authly
+![Authly Logo](images/authly-logo.png)
 
-[![Codacy Badge](https://api.codacy.com/project/badge/Grade/747eef2e02594d40b63c9f05c6b94cd9)](https://app.codacy.com/manual/eliasjpr/authly?utm_source=github.com&utm_medium=referral&utm_content=eliasjpr/authly&utm_campaign=Badge_Grade_Settings) ![Crystal CI](https://github.com/eliasjpr/authly/workflows/Crystal%20CI/badge.svg?branch=master)
+[![Build Status](https://img.shields.io/github/actions/workflow/status/yourusername/authly/build.yml)](https://github.com/yourusername/authly/actions) [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
-## OAuth2 Provider Server Library for the Crystal Language
+Authly is an open-source Crystal library that helps developers integrate secure and robust authentication capabilities into their applications with ease. Supporting various OAuth2 grants and providing straightforward APIs, Authly aims to streamline the process of managing authentication in a modern software environment.
 
-Authly is an OAuth2 Library for creating Authorization Servers that supports OAuth2 authorization mechanisms. Example OAuth 2.0 Server Implementation https://github.com/azutoolkit/authority/
+## Table of Contents
 
-> Authly implements the OAuth 2.0 specification as described at https://www.oauth.com/
+- [Authly - Simplify Authentication for Your Application](#authly---simplify-authentication-for-your-application)
+  - [Table of Contents](#table-of-contents)
+  - [About The Project](#about-the-project)
+  - [Getting Started](#getting-started)
+    - [Prerequisites](#prerequisites)
+    - [Installation](#installation)
+  - [Usage](#usage)
+    - [OAuth2 Grants](#oauth2-grants)
+    - [Endpoints](#endpoints)
+    - [Example Usage](#example-usage)
+  - [Features](#features)
+  - [Roadmap](#roadmap)
+  - [Contributing](#contributing)
+  - [License](#license)
+  - [Contact](#contact)
+  - [Acknowledgments](#acknowledgments)
 
-OAuth 2.0 is a flexibile authorization framework that describes a number of grants (“methods”) for a client application to acquire an access token (which represents a user’s permission for the client to access their data) which can be used to authenticate a request to an API endpoint.
+## About The Project
 
-The specification describes five grants for acquiring an access token:
+Authly is designed to make authentication simple for developers who want to focus on building their application rather than getting bogged down in authentication logic. Authly offers:
 
-- [x] Authorization code grant
-- [x] Implicit grant
-- [x] Resource owner credentials grant
-- [x] Client credentials grant
-- [x] Refresh token grant
-- [x] OpenID Connect (IdToken)
-- [] Device Code
+- Support for OAuth2 grant types, including Authorization Code, Client Credentials, Password, Implicit, Device Code, and Refresh Token.
+- OpenID Connect support for ID Token generation.
+- A well-documented, intuitive API.
+- Built-in token management with support for introspection and revocation.
+- Easy-to-configure HTTP handlers for integrating authentication flows.
+- Support for both opaque and JWT tokens.
 
-## Authorization Use Cases
+![Authly Demo](images/demo.gif)
 
-The first step of OAuth 2 is to get authorization from the user. For browser-based or mobile apps, this is usually accomplished by displaying an interface provided by the service to the user.
+## Getting Started
 
-OAuth 2 provides several "grant types" for different use cases. The grant types defined are:
+To get started with Authly, follow these steps to install and integrate it with your project.
 
-- **Authorization code grant** for apps running on a web server, browser-based and mobile apps
-- **Resource owner credentials grant** for logging in with a username and password (only for first-party apps)
-- **Client credentials** grant for application access without a user present, think microservices
-- **Implicit grant** was previously recommended for clients without a secret, but has been superseded by using the Authorization Code grant with PKCE
+### Prerequisites
 
-## Terminology
+- Crystal language (v1.0 or higher)
+- A working development environment (Linux, macOS, or Windows)
 
-### Resource owner (the user)
+### Installation
 
-Entity that can grant access to a protected resource. Typically, this is the end-user.
+To install Authly, add it to your `shard.yml`:
 
-### Resource server (the API)
+```yaml
+dependencies:
+  authly:
+    github: yourusername/authly
+```
 
-Server hosting the protected resources. This is the API you want to access.
-
-### Authorization server (can be the same server as the API)
-
-Server that authenticates the Resource Owner and issues Access Tokens after getting proper authorization. In this case, Auth0.
-
-### Client (the third-party app)
-
-Application requesting access to a protected resource on behalf of the Resource Owner.
-
-### User Agent
-
-Agent used by the Resource Owner to interact with the Client (for example, a browser or a native application).
-
-> **Note**
-> This implementation uses JWT tokens for storage by default.
-
-## Installation
-
-1. Add the dependency to your `shard.yml`:
-
-   ```yaml
-   dependencies:
-     authly:
-       github: azutoolkit/authly
-   ```
-
-2. Run `shards install`
+Run `shards install` to add the dependency to your project.
 
 ## Usage
 
+### OAuth2 Grants
+
+Authly supports several OAuth2 grant types, which can be used based on your application's authentication needs:
+
+1. **Authorization Code Grant**: This is the most secure grant type, typically used by server-side applications where the client secret can be kept confidential. It involves an intermediate authorization code that is exchanged for an access token.
+2. **Implicit Grant**: This grant type is used for public clients, such as JavaScript apps, where the access token is returned directly without an intermediate authorization code.
+3. **Resource Owner Credentials Grant**: Suitable for highly trusted applications, this grant type allows the use of the resource owner's username and password directly to obtain an access token.
+4. **Client Credentials Grant**: Used when the client itself is the resource owner, or when accessing its own resources. This is suitable for machine-to-machine communication.
+5. **Refresh Token Grant**: Allows clients to obtain a new access token without requiring user interaction, thus improving the user experience by keeping users logged in.
+6. **Device Code**: Suitable for devices that have limited input capabilities. The device code flow allows users to authenticate on a separate device with a browser.
+
+Each of these grants can be accessed through the `/oauth/token` endpoint, with specific parameters to specify the grant type.
+
+Authly provides an easy way to set up an authentication service in your application. Here's how to get started with its key components:
+
+### Endpoints
+
+Authly provides HTTP handlers to set up OAuth2 endpoints. The available endpoints include:
+
+1. **Authorization Endpoint** (`/oauth/authorize`): Used to get authorization from the resource owner.
+
+   ```crystal
+   server = HTTP::Server.new([
+     Authly::OAuthHandler.new,
+   ])
+   server.bind_tcp("127.0.0.1", 8080)
+   server.listen
+   ```
+
+2. **Token Endpoint** (`/oauth/token`): Used to exchange an authorization grant for an access token.
+3. **Introspection Endpoint** (`/introspect`): Allows clients to validate the token.
+4. **Revoke Endpoint** (`/revoke`): Used to revoke an access or refresh token.
+
+### Example Usage
+
+To integrate Authly into your existing application, create an instance of the server with the appropriate handlers:
+
 ```crystal
 require "authly"
+
+server = HTTP::Server.new([
+  Authly::OAuthHandler.new,
+])
+server.bind_tcp("0.0.0.0", 8080)
+puts "Listening on http://0.0.0.0:8080"
+server.listen
 ```
 
-### Configuration
+Once the server is running, you can send HTTP requests to authenticate users and manage tokens.
 
-```crystal
-# In memory storage of clients (3rd Party Apps)
-Authly.clients << Authly::Client.new("example", "secret", "https://www.example.com/callback", "1")
+## Features
 
-#
-Authly.owners << Authly::Owner.new("username", "password")
+- **OAuth2 Grants**:
+  - [x] Authorization Code Grant
+  - [x] Implicit Grant
+  - [x] Resource Owner Credentials Grant
+  - [x] Client Credentials Grant
+  - [x] Refresh Token Grant
+  - [x] Device Code
+- **OpenID Connect (ID Token)**: Generate ID tokens for user identity.
+- **Token Introspection**: Allows clients to validate tokens.
+- **Token Revocation**: Easy-to-use token revocation functionality to invalidate access or refresh tokens.
+- **Opaque Tokens**: Support for opaque tokens in addition to JWTs.
+- **Configurable Handlers**: Customizable HTTP handlers to integrate authentication endpoints into your application effortlessly.
 
-# Or use your own classes and implement interface
+## Roadmap
 
-# Clients
-class AppService
-  include AuthorizableClient
-end
+- [ ] Add more examples for integrating with front-end frameworks.
+- [x] Support OpenID Connect for extended authentication features.
+- [ ] Add more customization options for token storage backends.
 
-# Owners
-class UserService
-  include AuthorizableOwner
-end
-
-# Configure
-Authly.configure do |c|
-  # Secret Key for JWT Tokens
-  c.secret_key = "Some Secret"
-  c.algorithm = JWT::Algorithm::HS256
-
-  # Refresh Token Time To Live
-  c.refresh_ttl = 1.hour
-
-  # Authorization Code Time To Live
-  c.code_ttl = 1.hour
-
-  # Access Token Time To Live
-  c.access_ttl = 1.hour
-
-  # Using your own classes
-  c.owners = UserService.new
-  c.clients = AppService.new
-end
-```
-
-#### Token
-
-```crystal
-Authly.access_token(grant_type, **args)
-```
-
-#### Code
-
-```crystal
-Authly.code(response_type, *args)
-```
-
-### Exceptions
-
-Authly returns exceptions according to the OAuth2 protocol of type `Error` with `code`, `type` and `message` properties.
-
-### Error Type and Messages
-
-```crystal
-invalid_redirect_uri:   "Invalid redirect uri",
-invalid_state:          "Invalid state",
-invalid_scope:          "Invalid scope value in the request",
-invalid_client:         "Client authentication failed, such as if the request contains an invalid client ID or secret.",
-owner_credentials:      "Invalid owner credentials",
-invalid_request:        "The request is missing a parameter so the server can’t proceed with the request",
-invalid_grant:          "The authorization code is invalid or expired.",
-unauthorized_client:    "This client is not authorized to use the requested grant type",
-unsupported_grant_type: "Invalid or unknown grant type",
-access_denied:          "The user or authorization server denied the request",
-```
+See the [open issues](https://github.com/yourusername/authly/issues) for a list of proposed features (and known issues).
 
 ## Contributing
 
-1. Fork it (<https://github.com/your-github-user/authly/fork>)
-2. Create your feature branch (`git checkout -b my-new-feature`)
-3. Commit your changes (`git commit -am 'Add some feature'`)
-4. Push to the branch (`git push origin my-new-feature`)
-5. Create a new Pull Request
+Contributions are what make the open source community such an amazing place to learn, inspire, and create. Any contributions you make are **greatly appreciated**.
 
-## Contributors
+1. Fork the Project
+2. Create your Feature Branch (`git checkout -b feature/AmazingFeature`)
+3. Commit your Changes (`git commit -m 'Add some AmazingFeature'`)
+4. Push to the Branch (`git push origin feature/AmazingFeature`)
+5. Open a Pull Request
 
-- [Elias Perez](https://github.com/your-github-user) - Initial work
+## License
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+## Contact
+
+Project Link: [https://github.com/yourusername/authly](https://github.com/yourusername/authly)
+
+## Acknowledgments
+
+- [Best-README-Template](https://github.com/othneildrew/Best-README-Template)
+- [Readme Best Practices](https://github.com/jehna/readme-best-practices)
+- [Shields.io](https://shields.io) for the beautiful badges
+- [GitHub Pages](https://pages.github.com) for hosting project documentation
