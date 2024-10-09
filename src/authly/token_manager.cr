@@ -8,7 +8,7 @@ module Authly
 
   class TokenStrategyFactory
     TOKEN_MANAGERS = {
-      jwt: JWTToken.new,
+      jwt:    JWTToken.new,
       opaque: OpaqueToken.new,
     }
 
@@ -52,19 +52,19 @@ module Authly
 
       # Check if the token is expired (exp claim is typically in seconds since epoch)
       if Time.local.to_unix > payload["exp"].to_s.to_i
-        return {"active" => false, "exp"=> payload["exp"].as_i64}
+        return {"active" => false, "exp" => payload["exp"].as_i64}
       end
 
       # Return authly access token
       {
-        "active"=> true,
-        "scope"=>  payload["scope"].as_s,
-        "cid"=>  payload["cid"].as_s,
-        "exp"=>    payload["exp"].as_i64,
-        "sub"=>    payload["sub"].as_s,
+        "active" => true,
+        "scope"  => payload["scope"].as_s,
+        "cid"    => payload["cid"].as_s,
+        "exp"    => payload["exp"].as_i64,
+        "sub"    => payload["sub"].as_s,
       }
     rescue JWT::DecodeError
-      {"active"=> false}
+      {"active" => false}
     end
   end
 
@@ -89,16 +89,14 @@ module Authly
     end
 
     def introspect(token : String)
-      payload  = @token_store.fetch(token)
-      return {"active"=> false} if payload.nil?
+      payload = @token_store.fetch(token)
+      return {"active" => false} if payload.nil?
 
-      {"active"=> true, "token"=> payload}
-
+      {"active" => true, "token" => payload}
     rescue e : Error
-      {"active"=> false}
+      {"active" => false}
     end
   end
-
 
   class TokenManager
     def self.instance
@@ -126,6 +124,5 @@ module Authly
     def introspect(token : String)
       @token_manager.introspect(token)
     end
-
   end
 end

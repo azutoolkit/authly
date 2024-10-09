@@ -127,10 +127,10 @@ describe Authly do
 
       token.should eq({
         "active" => true,
-        "scope" =>  scope,
-        "cid" =>    client_id,
-        "exp" =>    a_token.expires_in,
-        "sub" =>    expected_token["sub"],
+        "scope"  => scope,
+        "cid"    => client_id,
+        "exp"    => a_token.expires_in,
+        "sub"    => expected_token["sub"],
       })
     end
 

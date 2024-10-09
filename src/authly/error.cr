@@ -12,7 +12,7 @@ module Authly
     unsupported_grant_type: "Invalid or unknown grant type",
     access_denied:          "The user or authorization server denied the request",
     unsupported_token_type: "The authorization server does not support the presented token type",
-    invalid_token:         "The token is invalid or expired",
+    invalid_token:          "The token is invalid or expired",
   }
 
   class Error(Code) < Exception
