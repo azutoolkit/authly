@@ -1,8 +1,8 @@
 # Authly - Simplify Authentication for Your Application
 
-<div style="text-align:center"><img src="https://raw.githubusercontent.com/azutoolkit/authly/master/authly.png" /></div>
-
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/747eef2e02594d40b63c9f05c6b94cd9)](https://app.codacy.com/manual/eliasjpr/authly?utm_source=github.com&utm_medium=referral&utm_content=eliasjpr/authly&utm_campaign=Badge_Grade_Settings) ![Crystal CI](https://github.com/eliasjpr/authly/workflows/Crystal%20CI/badge.svg?branch=master)
+
+<div style="text-align:center"><img src="https://raw.githubusercontent.com/azutoolkit/authly/master/authly.png" /></div>
 
 Authly is an open-source Crystal library that helps developers integrate secure and robust authentication capabilities into their applications with ease. Supporting various OAuth2 grants and providing straightforward APIs, Authly aims to streamline the process of managing authentication in a modern software environment.
 
@@ -15,23 +15,15 @@ Authly is an open-source Crystal library that helps developers integrate secure 
     - [Prerequisites](#prerequisites)
     - [Installation](#installation)
   - [Usage](#usage)
+    - [Configuration Setup](#configuration-setup)
+    - [Custom Authorizable Client and Owner](#custom-authorizable-client-and-owner)
+      - [Custom Client Example](#custom-client-example)
+      - [Custom Owner Example](#custom-owner-example)
+    - [Creating a Custom TokenStore](#creating-a-custom-tokenstore)
+      - [Custom TokenStore Example](#custom-tokenstore-example)
     - [OAuth2 Grants](#oauth2-grants)
-- [Authly::Configuration](#authlyconfiguration)
-  - [Properties](#properties)
-    - [`issuer : String`](#issuer--string)
-    - [`secret_key : String`](#secret_key--string)
-    - [`public_key : String`](#public_key--string)
-    - [`refresh_ttl : Time::Span`](#refresh_ttl--timespan)
-    - [`code_ttl : Time::Span`](#code_ttl--timespan)
-    - [`access_ttl : Time::Span`](#access_ttl--timespan)
-    - [`owners : AuthorizableOwner`](#owners--authorizableowner)
-    - [`clients : AuthorizableClient`](#clients--authorizableclient)
-    - [`token_store : TokenStore`](#token_store--tokenstore)
-    - [`algorithm : JWT::Algorithm`](#algorithm--jwtalgorithm)
-    - [`token_strategy : Symbol`](#token_strategy--symbol)
-  - [Example Usage](#example-usage)
     - [Endpoints](#endpoints)
-    - [Example Usage With Built In Server Handler](#example-usage-with-built-in-server-handler)
+    - [Example Usage](#example-usage)
   - [Features](#features)
   - [Roadmap](#roadmap)
   - [Contributing](#contributing)
@@ -49,8 +41,6 @@ Authly is designed to make authentication simple for developers who want to focu
 - Built-in token management with support for introspection and revocation.
 - Easy-to-configure HTTP handlers for integrating authentication flows.
 - Support for both opaque and JWT tokens.
-
-![Authly Demo](images/demo.gif)
 
 ## Getting Started
 
@@ -75,6 +65,107 @@ Run `shards install` to add the dependency to your project.
 
 ## Usage
 
+### Configuration Setup
+
+To configure Authly, you need to set up some essential configuration options for your application. These options include issuer information, secret keys, token expiration settings, and custom handlers. Here’s how you can set up the configuration:
+
+```crystal
+Authly.configure do |config|
+  config.issuer = "https://your-app.com"
+  config.secret_key = ENV["AUTHLY_SECRET_KEY"] # Ensure you keep this key secure
+  config.public_key = ENV["AUTHLY_PUBLIC_KEY"]
+  config.token_ttl[:access] = 3600 # Token Time-to-Live in seconds
+  config.owners = [CustomAuthorizableOwner]
+  config.clients = [CustomAuthorizableClient]
+  config.token_store = CustomTokenStore.new
+end
+```
+
+This configuration ensures that your application has secure, well-defined settings for token management.
+
+### Custom Authorizable Client and Owner
+
+Authly allows you to implement custom clients and owners to define how they are authorized within your application. You need to implement `AuthorizableClient` and `AuthorizableOwner` interfaces.
+
+#### Custom Client Example
+
+```crystal
+class CustomAuthorizableClient
+  include Authly::AuthorizableClient
+
+  def valid_redirect?(redirect_uri : String) : Bool
+    # Implement logic to verify if the provided redirect URI is valid
+    valid_uris = ["https://your-app.com/callback", "https://another-allowed-url.com"]
+    valid_uris.includes?(redirect_uri)
+  end
+
+  def authorized?(client_id : String, client_secret : String) : Bool
+    # Implement logic to verify client credentials
+    client_id == "expected_client_id" && client_secret == "expected_client_secret"
+  end
+end
+```
+
+#### Custom Owner Example
+
+```crystal
+class CustomAuthorizableOwner
+  include Authly::AuthorizableOwner
+
+  def authorized?(username : String, password : String) : Bool
+    # Implement logic to verify user credentials
+    username == "valid_user" && password == "valid_password"
+  end
+
+  def id_token(user_data : Hash(String, String)) : String
+    # Create an ID Token for the user
+    "user_id_token"
+  end
+end
+```
+
+These implementations allow your app to customize the logic for verifying clients and owners.
+
+### Creating a Custom TokenStore
+
+Authly comes with an in-memory token store by default, which works well for development or single-node deployments. However, for production use or when you need persistence across restarts, you can create a custom `TokenStore`.
+
+#### Custom TokenStore Example
+
+```crystal
+class CustomTokenStore
+  include Authly::TokenStore
+
+  def store(token : String, data : Hash(String, String))
+    # Store token in a database or any other persistent storage
+    DB.exec("INSERT INTO tokens (token, data) VALUES (?, ?)", token, data.to_json)
+  end
+
+  def fetch(token : String) : Hash(String, String)?
+    # Fetch token data from the persistent storage
+    result = DB.query_one("SELECT data FROM tokens WHERE token = ?", token)
+    result.not_nil! ? JSON.parse(result, Hash(String, String)) : nil
+  end
+
+  def revoke(token : String)
+    # Revoke a token by removing it from the persistent storage
+    DB.exec("DELETE FROM tokens WHERE token = ?", token)
+  end
+
+  def revoked?(token : String) : Bool
+    # Check if a token has been revoked
+    !DB.query_one("SELECT 1 FROM tokens WHERE token = ?", token).nil?
+  end
+
+  def valid?(token : String) : Bool
+    # Implement logic to verify if the token is still valid
+    !revoked?(token)
+  end
+end
+```
+
+This custom store allows for better scalability and persistence, making your authentication system robust and reliable.
+
 ### OAuth2 Grants
 
 Authly supports several OAuth2 grant types, which can be used based on your application's authentication needs:
@@ -90,108 +181,25 @@ Each of these grants can be accessed through the `/oauth/token` endpoint, with s
 
 Authly provides an easy way to set up an authentication service in your application. Here's how to get started with its key components:
 
-# Authly::Configuration
-
-The `Authly::Configuration` class is designed to hold configuration settings for the Authly authentication framework. It allows users to customize various aspects of the authentication process, including issuer details, token management, and security settings.
-
-## Properties
-
-### `issuer : String`
-
-- **Default**: `"The Authority Server Provider"`
-- **Description**: The identifier for the authority server provider. This is usually a unique string that represents the service that issues tokens.
-
-### `secret_key : String`
-
-- **Default**: A randomly generated hexadecimal string (16 bytes).
-- **Description**: The secret key used for signing tokens. It should be kept secure and confidential.
-
-### `public_key : String`
-
-- **Default**: A randomly generated hexadecimal string (16 bytes).
-- **Description**: The public key used for verifying signed tokens. This can be shared with clients for validation purposes.
-
-### `refresh_ttl : Time::Span`
-
-- **Default**: `1.day`
-- **Description**: The time-to-live (TTL) for refresh tokens. This defines how long a refresh token remains valid before it can no longer be used to obtain new access tokens.
-
-### `code_ttl : Time::Span`
-
-- **Default**: `5.minutes`
-- **Description**: The TTL for authorization codes. This specifies how long an authorization code is valid after being issued.
-
-### `access_ttl : Time::Span`
-
-- **Default**: `1.hour`
-- **Description**: The TTL for access tokens. This indicates how long an access token can be used before it expires.
-
-### `owners : AuthorizableOwner`
-
-- **Default**: `Owners.new`
-- **Description**: An instance of `AuthorizableOwner`, which manages ownership authorization. This typically includes logic to determine who can own resources.
-
-### `clients : AuthorizableClient`
-
-- **Default**: `Clients.new`
-- **Description**: An instance of `AuthorizableClient`, responsible for managing client authorization. This may include logic for client registration and validation.
-
-### `token_store : TokenStore`
-
-- **Default**: `InMemoryStore.new`
-- **Description**: The token storage mechanism. This specifies where tokens are stored (e.g., in memory, database, etc.). The default implementation is an in-memory store.
-
-### `algorithm : JWT::Algorithm`
-
-- **Default**: `JWT::Algorithm::HS256`
-- **Description**: The algorithm used to sign the JWT tokens. The default is HMAC with SHA-256, but this can be changed to other algorithms as needed.
-
-### `token_strategy : Symbol`
-
-- **Default**: `:jwt`
-- **Description**: The strategy used for token generation. The default value is `:jwt`, indicating that JSON Web Tokens are used for authentication.
-
----
-
-## Example Usage
-
-To configure your Authly setup, you can instantiate the `Configuration` class and set the desired properties:
-
-```crystal
-Authly.configure do |c|
-  c.issuer= "The Authority Server Provider"
-  c.secret_key= Random::Secure.hex(16)
-  c.public_key= Random::Secure.hex(16)
-  c.refresh_ttl = 1.day
-  c.code_ttl = 5.minutes
-  c.access_ttl = 1.hour
-  c.owners =  Owners.new
-  c.clients= Clients.new
-  c.token_store= InMemoryStore.new
-  c.algorithm = JWT::Algorithm::HS256
-  c.token_strategy = :jwt
-end
-```
-
 ### Endpoints
 
 Authly provides HTTP handlers to set up OAuth2 endpoints. The available endpoints include:
 
 1. **Authorization Endpoint** (`/oauth/authorize`): Used to get authorization from the resource owner.
 
-```crystal
-server = HTTP::Server.new([
-  Authly::OAuthHandler.new,
-])
-server.bind_tcp("127.0.0.1", 8080)
-server.listen
-```
+   ```crystal
+   server = HTTP::Server.new([
+     Authly::OAuthHandler.new,
+   ])
+   server.bind_tcp("127.0.0.1", 8080)
+   server.listen
+   ```
 
 2. **Token Endpoint** (`/oauth/token`): Used to exchange an authorization grant for an access token.
 3. **Introspection Endpoint** (`/introspect`): Allows clients to validate the token.
 4. **Revoke Endpoint** (`/revoke`): Used to revoke an access or refresh token.
 
-### Example Usage With Built In Server Handler
+### Example Usage
 
 To integrate Authly into your existing application, create an instance of the server with the appropriate handlers:
 
@@ -226,7 +234,7 @@ Once the server is running, you can send HTTP requests to authenticate users and
 ## Roadmap
 
 - [ ] Add more examples for integrating with front-end frameworks.
-- [x] Support OpenID Connect for extended authentication features.
+- [ ] Support OpenID Connect for extended authentication features.
 - [ ] Add more customization options for token storage backends.
 
 See the [open issues](https://github.com/yourusername/authly/issues) for a list of proposed features (and known issues).
@@ -247,8 +255,8 @@ Distributed under the MIT License. See `LICENSE` for more information.
 
 ## Contact
 
-[Elias Perez](https://github.com/eliasjpr) - Initial work
-Project Link: [https://github.com/azutoolkit/authly](https://github.com/azutoolkit/authly)
+Elias J. Perez - [@eliasjpr](https://github.com/eliasjpr)
+Project Link: [https://github.com/yourusername/authly](https://github.com/yourusername/authly)
 
 ## Acknowledgments
 
