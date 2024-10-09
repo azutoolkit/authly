@@ -1,3 +1,5 @@
+require "digest/sha256"
+
 module Authly
   alias CodeChallenge = CodeChallengeBuilder::Plain | CodeChallengeBuilder::S256 | CodeChallengeBuilder::Empty
 

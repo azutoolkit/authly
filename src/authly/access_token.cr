@@ -5,9 +5,11 @@ module Authly
     REFRESH_TTL = Authly.config.refresh_ttl
 
     # The JWT ID (jti), used to track and revoke individual tokens
+    getter sub : String = Random::Secure.hex(32)
     getter jti : String
     getter access_token : String
     getter token_type : String = "Bearer"
+    getter scope : String
     getter expires_in : Int64 = ACCESS_TTL.from_now.to_unix
     getter? revoked : Bool = false
     @[JSON::Field(emit_null: false)]
@@ -22,14 +24,14 @@ module Authly
     end
 
     def initialize(@client_id : String, @scope : String, @id_token : String? = nil)
-      @jti = Random::Secure.hex(32) # Generate a unique jti for each token
+      @jti = Random::Secure.hex(32)
       @access_token = generate_token
       @refresh_token = refresh_token
     end
 
     private def generate_token
       Authly.jwt_encode({
-        "sub"   => Random::Secure.hex(32),
+        "sub"   => sub,
         "iss"   => Authly.config.issuer,
         "cid"   => @client_id,
         "iat"   => Time.utc.to_unix,
