@@ -16,8 +16,22 @@ Authly is an open-source Crystal library that helps developers integrate secure 
     - [Installation](#installation)
   - [Usage](#usage)
     - [OAuth2 Grants](#oauth2-grants)
+- [Authly::Configuration](#authlyconfiguration)
+  - [Properties](#properties)
+    - [`issuer : String`](#issuer--string)
+    - [`secret_key : String`](#secret_key--string)
+    - [`public_key : String`](#public_key--string)
+    - [`refresh_ttl : Time::Span`](#refresh_ttl--timespan)
+    - [`code_ttl : Time::Span`](#code_ttl--timespan)
+    - [`access_ttl : Time::Span`](#access_ttl--timespan)
+    - [`owners : AuthorizableOwner`](#owners--authorizableowner)
+    - [`clients : AuthorizableClient`](#clients--authorizableclient)
+    - [`token_store : TokenStore`](#token_store--tokenstore)
+    - [`algorithm : JWT::Algorithm`](#algorithm--jwtalgorithm)
+    - [`token_strategy : Symbol`](#token_strategy--symbol)
+  - [Example Usage](#example-usage)
     - [Endpoints](#endpoints)
-    - [Example Usage](#example-usage)
+    - [Example Usage With Built In Server Handler](#example-usage-with-built-in-server-handler)
   - [Features](#features)
   - [Roadmap](#roadmap)
   - [Contributing](#contributing)
@@ -76,25 +90,108 @@ Each of these grants can be accessed through the `/oauth/token` endpoint, with s
 
 Authly provides an easy way to set up an authentication service in your application. Here's how to get started with its key components:
 
+# Authly::Configuration
+
+The `Authly::Configuration` class is designed to hold configuration settings for the Authly authentication framework. It allows users to customize various aspects of the authentication process, including issuer details, token management, and security settings.
+
+## Properties
+
+### `issuer : String`
+
+- **Default**: `"The Authority Server Provider"`
+- **Description**: The identifier for the authority server provider. This is usually a unique string that represents the service that issues tokens.
+
+### `secret_key : String`
+
+- **Default**: A randomly generated hexadecimal string (16 bytes).
+- **Description**: The secret key used for signing tokens. It should be kept secure and confidential.
+
+### `public_key : String`
+
+- **Default**: A randomly generated hexadecimal string (16 bytes).
+- **Description**: The public key used for verifying signed tokens. This can be shared with clients for validation purposes.
+
+### `refresh_ttl : Time::Span`
+
+- **Default**: `1.day`
+- **Description**: The time-to-live (TTL) for refresh tokens. This defines how long a refresh token remains valid before it can no longer be used to obtain new access tokens.
+
+### `code_ttl : Time::Span`
+
+- **Default**: `5.minutes`
+- **Description**: The TTL for authorization codes. This specifies how long an authorization code is valid after being issued.
+
+### `access_ttl : Time::Span`
+
+- **Default**: `1.hour`
+- **Description**: The TTL for access tokens. This indicates how long an access token can be used before it expires.
+
+### `owners : AuthorizableOwner`
+
+- **Default**: `Owners.new`
+- **Description**: An instance of `AuthorizableOwner`, which manages ownership authorization. This typically includes logic to determine who can own resources.
+
+### `clients : AuthorizableClient`
+
+- **Default**: `Clients.new`
+- **Description**: An instance of `AuthorizableClient`, responsible for managing client authorization. This may include logic for client registration and validation.
+
+### `token_store : TokenStore`
+
+- **Default**: `InMemoryStore.new`
+- **Description**: The token storage mechanism. This specifies where tokens are stored (e.g., in memory, database, etc.). The default implementation is an in-memory store.
+
+### `algorithm : JWT::Algorithm`
+
+- **Default**: `JWT::Algorithm::HS256`
+- **Description**: The algorithm used to sign the JWT tokens. The default is HMAC with SHA-256, but this can be changed to other algorithms as needed.
+
+### `token_strategy : Symbol`
+
+- **Default**: `:jwt`
+- **Description**: The strategy used for token generation. The default value is `:jwt`, indicating that JSON Web Tokens are used for authentication.
+
+---
+
+## Example Usage
+
+To configure your Authly setup, you can instantiate the `Configuration` class and set the desired properties:
+
+```crystal
+Authly.configure do |c|
+  c.issuer= "The Authority Server Provider"
+  c.secret_key= Random::Secure.hex(16)
+  c.public_key= Random::Secure.hex(16)
+  c.refresh_ttl = 1.day
+  c.code_ttl = 5.minutes
+  c.access_ttl = 1.hour
+  c.owners =  Owners.new
+  c.clients= Clients.new
+  c.token_store= InMemoryStore.new
+  c.algorithm = JWT::Algorithm::HS256
+  c.token_strategy = :jwt
+end
+```
+
 ### Endpoints
 
 Authly provides HTTP handlers to set up OAuth2 endpoints. The available endpoints include:
 
 1. **Authorization Endpoint** (`/oauth/authorize`): Used to get authorization from the resource owner.
 
-   ```crystal
-   server = HTTP::Server.new([
-     Authly::OAuthHandler.new,
-   ])
-   server.bind_tcp("127.0.0.1", 8080)
-   server.listen
-   ```
+```crystal
+server = HTTP::Server.new([
+  Authly::OAuthHandler.new,
+])
+server.bind_tcp("127.0.0.1", 8080)
+server.listen
+```
 
 2. **Token Endpoint** (`/oauth/token`): Used to exchange an authorization grant for an access token.
 3. **Introspection Endpoint** (`/introspect`): Allows clients to validate the token.
 4. **Revoke Endpoint** (`/revoke`): Used to revoke an access or refresh token.
 
-### Example Usage
+### Example Usage With Built In Server Handler
 
 To integrate Authly into your existing application, create an instance of the server with the appropriate handlers:
 
