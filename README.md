@@ -74,10 +74,14 @@ Authly.configure do |config|
   config.issuer = "https://your-app.com"
   config.secret_key = ENV["AUTHLY_SECRET_KEY"] # Ensure you keep this key secure
   config.public_key = ENV["AUTHLY_PUBLIC_KEY"]
-  config.token_ttl[:access] = 3600 # Token Time-to-Live in seconds
-  config.owners = [CustomAuthorizableOwner]
-  config.clients = [CustomAuthorizableClient]
+  config.refresh_ttl = 1.day # Token Time-to-Live in seconds
+  config.code_ttl = 5.minutes
+  config.access_ttl =1.hour
+  config.owners = CustomAuthorizableOwner.new
+  config.clients = CustomAuthorizableClient.new
   config.token_store = CustomTokenStore.new
+  config.algorithm = JWT::Algorithm::HS256
+  config.token_strategy = :jwt
 end
 ```
 
