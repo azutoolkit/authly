@@ -1,18 +1,13 @@
 # Spec tests for Authly's OAuth Handlers
 require "./spec_helper"
 require "http/server"
-
 module Authly
   describe "AuthorizationHandler" do
-    base_uri = "http://0.0.0.0:4000"
-
     it "returns authorization code with valid client_id and redirect_uri" do
       response = HTTP::Client.get("#{base_uri}/oauth/authorize?client_id=1&redirect_uri=https://www.example.com/callback&response_type=code")
       body = response.body
-      body
 
       response.status_code.should eq 302
-
       response.headers["Location"].should_not be_nil
     end
 
