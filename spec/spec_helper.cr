@@ -3,7 +3,7 @@ require "digest"
 require "base64"
 require "faker"
 require "../src/authly"
-require "./settings"
+require "./support/settings"
 
 process = nil
 Spec.before_suite do

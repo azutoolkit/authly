@@ -45,7 +45,6 @@ module Authly
       client_id = params.fetch("client_id", "")
       client_secret = params.fetch("client_secret", "")
       redirect_uri = params.fetch("redirect_uri", "")
-      authorization_code = params.fetch("code", "")
       username = params.fetch("username", "")
       password = params.fetch("password", "")
       refresh_token = params.fetch("refresh_token", "")
