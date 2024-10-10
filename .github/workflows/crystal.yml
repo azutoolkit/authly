@@ -25,7 +25,7 @@ jobs:
         run: crystal ./spec/support/test_server.cr &
 
       - name: Run Grants
-        run: crystal spec spec/grants/**/*.cr
+        run: crystal spec spec/grants/*_spec.cr
 
       - name: Run Authly
         run: crystal spec spec/*_spec.cr
