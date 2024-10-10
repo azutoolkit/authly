@@ -46,6 +46,7 @@ module Authly
         "sub"  => @client_id,
         "name" => "refresh token",
         "iat"  => Time.utc.to_unix,
+        "iss"  => Authly.config.issuer,
         "exp"  => REFRESH_TTL.from_now.to_unix,
       })
     end

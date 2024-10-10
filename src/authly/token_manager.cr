@@ -27,11 +27,15 @@ module Authly
     end
 
     def revoke(token)
-      @config.token_store.revoke(token)
+      decoded_token, _header = Authly.jwt_decode(token)
+      jti = decoded_token["jti"].to_s
+      @config.token_store.revoke(jti)
     end
 
     def revoked?(token) : Bool
-      @config.token_store.revoked?(token)
+      decoded_token, _header = Authly.jwt_decode(token)
+      jti = decoded_token["jti"].to_s
+      @config.token_store.revoked?(jti)
     end
 
     def valid?(token) : Bool

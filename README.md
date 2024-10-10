@@ -193,7 +193,7 @@ Authly provides HTTP handlers to set up OAuth2 endpoints. The available endpoint
 
    ```crystal
    server = HTTP::Server.new([
-     Authly::OAuthHandler.new,
+     Authly::Handler.new,
    ])
    server.bind_tcp("127.0.0.1", 8080)
    server.listen
@@ -211,7 +211,7 @@ To integrate Authly into your existing application, create an instance of the se
 require "authly"
 
 server = HTTP::Server.new([
-  Authly::OAuthHandler.new,
+  Authly::Handler.new,
 ])
 server.bind_tcp("0.0.0.0", 8080)
 puts "Listening on http://0.0.0.0:8080"

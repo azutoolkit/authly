@@ -38,7 +38,7 @@ module Authly
   end
 
   def self.jwt_decode(token, secret_key = config.public_key)
-    JWT.decode token, secret_key, config.algorithm
+    JWT.decode(token, secret_key, config.algorithm, iss: config.issuer)
   end
 
   def self.revoke(token)
