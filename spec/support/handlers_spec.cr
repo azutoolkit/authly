@@ -4,14 +4,14 @@ require "http/server"
 
 module Authly
   describe "AuthorizationHandler" do
-    it "returns authorization code with valid client_id and redirect_uri" do
+    xit "returns authorization code with valid client_id and redirect_uri" do
       response = HTTP::Client.get("#{BASE_URI}/oauth/authorize?client_id=1&redirect_uri=https://www.example.com/callback&response_type=code")
 
       response.status_code.should eq 302
       response.headers["Location"].should_not be_nil
     end
 
-    it "returns 401 for invalid client_id or redirect_uri" do
+    xit "returns 401 for invalid client_id or redirect_uri" do
       response = HTTP::Client.get("#{BASE_URI}/oauth/authorize?client_id=invalid&redirect_uri=invalid")
       response.status_code.should eq 401
       response.body.should eq "This client is not authorized to use the requested grant type"

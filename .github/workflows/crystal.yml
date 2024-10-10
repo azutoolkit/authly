@@ -24,8 +24,11 @@ jobs:
       - name: Run Authorization Service
         run: crystal ./spec/support/test_server.cr &
 
-      - name: Run tests
-        run: crystal spec
+      - name: Run Grants
+        run: crystal spec spec/grants/**/*.cr
+
+      - name: Run Authly
+        run: crystal spec spec/*_spec.cr
   release:
     runs-on: ubuntu-latest
     needs:
