@@ -21,6 +21,9 @@ jobs:
       - name: Run Ameba Checks
         run: bin/ameba
 
+      - name: Run Authorization Service
+        run: crystal ./spec/support/test_server.cr &
+
       - name: Run tests
         run: crystal spec
   release:
