@@ -22,7 +22,6 @@ module Authly
     end
 
     def decode
-      
       raise Error.invalid_redirect_uri if redirect_uri.empty?
       raise Error.unauthorized_client unless authorize_client(client_id, redirect_uri)
 

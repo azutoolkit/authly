@@ -1,5 +1,6 @@
 require "http/server"
-require "./spec_helper"
+require "./src/authly"
+require "./spec/settings"
 
 server = HTTP::Server.new([
   Authly::OAuthHandler.new,
