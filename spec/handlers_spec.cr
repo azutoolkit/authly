@@ -1,18 +1,18 @@
 # Spec tests for Authly's OAuth Handlers
 require "./spec_helper"
 require "http/server"
+
 module Authly
   describe "AuthorizationHandler" do
     it "returns authorization code with valid client_id and redirect_uri" do
-      response = HTTP::Client.get("#{base_uri}/oauth/authorize?client_id=1&redirect_uri=https://www.example.com/callback&response_type=code")
-      body = response.body
+      response = HTTP::Client.get("#{BASE_URI}/oauth/authorize?client_id=1&redirect_uri=https://www.example.com/callback&response_type=code")
 
       response.status_code.should eq 302
       response.headers["Location"].should_not be_nil
     end
 
     it "returns 401 for invalid client_id or redirect_uri" do
-      response = HTTP::Client.get("#{base_uri}/oauth/authorize?client_id=invalid&redirect_uri=invalid")
+      response = HTTP::Client.get("#{BASE_URI}/oauth/authorize?client_id=invalid&redirect_uri=invalid")
       response.status_code.should eq 401
       response.body.should eq "This client is not authorized to use the requested grant type"
     end
@@ -21,7 +21,7 @@ module Authly
   describe "TokenHandler" do
     it "returns access token for valid authorization_code grant" do
       code = Authly.code("code", "1", "https://www.example.com/callback", "read").to_s
-      response = HTTP::Client.post("#{base_uri}/oauth/token", form: {
+      response = HTTP::Client.post("#{BASE_URI}/oauth/token", form: {
         "grant_type"    => "authorization_code",
         "client_id"     => "1",
         "client_secret" => "secret",
@@ -35,7 +35,7 @@ module Authly
     end
 
     it "returns 400 for unsupported grant type" do
-      response = HTTP::Client.post("#{base_uri}/oauth/token", form: {"grant_type" => "invalid_grant"})
+      response = HTTP::Client.post("#{BASE_URI}/oauth/token", form: {"grant_type" => "invalid_grant"})
       response.status_code.should eq 400
       response.body.should eq "Invalid or unknown grant type"
     end
@@ -48,7 +48,7 @@ module Authly
         grant_type: "authorization_code", client_id: "1", client_secret: "secret",
         redirect_uri: "https://www.example.com/callback", code: code).token
 
-      response = HTTP::Client.post("#{base_uri}/introspect", form: {"token" => token.access_token})
+      response = HTTP::Client.post("#{BASE_URI}/introspect", form: {"token" => token.access_token})
       response.status_code.should eq 200
       body = JSON.parse(response.body)
       body.should eq({
@@ -61,7 +61,7 @@ module Authly
     end
 
     it "returns 400 for missing token parameter" do
-      response = HTTP::Client.post("#{base_uri}/introspect")
+      response = HTTP::Client.post("#{BASE_URI}/introspect")
       response.status_code.should eq 400
       response.body.should eq %(Missing param name: "token")
     end
@@ -69,13 +69,13 @@ module Authly
 
   describe "RevokeHandler" do
     it "returns success message for valid token revocation" do
-      response = HTTP::Client.post("#{base_uri}/revoke", form: {"token" => "valid_token"})
+      response = HTTP::Client.post("#{BASE_URI}/revoke", form: {"token" => "valid_token"})
       response.status_code.should eq 200
       response.body.should eq "Token revoked successfully"
     end
 
     it "returns 400 for missing token parameter" do
-      response = HTTP::Client.post("#{base_uri}/revoke")
+      response = HTTP::Client.post("#{BASE_URI}/revoke")
       response.status_code.should eq 400
       response.body.should eq %(Missing param name: "token")
     end
