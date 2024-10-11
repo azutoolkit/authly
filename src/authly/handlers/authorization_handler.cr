@@ -1,5 +1,5 @@
 require "http/server/handler"
-require "URI"
+require "uri"
 
 module Authly
   class AuthorizationHandler
