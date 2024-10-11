@@ -32,7 +32,7 @@ module Authly
       @config.token_store.revoke(jti)
     end
 
-    def revoked?(token) : Bool
+    def revoked?(token : String) : Bool
       decoded_token, _header = Authly.jwt_decode(token)
       jti = decoded_token["jti"].to_s
       @config.token_store.revoked?(jti)
@@ -40,10 +40,9 @@ module Authly
 
     def valid?(token) : Bool
       decoded_token, _header = Authly.jwt_decode(token)
-      jti = decoded_token["jti"].to_s
-      return false if revoked?(jti)
+      return false if revoked?(token)
 
-      exp = decoded_token["exp"].to_s.to_i
+      exp = decoded_token["exp"].to_s.to_i64
       Time.utc.to_unix < exp
     rescue e : JWT::DecodeError
       Log.error { "Invalid token - #{e.message}" }
@@ -55,7 +54,7 @@ module Authly
       payload, _header = Authly.jwt_decode(token)
 
       # Check if the token is expired (exp claim is typically in seconds since epoch)
-      if Time.local.to_unix > payload["exp"].to_s.to_i
+      if Time.local.to_unix > payload["exp"].to_s.to_i64
         return {"active" => false, "exp" => payload["exp"].as_i64}
       end
 

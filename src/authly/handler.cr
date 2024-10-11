@@ -12,7 +12,7 @@ module Authly
         AuthorizationHandler.handle(context)
       when "/oauth/token"
         return call_next(context) unless context.request.method == "POST"
-        if context.request.params["grant_type"] == "refresh_token"
+        if context.request.form_params["grant_type"] == "refresh_token"
           RefreshTokenHandler.handle(context)
         else
           AccessTokenHandler.handle(context)

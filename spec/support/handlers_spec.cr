@@ -95,7 +95,8 @@ module Authly
 
   describe "RevokeHandler" do
     it "returns success message for valid token revocation" do
-      response = HTTP::Client.post("#{BASE_URI}/revoke", form: {"token" => "valid_token"})
+      access_token = Authly::AccessToken.new( "1", "read").access_token
+      response = HTTP::Client.post("#{BASE_URI}/revoke", form: {"token" => access_token})
       response.status_code.should eq 200
       response.body.should eq "Token revoked successfully"
     end

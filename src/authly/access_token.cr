@@ -43,6 +43,7 @@ module Authly
 
     def refresh_token
       Authly.jwt_encode({
+        "jti"  => Random::Secure.hex(32),
         "sub"  => @client_id,
         "name" => "refresh token",
         "iat"  => Time.utc.to_unix,

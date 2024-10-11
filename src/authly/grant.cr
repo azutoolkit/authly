@@ -73,7 +73,9 @@ module Authly
 
     private def generate_id_token
       if scope.includes? "openid"
-        Authly.jwt_encode Authly.owners.id_token auth_code["user_id"].as_s
+        payload = Authly.owners.id_token(auth_code["user_id"].as_s)
+        payload["iss"] = Authly.config.issuer
+        Authly.jwt_encode(payload)
       end
     end
 
@@ -87,6 +89,7 @@ module Authly
     end
 
     private def validate_scope!
+      return if scope.empty?
       unless Authly.clients.allowed_scopes?(@client_id, scope)
         raise Error.invalid_scope
       end
@@ -94,7 +97,7 @@ module Authly
 
     private def revoke_old_refresh_token(token : String)
       if @grant_strategy.is_a?(RefreshToken)
-      @token_manager.revoke(@refresh_token)
+        @token_manager.revoke(@refresh_token)
       end
     end
   end

@@ -24,6 +24,7 @@ module Authly
 
     def jwt
       Authly.jwt_encode({
+        "jti"  => Random::Secure.hex(32),
         "code"         => code,
         "challenge"    => challenge,
         "method"       => method,

@@ -31,8 +31,6 @@ module Authly
         return
       end
 
-      puts "State: #{STATE_STORE.valid?(state)} - #{state}"
-
       # Generate authorization code after user consent
       authorization_code = Authly.code(
         response_type,
