@@ -1,9 +1,7 @@
 module Authly
   class RefreshToken
     include GrantStrategy
-    getter client_id : String,
-      client_secret : String,
-      refresh_token : String
+    getter client_id : String, client_secret : String, refresh_token : String
 
     def initialize(@client_id, @client_secret, @refresh_token)
     end
@@ -15,7 +13,7 @@ module Authly
     end
 
     private def validate_code!
-      Authly.jwt_decode refresh_token
+      Authly.jwt_decode(refresh_token)
     rescue e
       raise Error.invalid_grant
     end

@@ -1,20 +1,47 @@
 # Spec tests for Authly's OAuth Handlers
-require "./spec_helper"
+require "../spec_helper"
 require "http/server"
 
 module Authly
   describe "AuthorizationHandler" do
-    xit "returns authorization code with valid client_id and redirect_uri" do
-      response = HTTP::Client.get("#{BASE_URI}/oauth/authorize?client_id=1&redirect_uri=https://www.example.com/callback&response_type=code")
+    it "returns authorization code with valid client_id and redirect_uri after user consent and includes state" do
+      state = "test_state"
+      # Initial Authorize Request
+      HTTP::Client.get("#{BASE_URI}/oauth/authorize?client_id=1&redirect_uri=https://www.example.com/callback&response_type=code&state=#{state}")
+
+      # Consent Request
+      response = HTTP::Client.get("#{BASE_URI}/oauth/authorize?client_id=1&redirect_uri=https://www.example.com/callback&response_type=code&state=#{state}&consent=approved")
 
       response.status_code.should eq 302
       response.headers["Location"].should_not be_nil
+      response.headers["Location"].should contain(URI.encode_path("code="))
+      response.headers["Location"].should contain(URI.encode_path("state=#{state}"))
     end
 
-    xit "returns 401 for invalid client_id or redirect_uri" do
-      response = HTTP::Client.get("#{BASE_URI}/oauth/authorize?client_id=invalid&redirect_uri=invalid")
+    it "renders consent page if user consent is not provided" do
+      state = "test_state"
+      response = HTTP::Client.get("#{BASE_URI}/oauth/authorize?client_id=1&redirect_uri=https://www.example.com/callback&response_type=code&state=#{state}")
+
+      response.status_code.should eq 200
+      response.body.should contain("Authorization Request")
+      response.body.should contain("Approve")
+      response.body.should contain("Deny")
+      response.body.should contain(state)
+    end
+
+    it "returns 401 for invalid client_id or redirect_uri" do
+      state = "test_state"
+      response = HTTP::Client.get("#{BASE_URI}/oauth/authorize?client_id=invalid&redirect_uri=invalid&state=#{state}&consent=approved")
       response.status_code.should eq 401
       response.body.should eq "This client is not authorized to use the requested grant type"
+    end
+
+    it "returns 400 for invalid state parameter" do
+      state = "invalid_state"
+      response = HTTP::Client.get("#{BASE_URI}/oauth/authorize?client_id=1&redirect_uri=https://www.example.com/callback&response_type=code&state=#{state}&consent=approved")
+
+      response.status_code.should eq 400
+      response.body.should eq "Invalid state parameter"
     end
   end
 
@@ -30,7 +57,6 @@ module Authly
       })
       response.status_code.should eq 200
       body = JSON.parse(response.body)
-      body["access_token"]
       body["access_token"].should_not be_nil
     end
 
@@ -69,7 +95,8 @@ module Authly
 
   describe "RevokeHandler" do
     it "returns success message for valid token revocation" do
-      response = HTTP::Client.post("#{BASE_URI}/revoke", form: {"token" => "valid_token"})
+      access_token = Authly::AccessToken.new("1", "read").access_token
+      response = HTTP::Client.post("#{BASE_URI}/revoke", form: {"token" => access_token})
       response.status_code.should eq 200
       response.body.should eq "Token revoked successfully"
     end

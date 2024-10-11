@@ -11,5 +11,6 @@ module Authly
     property token_store : TokenStore = InMemoryStore.new
     property algorithm : JWT::Algorithm = JWT::Algorithm::HS256
     property token_strategy : Symbol = :jwt
+    property state_store : StateStore = InMemoryStateStore.new
   end
 end

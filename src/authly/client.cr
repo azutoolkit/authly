@@ -45,5 +45,16 @@ module Authly
     def each(& : Client -> _)
       @clients.each { |client| yield client }
     end
+
+    def allowed_scopes?(client_id, scopes) : Bool
+      the_client = self.find! { |client| client.id == client_id }
+      return false unless the_client
+
+      the_client.scopes.split(" ").all? do |scope|
+        scopes.split(" ").includes?(scope)
+      end
+    rescue
+      false
+    end
   end
 end

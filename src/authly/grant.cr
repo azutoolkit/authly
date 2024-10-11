@@ -8,27 +8,27 @@ module Authly
       case grant_type
       when "authorization_code"
         AuthorizationCode.new(
-          args["client_id"],
-          args["client_secret"],
-          args.fetch("redirect_uri", ""),
-          args.fetch("challenge", ""),
-          args.fetch("method", ""),
-          args.fetch("verifier", "")
+          client_id: args[:client_id],
+          client_secret: args[:client_secret],
+          redirect_uri: args.fetch(:redirect_uri, ""),
+          challenge: args.fetch(:challenge, ""),
+          method: args.fetch(:method, ""),
+          verifier: args.fetch(:verifier, "")
         )
       when "client_credentials"
-        ClientCredentials.new(args["client_id"], args["client_secret"])
+        ClientCredentials.new(client_id: args[:client_id], client_secret: args[:client_secret])
       when "password"
         Password.new(
-          args["client_id"],
-          args["client_secret"],
-          args.fetch("username", ""),
-          args.fetch("password", "")
+          client_id: args[:client_id],
+          client_secret: args[:client_secret],
+          username: args.fetch(:username, ""),
+          password: args.fetch(:password, "")
         )
       when "refresh_token"
         RefreshToken.new(
-          args["client_id"],
-          args["client_secret"],
-          args.fetch("refresh_token", "")
+          client_id: args["client_id"],
+          client_secret: args["client_secret"],
+          refresh_token: args.fetch("refresh_token", "")
         )
       else
         raise Error.unsupported_grant_type
@@ -38,16 +38,25 @@ module Authly
 
   class Grant
     @grant_strategy : GrantStrategy
-    @code : String
+    property code : String
+    @client_id : String
+    @token_manager : TokenManager = TokenManager.instance
+    @refresh_token : String
 
     def initialize(grant_type : String, **args)
       @grant_strategy = GrantFactory.create(grant_type, **args)
-      @code = args.fetch("code", "")
+      @refresh_token = args.fetch(:refresh_token, "")
+      @client_id = args.fetch(:client_id, "")
+      @code = args.fetch(:code, "")
     end
 
     def token : AccessToken
+      validate_scope!
       authorized?
-      access_token
+
+      token = access_token
+      revoke_old_refresh_token(token.access_token)
+      token
     end
 
     def authorized?
@@ -64,7 +73,9 @@ module Authly
 
     private def generate_id_token
       if scope.includes? "openid"
-        Authly.jwt_encode Authly.owners.id_token auth_code["user_id"].as_s
+        payload = Authly.owners.id_token(auth_code["user_id"].as_s)
+        payload["iss"] = Authly.config.issuer
+        Authly.jwt_encode(payload)
       end
     end
 
@@ -75,6 +86,19 @@ module Authly
     private def scope : String
       return "" if @code.empty?
       auth_code["scope"].as_s
+    end
+
+    private def validate_scope!
+      return if scope.empty?
+      unless Authly.clients.allowed_scopes?(@client_id, scope)
+        raise Error.invalid_scope
+      end
+    end
+
+    private def revoke_old_refresh_token(token : String)
+      if @grant_strategy.is_a?(RefreshToken)
+        @token_manager.revoke(@refresh_token)
+      end
     end
   end
 end

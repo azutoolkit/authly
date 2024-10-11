@@ -33,7 +33,7 @@ describe Authly do
     end
 
     it "returns access_token for AuthorizationCode grant" do
-      code = Authly.code("code", client_id, redirect_uri, scope, state, code_challenge, code_challenge_method).to_s
+      code = Authly.code("code", client_id, redirect_uri, "read", state, code_challenge, code_challenge_method).to_s
       token = Authly.access_token(
         grant_type: "authorization_code",
         client_id: client_id,
@@ -80,18 +80,20 @@ describe Authly do
 
   describe ".revoke" do
     it "revokes token" do
-      a_token = Authly::AccessToken.new(client_id, scope)
-      Authly.revoke(a_token.jti)
-      Authly.revoked?(a_token.jti).should eq true
+      a_token = Authly::AccessToken.new(client_id, scope).access_token
+      Authly.revoke(a_token)
+      Authly.revoked?(a_token).should eq true
     end
 
     it "does not revoke token" do
-      a_token = Authly::AccessToken.new(client_id, scope)
-      Authly.revoked?(a_token.jti).should eq false
+      a_token = Authly::AccessToken.new(client_id, scope).access_token
+      Authly.revoked?(a_token).should eq false
     end
 
-    it "does not revoke token" do
-      Authly.revoked?("invalid_jti").should eq false
+    it "raises error for invalid jwt token" do
+      expect_raises JWT::DecodeError do
+        Authly.revoked?("invalid_jti")
+      end
     end
   end
 
@@ -106,7 +108,7 @@ describe Authly do
       a_token = Authly::AccessToken.new(client_id, scope)
       token = a_token.access_token
 
-      Authly.revoke(a_token.jti)
+      Authly.revoke(token)
 
       Authly.valid?(token).should eq false
     end
@@ -114,8 +116,8 @@ describe Authly do
     it "returns false" do
       a_token = Authly::AccessToken.new(client_id, scope)
       token = a_token.access_token
-      Authly.revoke(a_token.jti)
-      Authly.valid?(token + "invalid").should eq false
+      Authly.revoke(token)
+      Authly.valid?(token).should eq false
     end
   end
 

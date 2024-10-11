@@ -2,6 +2,7 @@ module Authly
   struct Code
     include JSON::Serializable
     CODE_TTL = Authly.config.code_ttl
+    ISSUER   = Authly.config.issuer
 
     getter code : String = Random::Secure.hex(16),
       client_id : String,
@@ -23,6 +24,7 @@ module Authly
 
     def jwt
       Authly.jwt_encode({
+        "jti"          => Random::Secure.hex(32),
         "code"         => code,
         "challenge"    => challenge,
         "method"       => method,
@@ -30,6 +32,7 @@ module Authly
         "user_id"      => user_id,
         "redirect_uri" => redirect_uri,
         "iat"          => Time.utc.to_unix,
+        "iss"          => ISSUER,
         "exp"          => CODE_TTL.from_now.to_unix,
       })
     end
