@@ -47,12 +47,10 @@ module Authly
     end
 
     def allowed_scopes?(client_id, scopes) : Bool
-      client = self.find! do |client|
-        client.id == client_id
-      end
+      the_client = self.find! { |client| client.id == client_id }
       return false unless client
 
-      client.scopes.split(" ").all? do |scope|
+      the_client.scopes.split(" ").all? do |scope|
         scopes.split(" ").includes?(scope)
       end
     rescue

@@ -7,7 +7,7 @@ module Authly
     it "returns authorization code with valid client_id and redirect_uri after user consent and includes state" do
       state = "test_state"
       # Initial Authorize Request
-      initia_response = HTTP::Client.get("#{BASE_URI}/oauth/authorize?client_id=1&redirect_uri=https://www.example.com/callback&response_type=code&state=#{state}")
+      HTTP::Client.get("#{BASE_URI}/oauth/authorize?client_id=1&redirect_uri=https://www.example.com/callback&response_type=code&state=#{state}")
 
       # Consent Request
       response = HTTP::Client.get("#{BASE_URI}/oauth/authorize?client_id=1&redirect_uri=https://www.example.com/callback&response_type=code&state=#{state}&consent=approved")
