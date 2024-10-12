@@ -38,6 +38,7 @@ module Authly
         "exp"   => ACCESS_TTL.from_now.to_unix,
         "scope" => @scope,
         "jti"   => @jti, # Include the jti in the token claims
+        "aud"   => Authly.config.audience,
       })
     end
 
