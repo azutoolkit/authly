@@ -30,8 +30,8 @@ module Authly
       challenge = CodeChallengeBuilder.build
 
       it "is a valid code challenge" do
-        challenge.should be_a CodeChallengeBuilder::Empty
-        challenge.valid?("").should be_true
+        challenge.should be_a CodeChallengeBuilder::S256
+        challenge.valid?("").should be_false
       end
     end
   end

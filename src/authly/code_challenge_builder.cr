@@ -1,7 +1,7 @@
 require "digest/sha256"
 
 module Authly
-  alias CodeChallenge = CodeChallengeBuilder::Plain | CodeChallengeBuilder::S256 | CodeChallengeBuilder::Empty
+  alias CodeChallenge = CodeChallengeBuilder::Plain | CodeChallengeBuilder::S256
 
   module CodeChallengeBuilder
     record Plain, code : String do
@@ -16,17 +16,14 @@ module Authly
       end
     end
 
-    record Empty, code : String do
-      def valid?(code_verifier)
-        true
-      end
-    end
-
-    def self.build(challenge : String = "", method : String = "")
+    def self.build(challenge : String = "", method : String = "S256")
       case method
-      when "plain" then Plain.new(challenge)
-      when "S256"  then S256.new(challenge)
-      else              Empty.new(challenge)
+      when "plain"
+        Plain.new(challenge)
+      when "S256"
+        S256.new(challenge)
+      else
+        raise ArgumentError.new("Unsupported code challenge method: #{method}. Only 'plain' and 'S256' are supported.")
       end
     end
   end
