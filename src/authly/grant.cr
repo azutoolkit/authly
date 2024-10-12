@@ -72,9 +72,11 @@ module Authly
     end
 
     private def generate_id_token
-      if scope.includes? "openid"
+      if scope.includes? "openid" 
         payload = Authly.owners.id_token(auth_code["user_id"].as_s)
         payload["iss"] = Authly.config.issuer
+        payload["aud"] = @client_id
+        payload
         Authly.jwt_encode(payload)
       end
     end
