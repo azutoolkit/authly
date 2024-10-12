@@ -1,5 +1,5 @@
 name: authly
-version: 1.2.7
+version: 1.2.8
 authors:
   - Elias Perez <elias.perez@nytimes.com>
 crystal: '>=0.31.1'
