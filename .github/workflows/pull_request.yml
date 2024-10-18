@@ -1,0 +1,31 @@
+name: Crystal CI
+
+on: [pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    container:
+      image: crystallang/crystal
+
+    steps:
+      - uses: actions/checkout@v1
+
+      - name: Install dependencies
+        run: shards install
+
+      - name: Run Code Format
+        run: crystal tool format --check
+
+      - name: Run Ameba Checks
+        run: bin/ameba
+
+      - name: Run Authorization Service
+        run: crystal ./spec/support/test_server.cr &
+
+      - name: Run Grants
+        run: crystal spec spec/grants/*_spec.cr
+
+      - name: Run Authly
+        run: crystal spec spec/*_spec.cr
