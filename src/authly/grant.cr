@@ -75,6 +75,7 @@ module Authly
       if scope.includes? "openid"
         payload = Authly.owners.id_token(auth_code["user_id"].as_s)
         payload["iss"] = Authly.config.issuer
+        payload["aud"] = @client_id
         Authly.jwt_encode(payload)
       end
     end
