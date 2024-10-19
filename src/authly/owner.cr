@@ -29,10 +29,10 @@ module Authly
     def id_token(user_id : String) : Hash(String, String | Int64)
       user = find! { |owner| owner.username == user_id }
       {
-        "sub"   => user_id,
-        "iat"   => Time.utc.to_unix,
-        "exp"   => Authly.config.access_ttl.from_now.to_unix,
-        "iss"   => Authly.config.issuer,
+        "sub" => user.id,
+        "iat" => Time.utc.to_unix,
+        "exp" => Authly.config.access_ttl.from_now.to_unix,
+        "iss" => Authly.config.issuer,
       }
     end
 
