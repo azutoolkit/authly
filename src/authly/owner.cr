@@ -1,5 +1,6 @@
 module Authly
   struct Owner
+    property id : String = Random::Secure.hex(16)
     property username : String
     property password : String
 
@@ -26,11 +27,12 @@ module Authly
     end
 
     def id_token(user_id : String) : Hash(String, String | Int64)
+      user = find! { |owner| owner.username == user_id }
       {
-        "sub"     => Random::Secure.hex(32),
-        "iat"     => Time.utc.to_unix,
-        "exp"     => 1.hour.from_now.to_unix,
-        "user_id" => user_id,
+        "sub" => user.username,
+        "iat" => Time.utc.to_unix,
+        "exp" => Authly.config.access_ttl.from_now.to_unix,
+        "iss" => Authly.config.issuer,
       }
     end
 
