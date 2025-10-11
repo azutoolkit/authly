@@ -13,7 +13,7 @@ module Authly
       code : String
 
     def initialize(
-      @client_id, @client_secret, @redirect_uri, @code = "", @verifier = "",
+      @client_id, @client_secret, @redirect_uri, @code = "", @verifier = ""
     )
       @challenge = ""
       @method = ""

@@ -17,11 +17,11 @@ jobs:
       - name: Install dependencies
         run: shards install
 
-      # - name: Run Code Format
-      #   run: crystal tool format --check
+      - name: Run Code Format
+        run: crystal tool format ./src ./spec --check
 
-      # - name: Run Ameba Checks
-      #   run: bin/ameba
+      - name: Run Ameba Checks
+        run: bin/ameba ./src ./spec
 
       - name: Run Authorization Service
         run: crystal ./spec/support/test_server.cr &
