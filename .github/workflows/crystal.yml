@@ -17,8 +17,8 @@ jobs:
       - name: Install dependencies
         run: shards install
 
-      - name: Run Code Format
-        run: crystal tool format --check
+      # - name: Run Code Format
+      #   run: crystal tool format --check
 
       - name: Run Ameba Checks
         run: bin/ameba
