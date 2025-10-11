@@ -12,5 +12,6 @@ module Authly
     property algorithm : JWT::Algorithm = JWT::Algorithm::HS256
     property token_strategy : Symbol = :jwt
     property state_store : StateStore = InMemoryStateStore.new
+    property device_code_store : DeviceCodeStore = InMemoryDeviceCodeStore.new
   end
 end

@@ -3,7 +3,7 @@ module Authly
     def self.write(context, status_code, content_type = "text/plain", body = "")
       context.response.status_code = status_code
       context.response.content_type = content_type
-      context.response.write body
+      context.response.print body
     end
 
     def self.redirect(context, location)

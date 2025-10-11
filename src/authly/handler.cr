@@ -17,6 +17,12 @@ module Authly
         else
           AccessTokenHandler.handle(context)
         end
+      when "/oauth/device/code"
+        return call_next(context) unless context.request.method == "POST"
+        DeviceAuthorizationHandler.handle(context)
+      when "/device"
+        return call_next(context) unless ["GET", "POST"].includes?(context.request.method)
+        DeviceVerificationHandler.handle(context)
       when "/introspect"
         return call_next(context) unless context.request.method == "POST"
         IntrospectHandler.handle(context)

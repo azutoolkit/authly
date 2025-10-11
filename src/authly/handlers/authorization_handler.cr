@@ -3,8 +3,6 @@ require "uri"
 
 module Authly
   class AuthorizationHandler
-    STATE_STORE = Authly.config.state_store
-
     def self.handle(context)
       params = context.request.query_params
       client_id = params.fetch("client_id", "")
@@ -19,33 +17,63 @@ module Authly
       # Check if user has given consent
       unless user_has_given_consent?(context)
         # Store the state parameter to verify later
-        STATE_STORE.store(state)
+        Authly.config.state_store.store(state)
         # Render consent page where the user can approve or deny the requested access
         render_consent_page(context, client_id, scope, state)
         return
       end
 
       # Verify the state parameter to prevent CSRF attacks
-      unless STATE_STORE.valid?(state)
+      unless Authly.config.state_store.valid?(state)
         ResponseHelper.write(context, 400, "text/plain", "Invalid state parameter")
         return
       end
 
-      # Generate authorization code after user consent
-      authorization_code = Authly.code(
-        response_type,
-        client_id,
-        redirect_uri,
-        scope,
-        code_challenge,
-        challenge_method,
-        user_id
-      ).to_s
+      # Consume the state to prevent replay attacks
+      Authly.config.state_store.consume(state)
 
-      # Redirect the user-agent back to the redirect_uri with the code and state
-      redirect_location = URI.parse(redirect_uri)
-      redirect_location.query = URI.encode_path("code=#{authorization_code}&state=#{state}")
-      ResponseHelper.redirect(context, redirect_location.to_s)
+      # Handle different response types
+      case response_type
+      when "code"
+        # Authorization Code flow
+        authorization_code = Authly.code(
+          response_type,
+          client_id,
+          redirect_uri,
+          scope,
+          code_challenge,
+          challenge_method,
+          user_id
+        ).to_s
+
+        # Redirect the user-agent back to the redirect_uri with the code and state
+        redirect_location = URI.parse(redirect_uri)
+        redirect_location.query = "code=#{URI.encode_www_form(authorization_code)}&state=#{URI.encode_www_form(state)}"
+        ResponseHelper.redirect(context, redirect_location.to_s)
+      when "token"
+        # Implicit flow - return access token directly
+        result = Authly.code(
+          response_type,
+          client_id,
+          redirect_uri,
+          scope,
+          code_challenge,
+          challenge_method,
+          user_id
+        )
+
+        # For implicit flow, tokens are returned in the fragment
+        if result.is_a?(AccessToken)
+          redirect_location = URI.parse(redirect_uri)
+          fragment_params = "access_token=#{result.access_token}&token_type=Bearer&expires_in=#{result.expires_in}&scope=#{URI.encode_www_form(scope)}&state=#{URI.encode_www_form(state)}"
+          redirect_location.fragment = fragment_params
+          ResponseHelper.redirect(context, redirect_location.to_s)
+        else
+          raise Error.invalid_response_type
+        end
+      else
+        raise Error.invalid_response_type
+      end
     rescue e : Error
       ResponseHelper.write(context, e.code, "text/plain", e.message)
     end
@@ -57,7 +85,7 @@ module Authly
       consent == "approved"
     end
 
-    private def self.render_consent_page(context, client_id, scope, state = SecureRandom.hex(32))
+    private def self.render_consent_page(context, client_id, scope, state = Random::Secure.hex(32))
       # Render a simple consent page where the user can approve or deny the requested access
       ResponseHelper.write(context, 200, "text/html", <<-HTML)
         <html>
@@ -80,7 +108,7 @@ module Authly
 
     private def self.valid_state?(state)
       # Verify that the state parameter exists in the store
-      STATE_STORE.valid?(state) == true
+      Authly.config.state_store.valid?(state) == true
     end
   end
 end

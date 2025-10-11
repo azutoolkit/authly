@@ -88,15 +88,44 @@ module Authly
     end
 
     def valid?(token) : Bool
-      @token_store.valid?(token)
+      return false if @token_store.revoked?(token)
+
+      payload = @token_store.fetch(token)
+      return false if payload.nil?
+
+      exp_value = payload["exp"]
+      exp = exp_value.is_a?(Int64) ? exp_value : exp_value.to_s.to_i64
+      Time.utc.to_unix < exp
+    rescue
+      false
     end
 
     def introspect(token : String)
       payload = @token_store.fetch(token)
       return {"active" => false} if payload.nil?
 
-      {"active" => true, "token" => payload}
+      # Check if token is expired
+      exp_value = payload["exp"]
+      exp = exp_value.is_a?(Int64) ? exp_value : exp_value.to_s.to_i64
+      if Time.utc.to_unix > exp
+        return {"active" => false, "exp" => exp}
+      end
+
+      # Return OAuth2 compliant introspection response
+      scope_value = payload["scope"]
+      cid_value = payload["cid"]
+      sub_value = payload["sub"]
+
+      {
+        "active" => true,
+        "scope"  => scope_value.is_a?(String) ? scope_value : scope_value.to_s,
+        "cid"    => cid_value.is_a?(String) ? cid_value : cid_value.to_s,
+        "exp"    => exp,
+        "sub"    => sub_value.is_a?(String) ? sub_value : sub_value.to_s,
+      }
     rescue e : Error
+      {"active" => false}
+    rescue
       {"active" => false}
     end
   end

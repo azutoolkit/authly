@@ -8,27 +8,35 @@ module Authly
       case grant_type
       when "authorization_code"
         AuthorizationCode.new(
-          client_id: args[:client_id],
-          client_secret: args[:client_secret],
-          redirect_uri: args.fetch(:redirect_uri, ""),
-          challenge: args.fetch(:challenge, ""),
-          method: args.fetch(:method, ""),
-          verifier: args.fetch(:verifier, "")
+          client_id: args[:client_id].to_s,
+          client_secret: args[:client_secret].to_s,
+          redirect_uri: args.fetch(:redirect_uri, "").to_s,
+          challenge: args.fetch(:challenge, "").to_s,
+          method: args.fetch(:method, "").to_s,
+          verifier: args.fetch(:verifier, "").to_s
         )
       when "client_credentials"
-        ClientCredentials.new(client_id: args[:client_id], client_secret: args[:client_secret])
+        ClientCredentials.new(
+          client_id: args[:client_id].to_s,
+          client_secret: args[:client_secret].to_s
+        )
       when "password"
         Password.new(
-          client_id: args[:client_id],
-          client_secret: args[:client_secret],
-          username: args.fetch(:username, ""),
-          password: args.fetch(:password, "")
+          client_id: args[:client_id].to_s,
+          client_secret: args[:client_secret].to_s,
+          username: args.fetch(:username, "").to_s,
+          password: args.fetch(:password, "").to_s
         )
       when "refresh_token"
         RefreshToken.new(
-          client_id: args["client_id"],
-          client_secret: args["client_secret"],
-          refresh_token: args.fetch("refresh_token", "")
+          client_id: args[:client_id].to_s,
+          client_secret: args[:client_secret].to_s,
+          refresh_token: args.fetch(:refresh_token, "").to_s
+        )
+      when "urn:ietf:params:oauth:grant-type:device_code"
+        DeviceCode.new(
+          client_id: args[:client_id].to_s,
+          device_code: args.fetch(:device_code, "").to_s
         )
       else
         raise Error.unsupported_grant_type

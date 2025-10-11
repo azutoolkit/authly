@@ -11,10 +11,12 @@ module Authly
     include Authly::TokenStore
     include Enumerable(String)
 
+    alias TokenPayload = String | Int64 | Bool | Float64
+
     # Use a set to track revoked tokens by their jti
     def initialize
       @revoked_tokens = Set(String).new
-      @tokens = {} of String => Hash(String, String | Int64 | Bool)
+      @tokens = {} of String => Hash(String, TokenPayload)
     end
 
     # Implement the each method to make the class enumerable

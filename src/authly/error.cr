@@ -4,7 +4,7 @@ module Authly
     invalid_state:          "Invalid state",
     invalid_scope:          "Invalid scope value in the request",
     invalid_client:         "Client authentication failed, such as if the request contains an invalid client ID or secret.",
-    invalid_request:        "The request is missing a parameter so the server can’t proceed with the request",
+    invalid_request:        "The request is missing a parameter so the server can't proceed with the request",
     invalid_grant:          "The authorization code is invalid or expired.",
     invalid_response_type:  "The response type is invalid.",
     owner_credentials:      "Invalid owner credentials",
@@ -13,6 +13,9 @@ module Authly
     access_denied:          "The user or authorization server denied the request",
     unsupported_token_type: "The authorization server does not support the presented token type",
     invalid_token:          "The token is invalid or expired",
+    authorization_pending:  "The authorization request is still pending; the client should retry the request",
+    slow_down:              "The client is polling too frequently and should slow down",
+    expired_token:          "The device code has expired; the client should request a new device authorization",
   }
 
   class Error(Code) < Exception
@@ -54,6 +57,18 @@ module Authly
 
     def self.invalid_response_type
       raise Error(400).new(:invalid_response_type)
+    end
+
+    def self.authorization_pending
+      raise Error(400).new(:authorization_pending)
+    end
+
+    def self.slow_down
+      raise Error(400).new(:slow_down)
+    end
+
+    def self.expired_token
+      raise Error(400).new(:expired_token)
     end
 
     def self.bad_request(type : Symbol)

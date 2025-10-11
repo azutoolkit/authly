@@ -25,31 +25,37 @@ module Authly
 
     def initialize(@client_id : String, @scope : String, @id_token : String? = nil)
       @jti = Random::Secure.hex(32)
-      @access_token = generate_token
-      @refresh_token = refresh_token
-    end
+      generator = TokenGeneratorFactory.create
+      @access_token = generator.generate_access_token(@client_id, @scope, sub, @jti)
 
-    private def generate_token
-      Authly.jwt_encode({
-        "sub"   => sub,
-        "iss"   => Authly.config.issuer,
-        "cid"   => @client_id,
-        "iat"   => Time.utc.to_unix,
-        "exp"   => ACCESS_TTL.from_now.to_unix,
-        "scope" => @scope,
-        "jti"   => @jti, # Include the jti in the token claims
-      })
-    end
+      refresh_jti = Random::Secure.hex(32)
+      @refresh_token = generator.generate_refresh_token(@client_id, refresh_jti)
 
-    def refresh_token
-      Authly.jwt_encode({
-        "jti"  => Random::Secure.hex(32),
-        "sub"  => @client_id,
-        "name" => "refresh token",
-        "iat"  => Time.utc.to_unix,
-        "iss"  => Authly.config.issuer,
-        "exp"  => REFRESH_TTL.from_now.to_unix,
-      })
+      # Store metadata for opaque tokens (use access_token as key)
+      expires_at = ACCESS_TTL.from_now
+      if Authly.config.token_strategy == :opaque
+        access_payload = {} of String => (String | Int64 | Bool | Float64)
+        access_payload["cid"] = @client_id
+        access_payload["scope"] = @scope
+        access_payload["sub"] = sub
+        access_payload["iat"] = Time.utc.to_unix
+        access_payload["exp"] = expires_at.to_unix
+        access_payload["token_type"] = "access_token"
+        access_payload["jti"] = @jti
+        Authly.config.token_store.store(@access_token, access_payload)
+
+        # Store refresh token metadata for opaque tokens
+        refresh_payload = {} of String => (String | Int64 | Bool | Float64)
+        refresh_payload["sub"] = @client_id
+        refresh_payload["iat"] = Time.utc.to_unix
+        refresh_payload["exp"] = REFRESH_TTL.from_now.to_unix
+        refresh_payload["token_type"] = "refresh_token"
+        refresh_payload["jti"] = refresh_jti
+        Authly.config.token_store.store(@refresh_token, refresh_payload)
+      else
+        # For JWT tokens, no need to store metadata (self-contained)
+        generator.store_token_metadata(@jti, @client_id, @scope, sub, expires_at)
+      end
     end
   end
 end
