@@ -75,7 +75,7 @@ module Authly
       @software_id : String? = nil,
       @software_version : String? = nil,
       @client_id_issued_at : Int64 = Time.utc.to_unix,
-      @client_secret_expires_at : Int64? = nil
+      @client_secret_expires_at : Int64? = nil,
     )
     end
 

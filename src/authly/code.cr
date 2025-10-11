@@ -18,7 +18,7 @@ module Authly
       @redirect_uri,
       @challenge = "",
       @method = "",
-      @user_id = ""
+      @user_id = "",
     )
     end
 

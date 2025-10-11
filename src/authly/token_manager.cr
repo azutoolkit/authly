@@ -142,7 +142,7 @@ module Authly
 
     def initialize(
       @config = Authly.config,
-      @token_manager : TokenStrategy = TokenStrategyFactory.create
+      @token_manager : TokenStrategy = TokenStrategyFactory.create,
     )
     end
 

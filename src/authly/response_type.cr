@@ -17,7 +17,7 @@ module Authly
       @scope,
       @challenge = "",
       @challenge_method = "",
-      @user_id = ""
+      @user_id = "",
     )
     end
 

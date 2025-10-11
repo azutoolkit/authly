@@ -19,7 +19,7 @@ module Authly
       @expires_at,
       @interval = 5,
       @verified = false,
-      @user_id = nil
+      @user_id = nil,
     )
     end
 
