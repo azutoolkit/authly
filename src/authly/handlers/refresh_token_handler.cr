@@ -13,7 +13,7 @@ module Authly
       end
 
       # Instantiate the RefreshToken service
-      token = Authly.access_token("refresh_token", client_id: client_id, client_secret: client_secret)
+      token = Authly.access_token("refresh_token", client_id: client_id, client_secret: client_secret, refresh_token: refresh_token)
       ResponseHelper.write(
         context,
         200,

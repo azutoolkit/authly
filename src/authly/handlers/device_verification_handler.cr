@@ -20,7 +20,7 @@ module Authly
 
     private def self.handle_post(context)
       params = context.request.form_params
-      user_code = params.fetch("user_code", "").upcase.gsub(/[^A-Z0-9]/, "")
+      user_code = params.fetch("user_code", "").upcase.gsub(/[^A-Z0-9\-]/, "")
       user_id = params.fetch("user_id", "")
       action = params.fetch("action", "")
 
@@ -48,7 +48,7 @@ module Authly
         ResponseHelper.write(context, 400, "text/plain", "Invalid action")
       end
     rescue e : KeyError
-      ResponseHelper.write(context, 400, "text/html", render_error_page(e.message))
+      ResponseHelper.write(context, 400, "text/html", render_error_page(e.message || "Missing required parameter"))
     end
 
     private def self.render_verification_page(user_code : String? = nil)

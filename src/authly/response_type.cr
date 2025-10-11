@@ -24,6 +24,7 @@ module Authly
     def decode
       raise Error.invalid_redirect_uri if redirect_uri.empty?
       raise Error.unauthorized_client unless authorize_client(client_id, redirect_uri)
+      raise Error.unauthorized_client unless grant_type_authorized?
 
       case @type
       when "code"  then code
@@ -41,6 +42,11 @@ module Authly
 
     private def authorize_client(client_id, redirect_uri)
       Authly.clients.valid_redirect?(client_id, redirect_uri)
+    end
+
+    private def grant_type_authorized?
+      grant_type = @type == "code" ? "authorization_code" : "implicit"
+      Authly.clients.allowed_grant_type?(client_id, grant_type)
     end
   end
 end

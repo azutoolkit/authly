@@ -11,8 +11,7 @@ module Authly
           client_id: args[:client_id].to_s,
           client_secret: args[:client_secret].to_s,
           redirect_uri: args.fetch(:redirect_uri, "").to_s,
-          challenge: args.fetch(:challenge, "").to_s,
-          method: args.fetch(:method, "").to_s,
+          code: args.fetch(:code, "").to_s,
           verifier: args.fetch(:verifier, "").to_s
         )
       when "client_credentials"

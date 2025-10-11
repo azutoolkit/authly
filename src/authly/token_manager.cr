@@ -53,6 +53,11 @@ module Authly
       # Decode the JWT, verify the signature and expiration
       payload, _header = Authly.jwt_decode(token)
 
+      # Check if the token is revoked
+      if revoked?(token)
+        return {"active" => false}
+      end
+
       # Check if the token is expired (exp claim is typically in seconds since epoch)
       if Time.local.to_unix > payload["exp"].to_s.to_i64
         return {"active" => false, "exp" => payload["exp"].as_i64}

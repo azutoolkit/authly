@@ -3,8 +3,17 @@ module Authly
     def self.handle(context)
       # Extract parameters from the request
       params = context.request.form_params
-      client_id = params.fetch("client_id", "")
+      client_id = params["client_id"]?
       scope = params.fetch("scope", "read")
+
+      # Check if client_id is missing
+      unless client_id && !client_id.empty?
+        ResponseHelper.write(context, 400, "application/json", {
+          "error"             => "invalid_request",
+          "error_description" => "Missing required parameter: client_id",
+        }.to_json)
+        return
+      end
 
       # Validate client
       unless Authly.clients.any? { |client| client.id == client_id }

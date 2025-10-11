@@ -7,8 +7,9 @@ module Authly
     getter secret : String
     getter redirect_uri : String
     getter scopes : String
+    getter grant_types : String
 
-    def initialize(@name, @secret, @redirect_uri, @id, @scopes = "read")
+    def initialize(@name, @secret, @redirect_uri, @id, @scopes = "read", @grant_types = "authorization_code client_credentials password refresh_token")
     end
   end
 
@@ -47,12 +48,21 @@ module Authly
     end
 
     def allowed_scopes?(client_id, scopes) : Bool
-      the_client = self.find! { |client| client.id == client_id }
+      the_client = self.find { |client| client.id == client_id }
       return false unless the_client
 
-      the_client.scopes.split(" ").all? do |scope|
-        scopes.split(" ").includes?(scope)
+      scopes.split(" ").all? do |scope|
+        the_client.scopes.split(" ").includes?(scope)
       end
+    rescue
+      false
+    end
+
+    def allowed_grant_type?(client_id, grant_type) : Bool
+      the_client = self.find { |client| client.id == client_id }
+      return false unless the_client
+
+      the_client.grant_types.split(" ").includes?(grant_type)
     rescue
       false
     end

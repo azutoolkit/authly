@@ -25,7 +25,7 @@ module Authly
         refresh_token: refresh_token,
       )
 
-      ResponseHelper.write(context, 200, "application/json", {"access_token" => access_token}.to_json)
+      ResponseHelper.write(context, 200, "application/json", access_token.to_json)
     rescue e : Error
       ResponseHelper.write(context, e.code, "text/plain", e.message)
     end
