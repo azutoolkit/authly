@@ -3,8 +3,8 @@ require "./spec_helper"
 describe "PKCE Enforcement" do
   it "allows authorization without PKCE when enforcement is disabled" do
     # Save original state
-    original_enforce_pkce = Authly.config.enforce_pkce
-    original_enforce_s256 = Authly.config.enforce_pkce_s256
+    original_enforce_pkce = Authly.config.enforce_pkce?
+    original_enforce_s256 = Authly.config.enforce_pkce_s256?
 
     Authly.config.enforce_pkce = false
     Authly.config.enforce_pkce_s256 = false
@@ -37,8 +37,8 @@ describe "PKCE Enforcement" do
 
   it "requires PKCE when enforcement is enabled" do
     # Save original state
-    original_enforce_pkce = Authly.config.enforce_pkce
-    original_enforce_s256 = Authly.config.enforce_pkce_s256
+    original_enforce_pkce = Authly.config.enforce_pkce?
+    original_enforce_s256 = Authly.config.enforce_pkce_s256?
 
     Authly.config.enforce_pkce = true
     Authly.config.enforce_pkce_s256 = false

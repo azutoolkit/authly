@@ -25,13 +25,13 @@ module Authly
           "urn:ietf:params:oauth:grant-type:device_code",
         ],
         subject_types_supported:               ["public"],
-        id_token_signing_alg_values_supported: get_supported_algorithms,
+        id_token_signing_alg_values_supported: supported_algorithms,
         token_endpoint_auth_methods_supported: [
           "client_secret_basic",
           "client_secret_post",
           "none",
         ],
-        code_challenge_methods_supported: get_pkce_methods,
+        code_challenge_methods_supported: pkce_methods,
         claims_supported:                 [
           "sub",
           "iss",
@@ -53,7 +53,7 @@ module Authly
       ResponseHelper.write(context, 500, "application/json", {error: "server_error", error_description: e.message}.to_json)
     end
 
-    private def self.get_supported_algorithms : Array(String)
+    private def self.supported_algorithms : Array(String)
       # Return list of supported JWT algorithms
       [
         "HS256",
@@ -68,10 +68,10 @@ module Authly
       ]
     end
 
-    private def self.get_pkce_methods : Array(String)
+    private def self.pkce_methods : Array(String)
       methods = ["S256"]
       # Add 'plain' only if S256 is not enforced
-      methods << "plain" unless Authly.config.enforce_pkce_s256
+      methods << "plain" unless Authly.config.enforce_pkce_s256?
       methods
     end
   end

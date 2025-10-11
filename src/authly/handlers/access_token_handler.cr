@@ -35,7 +35,7 @@ module Authly
     end
 
     private def self.extract_certificate_thumbprint(context : HTTP::Server::Context) : String?
-      return nil unless Authly.config.require_certificate_bound_tokens
+      return nil unless Authly.config.require_certificate_bound_tokens?
 
       # Extract client certificate from TLS context
       certificate = CertificateValidator.extract_certificate(context)

@@ -6,8 +6,8 @@ describe "Dynamic Client Registration" do
       params = {
         "redirect_uris"  => JSON::Any.new(["https://example.com/callback"].map { |uri| JSON::Any.new(uri) }),
         "client_name"    => JSON::Any.new("Test Application"),
-        "grant_types"    => JSON::Any.new(["authorization_code", "refresh_token"].map { |gt| JSON::Any.new(gt) }),
-        "response_types" => JSON::Any.new(["code"].map { |rt| JSON::Any.new(rt) }),
+        "grant_types"    => JSON::Any.new(["authorization_code", "refresh_token"].map { |grant_type| JSON::Any.new(grant_type) }),
+        "response_types" => JSON::Any.new(["code"].map { |response_type| JSON::Any.new(response_type) }),
       }
 
       client = Authly::DynamicClient.from_registration_request(params)
@@ -104,7 +104,9 @@ describe "Dynamic Client Registration" do
       store.store(client).should be_true
       retrieved = store.fetch("test123")
       retrieved.should_not be_nil
-      retrieved.not_nil!.client_id.should eq("test123")
+      if fetched = retrieved
+        fetched.client_id.should eq("test123")
+      end
     end
 
     it "updates existing clients" do
@@ -125,7 +127,9 @@ describe "Dynamic Client Registration" do
 
       store.update(updated_client).should be_true
       retrieved = store.fetch("test123")
-      retrieved.not_nil!.redirect_uris.should eq(["https://example.com/new_callback"])
+      if fetched = retrieved
+        fetched.redirect_uris.should eq(["https://example.com/new_callback"])
+      end
     end
 
     it "deletes clients" do

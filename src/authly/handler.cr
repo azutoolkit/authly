@@ -6,41 +6,63 @@ module Authly
     include HTTP::Handler
 
     def call(context)
-      case context.request.path
+      handle_route(context) || call_next(context)
+    end
+
+    private def handle_route(context) : Bool
+      path = context.request.path
+
+      case path
       when "/oauth/authorize"
-        return call_next(context) unless context.request.method == "GET"
-        AuthorizationHandler.handle(context)
+        handle_if_method(context, "GET") { AuthorizationHandler.handle(context) }
       when "/oauth/token"
-        return call_next(context) unless context.request.method == "POST"
-        if context.request.form_params["grant_type"] == "refresh_token"
-          RefreshTokenHandler.handle(context)
-        else
-          AccessTokenHandler.handle(context)
-        end
+        handle_token_endpoint(context)
       when "/oauth/device/code"
-        return call_next(context) unless context.request.method == "POST"
-        DeviceAuthorizationHandler.handle(context)
+        handle_if_method(context, "POST") { DeviceAuthorizationHandler.handle(context) }
       when "/device"
-        return call_next(context) unless ["GET", "POST"].includes?(context.request.method)
-        DeviceVerificationHandler.handle(context)
+        handle_if_methods(context, ["GET", "POST"]) { DeviceVerificationHandler.handle(context) }
       when "/introspect"
-        return call_next(context) unless context.request.method == "POST"
-        IntrospectHandler.handle(context)
+        handle_if_method(context, "POST") { IntrospectHandler.handle(context) }
       when "/revoke"
-        return call_next(context) unless context.request.method == "POST"
-        RevokeHandler.handle(context)
+        handle_if_method(context, "POST") { RevokeHandler.handle(context) }
       when "/oauth/userinfo"
-        return call_next(context) unless context.request.method == "GET"
-        UserInfoHandler.handle(context)
+        handle_if_method(context, "GET") { UserInfoHandler.handle(context) }
       when "/.well-known/openid-configuration"
-        return call_next(context) unless context.request.method == "GET"
-        DiscoveryHandler.handle(context)
+        handle_if_method(context, "GET") { DiscoveryHandler.handle(context) }
       when "/oauth/register"
-        return call_next(context) unless context.request.method == "POST"
-        ClientRegistrationHandler.handle(context) if Authly.config.allow_dynamic_registration
+        handle_registration_endpoint(context)
       else
-        call_next(context)
+        false
       end
+    end
+
+    private def handle_if_method(context, expected_method : String, &)
+      return false unless context.request.method == expected_method
+      yield
+      true
+    end
+
+    private def handle_if_methods(context, expected_methods : Array(String), &)
+      return false unless expected_methods.includes?(context.request.method)
+      yield
+      true
+    end
+
+    private def handle_token_endpoint(context) : Bool
+      return false unless context.request.method == "POST"
+      if context.request.form_params["grant_type"] == "refresh_token"
+        RefreshTokenHandler.handle(context)
+      else
+        AccessTokenHandler.handle(context)
+      end
+      true
+    end
+
+    private def handle_registration_endpoint(context) : Bool
+      return false unless context.request.method == "POST"
+      return false unless Authly.config.allow_dynamic_registration?
+      ClientRegistrationHandler.handle(context)
+      true
     end
   end
 end

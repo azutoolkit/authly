@@ -141,11 +141,21 @@ module Authly
         return false unless valid_uri?(uri)
       end
 
-      return false if client_uri && !valid_uri?(client_uri.not_nil!)
-      return false if logo_uri && !valid_uri?(logo_uri.not_nil!)
-      return false if tos_uri && !valid_uri?(tos_uri.not_nil!)
-      return false if policy_uri && !valid_uri?(policy_uri.not_nil!)
-      return false if jwks_uri && !valid_uri?(jwks_uri.not_nil!)
+      if uri = client_uri
+        return false unless valid_uri?(uri)
+      end
+      if uri = logo_uri
+        return false unless valid_uri?(uri)
+      end
+      if uri = tos_uri
+        return false unless valid_uri?(uri)
+      end
+      if uri = policy_uri
+        return false unless valid_uri?(uri)
+      end
+      if uri = jwks_uri
+        return false unless valid_uri?(uri)
+      end
 
       # Validate grant types are supported
       supported_grants = [
@@ -162,14 +172,14 @@ module Authly
 
       # Validate response types are supported
       supported_response_types = ["code", "token", "id_token", "code token", "code id_token", "token id_token", "code token id_token", "none"]
-      response_types.each do |rt|
-        return false unless supported_response_types.includes?(rt)
+      response_types.each do |response_type|
+        return false unless supported_response_types.includes?(response_type)
       end
 
       # Validate token endpoint auth method
-      if token_endpoint_auth_method
+      if method = token_endpoint_auth_method
         supported_auth_methods = ["client_secret_basic", "client_secret_post", "none"]
-        return false unless supported_auth_methods.includes?(token_endpoint_auth_method.not_nil!)
+        return false unless supported_auth_methods.includes?(method)
       end
 
       true

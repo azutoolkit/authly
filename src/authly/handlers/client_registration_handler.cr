@@ -4,7 +4,7 @@ module Authly
   class ClientRegistrationHandler
     def self.handle(context)
       # Check if dynamic registration is enabled
-      unless Authly.config.allow_dynamic_registration
+      unless Authly.config.allow_dynamic_registration?
         ResponseHelper.write(context, 403, "application/json", {
           error:             "access_denied",
           error_description: "Dynamic client registration is not enabled",

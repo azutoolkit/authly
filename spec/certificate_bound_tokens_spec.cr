@@ -157,7 +157,9 @@ describe "Certificate-Bound Access Tokens" do
       token_meta = Authly.config.token_store.fetch(token.access_token)
 
       token_meta.should_not be_nil
-      token_meta.not_nil!["cnf"]?.should eq(cert_thumbprint)
+      if meta = token_meta
+        meta["cnf"]?.should eq(cert_thumbprint)
+      end
 
       # Reset config
       Authly.config.token_strategy = :jwt

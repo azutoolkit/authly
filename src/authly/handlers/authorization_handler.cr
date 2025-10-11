@@ -116,7 +116,7 @@ module Authly
 
     private def self.validate_pkce!(client_id, code_challenge, challenge_method)
       # Skip validation if PKCE is not enforced
-      return unless Authly.config.enforce_pkce
+      return unless Authly.config.enforce_pkce?
 
       # Determine if client is public (typically indicated by empty or missing secret for public clients)
       # For now, we enforce PKCE for all clients when enforce_pkce is true
@@ -129,7 +129,7 @@ module Authly
       end
 
       # Enforce S256 method if configured
-      if Authly.config.enforce_pkce_s256 && challenge_method != "S256"
+      if Authly.config.enforce_pkce_s256? && challenge_method != "S256"
         raise Error(400).new(:invalid_request)
       end
 

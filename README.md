@@ -496,7 +496,7 @@ PKCE (Proof Key for Code Exchange) is a security extension for OAuth2 that preve
 Authly.configure do |config|
   # Require PKCE for all authorization code flows
   config.enforce_pkce = true
-  
+
   # Enforce S256 method, reject plain method
   config.enforce_pkce_s256 = true
 end
@@ -554,7 +554,7 @@ Certificate-bound tokens (RFC 8705) bind access tokens to client certificates, p
 Authly.configure do |config|
   # Enable certificate-bound tokens
   config.require_certificate_bound_tokens = true
-  
+
   # Optional: Specify trusted CA certificates for validation
   config.trusted_ca_certificates = [
     File.read("path/to/ca1.pem"),
@@ -594,7 +594,7 @@ server {
     ssl_client_certificate /path/to/ca.pem;
     ssl_verify_client optional;
     ssl_verify_depth 2;
-    
+
     location / {
         proxy_pass http://authly_backend;
         proxy_set_header X-Client-Certificate $ssl_client_cert;
