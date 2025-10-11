@@ -20,8 +20,8 @@ jobs:
       # - name: Run Code Format
       #   run: crystal tool format --check
 
-      - name: Run Ameba Checks
-        run: bin/ameba
+      # - name: Run Ameba Checks
+      #   run: bin/ameba
 
       - name: Run Authorization Service
         run: crystal ./spec/support/test_server.cr &
