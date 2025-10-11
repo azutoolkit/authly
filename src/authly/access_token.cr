@@ -23,10 +23,10 @@ module Authly
       new(client_id, scope, id_token).to_json
     end
 
-    def initialize(@client_id : String, @scope : String, @id_token : String? = nil)
+    def initialize(@client_id : String, @scope : String, @id_token : String? = nil, cert_thumbprint : String? = nil)
       @jti = Random::Secure.hex(32)
       generator = TokenGeneratorFactory.create
-      @access_token = generator.generate_access_token(@client_id, @scope, sub, @jti)
+      @access_token = generator.generate_access_token(@client_id, @scope, sub, @jti, cert_thumbprint)
 
       refresh_jti = Random::Secure.hex(32)
       @refresh_token = generator.generate_refresh_token(@client_id, refresh_jti)
@@ -42,6 +42,12 @@ module Authly
         access_payload["exp"] = expires_at.to_unix
         access_payload["token_type"] = "access_token"
         access_payload["jti"] = @jti
+
+        # Add certificate thumbprint if provided
+        if cert_thumbprint
+          access_payload["cnf"] = cert_thumbprint
+        end
+
         Authly.config.token_store.store(@access_token, access_payload)
 
         # Store refresh token metadata for opaque tokens
@@ -54,7 +60,7 @@ module Authly
         Authly.config.token_store.store(@refresh_token, refresh_payload)
       else
         # For JWT tokens, no need to store metadata (self-contained)
-        generator.store_token_metadata(@jti, @client_id, @scope, sub, expires_at)
+        generator.store_token_metadata(@jti, @client_id, @scope, sub, expires_at, cert_thumbprint)
       end
     end
   end

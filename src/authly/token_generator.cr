@@ -1,8 +1,8 @@
 module Authly
   module TokenGenerator
-    abstract def generate_access_token(client_id : String, scope : String, sub : String, jti : String) : String
+    abstract def generate_access_token(client_id : String, scope : String, sub : String, jti : String, cert_thumbprint : String? = nil) : String
     abstract def generate_refresh_token(client_id : String, jti : String) : String
-    abstract def store_token_metadata(jti : String, client_id : String, scope : String, sub : String, expires_at : Time)
+    abstract def store_token_metadata(jti : String, client_id : String, scope : String, sub : String, expires_at : Time, cert_thumbprint : String? = nil)
   end
 
   class JWTTokenGenerator
@@ -11,8 +11,8 @@ module Authly
     def initialize(@config : Configuration = Authly.config)
     end
 
-    def generate_access_token(client_id : String, scope : String, sub : String, jti : String) : String
-      Authly.jwt_encode({
+    def generate_access_token(client_id : String, scope : String, sub : String, jti : String, cert_thumbprint : String? = nil) : String
+      payload = {
         "sub"   => sub,
         "iss"   => @config.issuer,
         "cid"   => client_id,
@@ -20,7 +20,14 @@ module Authly
         "exp"   => @config.access_ttl.from_now.to_unix,
         "scope" => scope,
         "jti"   => jti,
-      })
+      } of String => (String | Int64 | Hash(String, String))
+
+      # Add certificate binding if thumbprint is provided
+      if cert_thumbprint
+        payload["cnf"] = {"x5t#S256" => cert_thumbprint}
+      end
+
+      Authly.jwt_encode(payload)
     end
 
     def generate_refresh_token(client_id : String, jti : String) : String
@@ -34,7 +41,7 @@ module Authly
       })
     end
 
-    def store_token_metadata(jti : String, client_id : String, scope : String, sub : String, expires_at : Time)
+    def store_token_metadata(jti : String, client_id : String, scope : String, sub : String, expires_at : Time, cert_thumbprint : String? = nil)
       # JWT tokens are self-contained, no need to store metadata
     end
   end
@@ -45,7 +52,7 @@ module Authly
     def initialize(@config : Configuration = Authly.config)
     end
 
-    def generate_access_token(client_id : String, scope : String, sub : String, jti : String) : String
+    def generate_access_token(client_id : String, scope : String, sub : String, jti : String, cert_thumbprint : String? = nil) : String
       Random::Secure.hex(32)
     end
 
@@ -53,7 +60,7 @@ module Authly
       Random::Secure.hex(32)
     end
 
-    def store_token_metadata(jti : String, client_id : String, scope : String, sub : String, expires_at : Time)
+    def store_token_metadata(jti : String, client_id : String, scope : String, sub : String, expires_at : Time, cert_thumbprint : String? = nil)
       # Store metadata for opaque tokens
       payload = {} of String => (String | Int64 | Bool | Float64)
       payload["cid"] = client_id
@@ -62,6 +69,12 @@ module Authly
       payload["iat"] = Time.utc.to_unix
       payload["exp"] = expires_at.to_unix
       payload["token_type"] = "access_token"
+
+      # Add certificate thumbprint if provided
+      if cert_thumbprint
+        payload["cnf"] = cert_thumbprint
+      end
+
       @config.token_store.store(jti, payload)
     end
   end

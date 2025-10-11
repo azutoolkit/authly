@@ -45,6 +45,9 @@ Authly provides a comprehensive authentication solution with the following capab
 - ✅ ID Token generation and validation
 - ✅ Standard claims support
 - ✅ Custom claims integration
+- ✅ UserInfo endpoint
+- ✅ OpenID Connect Discovery (/.well-known/openid-configuration)
+- ✅ OAuth2 Dynamic Client Registration (RFC 7591)
 
 **Token Management**
 
@@ -56,7 +59,8 @@ Authly provides a comprehensive authentication solution with the following capab
 
 **Security**
 
-- ✅ PKCE (Proof Key for Code Exchange) support
+- ✅ PKCE (Proof Key for Code Exchange) support with S256 enforcement
+- ✅ Certificate-bound access tokens (mTLS / RFC 8705)
 - ✅ State parameter validation
 - ✅ Redirect URI validation
 - ✅ Secure token generation
@@ -128,6 +132,7 @@ Authly offers extensive configuration options to tailor authentication to your a
 Authly.configure do |config|
   # Issuer Configuration
   config.issuer = "https://your-app.com"
+  config.base_url = "https://your-app.com"  # Base URL for OpenID Connect Discovery
 
   # Security Keys
   config.secret_key = ENV["AUTHLY_SECRET_KEY"]  # Required for JWT signing
@@ -142,10 +147,24 @@ Authly.configure do |config|
   config.token_strategy = :jwt    # Options: :jwt or :opaque
   config.algorithm = JWT::Algorithm::HS256  # JWT signing algorithm
 
+  # PKCE Enforcement
+  config.enforce_pkce = false           # Require PKCE for all authorization code flows
+  config.enforce_pkce_s256 = false      # Enforce S256 method only (reject plain)
+
+  # Dynamic Client Registration
+  config.allow_dynamic_registration = false
+  config.client_store = InMemoryClientStore.new
+
+  # Certificate-Bound Tokens (mTLS)
+  config.require_certificate_bound_tokens = false
+  config.trusted_ca_certificates = [] of String
+
   # Custom Implementations (see Customization section)
   config.owners = CustomAuthorizableOwner.new
   config.clients = CustomAuthorizableClient.new
   config.token_store = CustomTokenStore.new
+  config.state_store = CustomStateStore.new
+  config.device_code_store = CustomDeviceCodeStore.new
 end
 ```
 
@@ -349,6 +368,246 @@ Invalidates an access or refresh token.
 
 User visits this endpoint to enter the user code and authorize the device.
 
+### UserInfo Endpoint
+
+**Path:** `GET /oauth/userinfo`
+
+Returns user claims based on the granted scopes in the access token.
+
+**Request:**
+
+```http
+GET /oauth/userinfo HTTP/1.1
+Authorization: Bearer ACCESS_TOKEN
+```
+
+**Response:**
+
+```json
+{
+  "sub": "user_id_123",
+  "name": "John Doe",
+  "email": "john@example.com",
+  "email_verified": true,
+  "picture": "https://example.com/avatar.jpg"
+}
+```
+
+**Supported Scopes:**
+
+- `openid`: Returns `sub` (subject/user ID)
+- `profile`: Returns profile information (name, picture, etc.)
+- `email`: Returns email and email_verified
+- `address`: Returns address information
+- `phone`: Returns phone number information
+
+### OpenID Connect Discovery Endpoint
+
+**Path:** `GET /.well-known/openid-configuration`
+
+Returns OpenID Connect discovery metadata for automatic client configuration.
+
+**Response:**
+
+```json
+{
+  "issuer": "https://auth.example.com",
+  "authorization_endpoint": "https://auth.example.com/oauth/authorize",
+  "token_endpoint": "https://auth.example.com/oauth/token",
+  "userinfo_endpoint": "https://auth.example.com/oauth/userinfo",
+  "jwks_uri": "https://auth.example.com/.well-known/jwks.json",
+  "registration_endpoint": "https://auth.example.com/oauth/register",
+  "scopes_supported": ["openid", "profile", "email", "address", "phone"],
+  "response_types_supported": ["code", "token", "id_token"],
+  "grant_types_supported": ["authorization_code", "client_credentials", ...],
+  "code_challenge_methods_supported": ["S256", "plain"]
+}
+```
+
+### Dynamic Client Registration Endpoint
+
+**Path:** `POST /oauth/register`
+
+Allows clients to dynamically register with the authorization server (RFC 7591).
+
+**Configuration Required:**
+
+```crystal
+Authly.configure do |config|
+  config.allow_dynamic_registration = true
+  config.client_store = CustomClientStore.new
+end
+```
+
+**Request:**
+
+```json
+{
+  "redirect_uris": ["https://client.example.com/callback"],
+  "client_name": "My Application",
+  "client_uri": "https://client.example.com",
+  "logo_uri": "https://client.example.com/logo.png",
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "client_secret_basic",
+  "scope": "openid profile email",
+  "contacts": ["admin@client.example.com"]
+}
+```
+
+**Response:**
+
+```json
+{
+  "client_id": "client_abcdef123456",
+  "client_secret": "secret_xyz789",
+  "client_id_issued_at": 1640000000,
+  "client_secret_expires_at": 0,
+  "redirect_uris": ["https://client.example.com/callback"],
+  "client_name": "My Application",
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "client_secret_basic"
+}
+```
+
+**Public Clients:**
+
+For public clients (e.g., SPAs, mobile apps), set `token_endpoint_auth_method` to `"none"`:
+
+```json
+{
+  "redirect_uris": ["https://spa.example.com/callback"],
+  "token_endpoint_auth_method": "none"
+}
+```
+
+Public clients receive a `client_id` but no `client_secret`.
+
+## Advanced Security Features
+
+### Enhanced PKCE with S256 Enforcement
+
+PKCE (Proof Key for Code Exchange) is a security extension for OAuth2 that prevents authorization code interception attacks. Authly now supports enforcing PKCE and mandating the S256 method.
+
+**Configuration:**
+
+```crystal
+Authly.configure do |config|
+  # Require PKCE for all authorization code flows
+  config.enforce_pkce = true
+  
+  # Enforce S256 method, reject plain method
+  config.enforce_pkce_s256 = true
+end
+```
+
+**Usage:**
+
+When PKCE is enforced, all authorization requests must include:
+
+- `code_challenge`: The code challenge derived from the code verifier
+- `code_challenge_method`: Must be `S256` when enforcement is enabled
+
+**Example Authorization Request:**
+
+```http
+GET /oauth/authorize?
+  response_type=code&
+  client_id=CLIENT_ID&
+  redirect_uri=REDIRECT_URI&
+  code_challenge=CHALLENGE&
+  code_challenge_method=S256&
+  state=STATE
+```
+
+**Code Verifier Generation:**
+
+```crystal
+# Generate a cryptographically random code verifier
+verifier = Random::Secure.hex(32)
+
+# Calculate the S256 challenge
+challenge = Digest::SHA256.base64digest(verifier)
+```
+
+**Token Exchange:**
+
+```http
+POST /oauth/token
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=authorization_code&
+code=AUTH_CODE&
+client_id=CLIENT_ID&
+redirect_uri=REDIRECT_URI&
+code_verifier=VERIFIER
+```
+
+### Certificate-Bound Access Tokens (mTLS)
+
+Certificate-bound tokens (RFC 8705) bind access tokens to client certificates, preventing token theft and replay attacks. This feature requires mTLS (mutual TLS) configuration at the HTTP server level.
+
+**Configuration:**
+
+```crystal
+Authly.configure do |config|
+  # Enable certificate-bound tokens
+  config.require_certificate_bound_tokens = true
+  
+  # Optional: Specify trusted CA certificates for validation
+  config.trusted_ca_certificates = [
+    File.read("path/to/ca1.pem"),
+    File.read("path/to/ca2.pem")
+  ]
+end
+```
+
+**How It Works:**
+
+1. Client presents a certificate during the TLS handshake
+2. Authly calculates the SHA-256 thumbprint of the certificate
+3. The thumbprint is embedded in the access token's `cnf` (confirmation) claim
+4. When using the token, the client must present the same certificate
+5. Authly validates that the certificate matches the bound token
+
+**Token Structure (JWT):**
+
+```json
+{
+  "sub": "user_id",
+  "iss": "https://auth.example.com",
+  "exp": 1640000000,
+  "cnf": {
+    "x5t#S256": "bwcK0esc3ACC3DB2Y5_lESsXE8o9ltc05O89jdN-dg2"
+  }
+}
+```
+
+**Server Configuration:**
+
+For mTLS to work, your HTTP server must be configured to request client certificates. With Crystal's HTTP::Server and a reverse proxy like nginx:
+
+```nginx
+server {
+    listen 443 ssl;
+    ssl_client_certificate /path/to/ca.pem;
+    ssl_verify_client optional;
+    ssl_verify_depth 2;
+    
+    location / {
+        proxy_pass http://authly_backend;
+        proxy_set_header X-Client-Certificate $ssl_client_cert;
+    }
+}
+```
+
+**Benefits:**
+
+- Prevents token theft - stolen tokens cannot be used without the certificate
+- Suitable for high-security environments (banking, healthcare, government)
+- Compliant with FAPI (Financial-grade API) security profile
+
 ## Customization
 
 Authly provides extension points for integrating with your application's authentication logic:
@@ -516,18 +775,25 @@ end
 
 ## Roadmap
 
-Future enhancements planned for Authly:
+### Completed Features ✅
 
-- [ ] OAuth2 Dynamic Client Registration
-- [ ] Improved OpenID Connect features (UserInfo endpoint, Discovery)
-- [ ] Token binding and certificate-bound access tokens
-- [ ] Enhanced PKCE implementation with S256 method enforcement
+- [x] OAuth2 Dynamic Client Registration (RFC 7591)
+- [x] OpenID Connect UserInfo endpoint
+- [x] OpenID Connect Discovery endpoint
+- [x] Certificate-bound access tokens (mTLS / RFC 8705)
+- [x] Enhanced PKCE implementation with S256 method enforcement
+
+### Planned Enhancements
+
 - [ ] Rate limiting and throttling for authentication endpoints
 - [ ] Session management capabilities
 - [ ] Additional token storage backends (Redis, Memcached)
+- [ ] JWKS (JSON Web Key Set) endpoint for key rotation
 - [ ] Comprehensive integration examples
 - [ ] Admin UI for client and token management
 - [ ] Detailed logging and monitoring hooks
+- [ ] Pushed Authorization Requests (PAR / RFC 9126)
+- [ ] JWT Secured Authorization Response Mode (JARM)
 
 See the [open issues](https://github.com/azutoolkit/authly/issues) for a list of proposed features and known issues.
 

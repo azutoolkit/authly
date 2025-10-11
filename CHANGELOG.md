@@ -2,6 +2,58 @@
 
 ## [Unreleased] - 2024
 
+### Added
+
+#### Enhanced PKCE with S256 Method Enforcement
+
+- **PKCE Enforcement Configuration**:
+  - Added `config.enforce_pkce` to require PKCE for all authorization code flows
+  - Added `config.enforce_pkce_s256` to mandate S256 method and reject plain method
+  - Validation in `AuthorizationHandler` enforces PKCE requirements when enabled
+  - Comprehensive specs for PKCE validation
+
+#### OpenID Connect Discovery Endpoint
+
+- **Discovery Endpoint** (`GET /.well-known/openid-configuration`):
+  - Returns complete OpenID Connect discovery metadata
+  - Lists supported grant types, scopes, response types, and algorithms
+  - Dynamically adjusts PKCE methods based on configuration
+  - Includes all authentication endpoints (authorization, token, userinfo, etc.)
+  - Added `config.base_url` for constructing absolute URLs
+
+#### UserInfo Endpoint
+
+- **UserInfo Endpoint** (`GET /oauth/userinfo`):
+  - Returns user claims based on access token
+  - Scope-based claim filtering (openid, profile, email, address, phone)
+  - Bearer token authentication via Authorization header
+  - Supports both JWT and opaque token strategies
+  - Comprehensive error handling for invalid/expired tokens
+
+#### OAuth2 Dynamic Client Registration (RFC 7591)
+
+- **Client Registration Endpoint** (`POST /oauth/register`):
+  - Dynamic client registration per RFC 7591
+  - Support for public clients (no client_secret when `token_endpoint_auth_method` is "none")
+  - Comprehensive metadata validation
+  - Added `config.allow_dynamic_registration` flag
+  - Created `DynamicClient` struct with full RFC 7591 metadata support
+  - Created `ClientStore` interface with `InMemoryClientStore` implementation
+  - Validates redirect URIs, grant types, response types, and authentication methods
+
+#### Certificate-Bound Access Tokens (mTLS / RFC 8705)
+
+- **Certificate-Bound Tokens**:
+  - Binds access tokens to client TLS certificates
+  - Implements RFC 8705 confirmation claim (`cnf` with `x5t#S256` thumbprint)
+  - Added `config.require_certificate_bound_tokens` flag
+  - Added `config.trusted_ca_certificates` for CA validation
+  - Created `CertificateValidator` module for certificate extraction and validation
+  - Created `TokenBinder` module for thumbprint extraction and verification
+  - Updated `TokenGenerator` to include certificate thumbprints in tokens
+  - Works with both JWT and opaque token strategies
+  - Prevents token theft - stolen tokens cannot be used without the bound certificate
+
 ### Fixed
 
 #### Critical Bugs

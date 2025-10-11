@@ -32,6 +32,9 @@ module Authly
       # Consume the state to prevent replay attacks
       Authly.config.state_store.consume(state)
 
+      # Enforce PKCE validation if configured
+      validate_pkce!(client_id, code_challenge, challenge_method)
+
       # Handle different response types
       case response_type
       when "code"
@@ -109,6 +112,31 @@ module Authly
     private def self.valid_state?(state)
       # Verify that the state parameter exists in the store
       Authly.config.state_store.valid?(state) == true
+    end
+
+    private def self.validate_pkce!(client_id, code_challenge, challenge_method)
+      # Skip validation if PKCE is not enforced
+      return unless Authly.config.enforce_pkce
+
+      # Determine if client is public (typically indicated by empty or missing secret for public clients)
+      # For now, we enforce PKCE for all clients when enforce_pkce is true
+      if code_challenge.empty?
+        raise Error(400).new(:invalid_request)
+      end
+
+      if challenge_method.empty?
+        raise Error(400).new(:invalid_request)
+      end
+
+      # Enforce S256 method if configured
+      if Authly.config.enforce_pkce_s256 && challenge_method != "S256"
+        raise Error(400).new(:invalid_request)
+      end
+
+      # Validate challenge method is supported
+      unless ["plain", "S256"].includes?(challenge_method)
+        raise Error(400).new(:invalid_request)
+      end
     end
   end
 end

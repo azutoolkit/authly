@@ -29,6 +29,15 @@ module Authly
       when "/revoke"
         return call_next(context) unless context.request.method == "POST"
         RevokeHandler.handle(context)
+      when "/oauth/userinfo"
+        return call_next(context) unless context.request.method == "GET"
+        UserInfoHandler.handle(context)
+      when "/.well-known/openid-configuration"
+        return call_next(context) unless context.request.method == "GET"
+        DiscoveryHandler.handle(context)
+      when "/oauth/register"
+        return call_next(context) unless context.request.method == "POST"
+        ClientRegistrationHandler.handle(context) if Authly.config.allow_dynamic_registration
       else
         call_next(context)
       end

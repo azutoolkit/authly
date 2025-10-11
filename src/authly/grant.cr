@@ -49,12 +49,14 @@ module Authly
     @client_id : String
     @token_manager : TokenManager = TokenManager.instance
     @refresh_token : String
+    @cert_thumbprint : String?
 
     def initialize(grant_type : String, **args)
       @grant_strategy = GrantFactory.create(grant_type, **args)
-      @refresh_token = args.fetch(:refresh_token, "")
-      @client_id = args.fetch(:client_id, "")
-      @code = args.fetch(:code, "")
+      @refresh_token = args.fetch(:refresh_token, "").to_s
+      @client_id = args.fetch(:client_id, "").to_s
+      @code = args.fetch(:code, "").to_s
+      @cert_thumbprint = args[:cert_thumbprint]?.try(&.to_s)
     end
 
     def token : AccessToken
@@ -75,7 +77,7 @@ module Authly
     end
 
     private def access_token
-      AccessToken.new(@grant_strategy.client_id, scope, generate_id_token)
+      AccessToken.new(@grant_strategy.client_id, scope, generate_id_token, @cert_thumbprint)
     end
 
     private def generate_id_token
