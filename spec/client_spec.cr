@@ -26,7 +26,7 @@ module Authly
         client = Client.new("TestApp", "secret123", "https://example.com/callback", "client_1")
 
         clients << client
-        clients.any? { |c| c.id == "client_1" }.should be_true
+        clients.any? { |item| item.id == "client_1" }.should be_true
       end
     end
 
@@ -153,7 +153,7 @@ module Authly
         clients << client2
 
         ids = [] of String
-        clients.each { |c| ids << c.id }
+        clients.each { |client| ids << client.id }
         ids.should eq ["1", "2"]
       end
     end

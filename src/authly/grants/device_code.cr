@@ -19,7 +19,7 @@ module Authly
 
       raise Error.invalid_grant unless device_data
       raise Error.invalid_grant if device_data.expired?
-      raise Error.authorization_pending unless device_data.verified
+      raise Error.authorization_pending unless device_data.verified?
 
       # Verify client_id matches
       unless device_data.client_id == @client_id

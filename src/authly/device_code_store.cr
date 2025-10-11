@@ -8,7 +8,7 @@ module Authly
     property scope : String
     property expires_at : Time
     property interval : Int32
-    property verified : Bool = false
+    property? verified : Bool = false
     property user_id : String?
 
     def initialize(
@@ -75,8 +75,7 @@ module Authly
 
     # Clean up expired device codes
     def cleanup_expired
-      now = Time.utc
-      @store.reject! do |device_code, data|
+      @store.reject! do |_, data|
         if data.expired?
           @user_code_index.delete(data.user_code)
           true

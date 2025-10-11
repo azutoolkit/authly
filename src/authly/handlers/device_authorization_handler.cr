@@ -7,7 +7,7 @@ module Authly
       scope = params.fetch("scope", "read")
 
       # Check if client_id is missing
-      unless client_id && !client_id.empty?
+      if !client_id || client_id.empty?
         ResponseHelper.write(context, 400, "application/json", {
           "error"             => "invalid_request",
           "error_description" => "Missing required parameter: client_id",

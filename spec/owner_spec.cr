@@ -40,7 +40,7 @@ module Authly
         owner = Owner.new("john", "pass123")
 
         owners << owner
-        owners.any? { |o| o.username == "john" }.should be_true
+        owners.any? { |item| item.username == "john" }.should be_true
       end
     end
 
@@ -159,7 +159,7 @@ module Authly
         owners << Owner.new("jane", "pass2")
 
         usernames = [] of String
-        owners.each { |o| usernames << o.username }
+        owners.each { |owner| usernames << owner.username }
         usernames.should eq ["john", "jane"]
       end
     end

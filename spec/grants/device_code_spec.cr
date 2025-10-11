@@ -14,7 +14,7 @@ module Authly
         device_data.user_code.should_not be_empty
         device_data.client_id.should eq client_id
         device_data.scope.should eq scope
-        device_data.verified.should be_false
+        device_data.verified?.should be_false
       end
 
       it "generates properly formatted user code" do
@@ -94,7 +94,7 @@ module Authly
 
         updated_data = Authly.config.device_code_store.fetch(device_data.device_code)
         updated_data.should_not be_nil
-        updated_data.try(&.verified).should be_true
+        updated_data.try(&.verified?).should be_true
         updated_data.try(&.user_id).should eq "test_user"
       end
 
