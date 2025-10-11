@@ -154,4 +154,3 @@ module Authly
     end
   end
 end
-

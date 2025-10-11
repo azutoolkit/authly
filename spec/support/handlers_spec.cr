@@ -78,7 +78,7 @@ module Authly
 
     it "returns 401 for invalid client_id or redirect_uri" do
       state = "test_state_invalid_#{Random::Secure.hex(8)}"
-      Authly.config.state_store.store(state)  # Store state in the configured store
+      Authly.config.state_store.store(state) # Store state in the configured store
 
       query = "client_id=invalid&redirect_uri=invalid&response_type=code&state=#{state}&consent=approved"
       test_ctx = create_test_context("GET", "/oauth/authorize", query)
@@ -527,7 +527,7 @@ module Authly
     it "returns active=false for expired token" do
       # Create a token with very short TTL
       original_ttl = Authly.config.access_ttl
-      Authly.config.access_ttl = -1.seconds  # Already expired
+      Authly.config.access_ttl = -1.seconds # Already expired
 
       token = Authly::AccessToken.new("1", "read")
 

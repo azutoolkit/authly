@@ -96,7 +96,7 @@ module Authly
         store = InMemoryStore.new
 
         store.revoke("token_1")
-        store.revoke("token_1")  # Revoke again
+        store.revoke("token_1") # Revoke again
 
         store.revoked?("token_1").should be_true
       end
@@ -203,4 +203,3 @@ module Authly
     end
   end
 end
-

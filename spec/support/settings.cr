@@ -1,6 +1,6 @@
 secret_key = "4bce37fbb1542a68dddba2da22635beca9d814cb3424c461fcc8876904ad39c1"
 
-PORT = 3000
+PORT        = 3000
 BASE_URI    = "http://0.0.0.0:#{PORT}"
 STATE_STORE = Authly::InMemoryStateStore.new
 

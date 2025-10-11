@@ -90,7 +90,7 @@ module Authly
 
         # Opaque tokens should be hex strings
         token.access_token.should match(/^[a-f0-9]+$/)
-        token.access_token.size.should eq 64  # 32 bytes = 64 hex chars
+        token.access_token.size.should eq 64 # 32 bytes = 64 hex chars
       end
 
       it "stores token metadata in token store" do
@@ -132,4 +132,3 @@ module Authly
     end
   end
 end
-

@@ -103,7 +103,7 @@ module Authly
         token = generator.generate_access_token("client_1", "read", "sub_1", "jti_1")
 
         token.should match(/^[a-f0-9]+$/)
-        token.size.should eq 64  # 32 bytes = 64 hex chars
+        token.size.should eq 64 # 32 bytes = 64 hex chars
       end
 
       it "generates unique tokens each time" do
@@ -223,4 +223,3 @@ module Authly
     end
   end
 end
-
