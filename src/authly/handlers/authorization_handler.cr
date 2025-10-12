@@ -4,7 +4,26 @@ require "uri"
 module Authly
   class AuthorizationHandler
     def self.handle(context)
-      params = context.request.query_params
+      query_params = context.request.query_params
+
+      # Check if request_uri is present (PAR flow)
+      request_uri = query_params["request_uri"]?
+
+      # Load parameters from PAR store if request_uri is present
+      if request_uri
+        params = load_par_params(request_uri, query_params)
+      else
+        # Check if PAR is required
+        if Authly.config.require_par?
+          ResponseHelper.write(context, 400, "application/json", {
+            error:             "invalid_request",
+            error_description: "Pushed Authorization Request is required",
+          }.to_json)
+          return
+        end
+        params = query_params
+      end
+
       client_id = params.fetch("client_id", "")
       redirect_uri = params.fetch("redirect_uri", "")
       response_type = params.fetch("response_type", "")
@@ -137,6 +156,57 @@ module Authly
       unless ["plain", "S256"].includes?(challenge_method)
         raise Error(400).new(:invalid_request)
       end
+    end
+
+    # Load parameters from PAR store
+    private def self.load_par_params(request_uri : String, query_params : HTTP::Params)
+      # Fetch PAR data from store
+      par_data = Authly.config.par_store.fetch(request_uri)
+
+      unless par_data
+        raise Error.invalid_request_uri
+      end
+
+      # Validate client_id if provided in query params
+      query_client_id = query_params["client_id"]?
+      if query_client_id && query_client_id != par_data.client_id
+        raise Error.invalid_request_uri
+      end
+
+      # Consume the request_uri (single-use)
+      Authly.config.par_store.consume(request_uri)
+
+      # Convert stored params to HTTP::Params-like structure
+      # Merge query params with stored params (query params for user_id, consent, etc.)
+      merged_params = par_data.params.dup
+      query_params.each do |key, value|
+        # Allow certain parameters from query (like user_id, consent)
+        # but not authorization parameters
+        unless ["request_uri", "client_id"].includes?(key)
+          merged_params[key] = value
+        end
+      end
+
+      # Return as a wrapper that behaves like HTTP::Params
+      ParamsWrapper.new(merged_params)
+    end
+  end
+
+  # Wrapper to make Hash behave like HTTP::Params
+  class ParamsWrapper
+    def initialize(@params : Hash(String, String))
+    end
+
+    def fetch(key : String, default : String)
+      @params.fetch(key, default)
+    end
+
+    def [](key : String)
+      @params[key]
+    end
+
+    def []?(key : String)
+      @params[key]?
     end
   end
 end

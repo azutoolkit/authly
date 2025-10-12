@@ -287,6 +287,38 @@ Enables authentication on devices with limited input capabilities.
 
 Authly provides standard OAuth2 endpoints for authentication flows:
 
+### Pushed Authorization Request Endpoint
+
+**Path:** `POST /oauth/par`
+
+Allows clients to push authorization parameters directly to the authorization server, receiving a short-lived `request_uri` for use in the authorization flow (RFC 9126).
+
+**Request:**
+
+```http
+POST /oauth/par HTTP/1.1
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic base64(client_id:client_secret)
+
+response_type=code&
+redirect_uri=https://client.example.com/callback&
+scope=openid profile&
+state=xyz&
+code_challenge=CHALLENGE&
+code_challenge_method=S256
+```
+
+**Response:**
+
+```json
+{
+  "request_uri": "urn:ietf:params:oauth:request_uri:6esc_11ACC5bwc014ltc14eY",
+  "expires_in": 90
+}
+```
+
+See [Pushed Authorization Requests](#pushed-authorization-requests-par) for detailed information.
+
 ### Authorization Endpoint
 
 **Path:** `GET /oauth/authorize`
@@ -544,6 +576,89 @@ redirect_uri=REDIRECT_URI&
 code_verifier=VERIFIER
 ```
 
+### Pushed Authorization Requests (PAR)
+
+Pushed Authorization Requests (RFC 9126) is a security enhancement that moves authorization parameters from the front-channel (browser) to a back-channel (direct server-to-server) request. This prevents parameter tampering, reduces URL length limitations, and provides better security for sensitive authorization data.
+
+**Configuration:**
+
+```crystal
+Authly.configure do |config|
+  # Enable PAR endpoint (always available)
+  config.par_ttl = 90.seconds  # Request URI expiration (default: 90 seconds)
+
+  # Optionally require PAR for all authorization requests
+  config.require_par = true
+
+  # Optional: Custom PAR store implementation
+  config.par_store = CustomPARStore.new
+end
+```
+
+**How It Works:**
+
+PAR operates in two steps:
+
+**Step 1: Push Authorization Parameters (Back-channel)**
+
+The client sends authorization parameters directly to the authorization server:
+
+```http
+POST /oauth/par HTTP/1.1
+Host: auth.example.com
+Content-Type: application/x-www-form-urlencoded
+Authorization: Basic base64(client_id:client_secret)
+
+response_type=code&
+redirect_uri=https://client.example.com/callback&
+scope=openid profile email&
+state=xyz&
+code_challenge=CHALLENGE&
+code_challenge_method=S256
+```
+
+**Response:**
+
+```json
+{
+  "request_uri": "urn:ietf:params:oauth:request_uri:6esc_11ACC5bwc014ltc14eY",
+  "expires_in": 90
+}
+```
+
+**Step 2: Authorization Request (Front-channel)**
+
+The client redirects the user with only the `request_uri`:
+
+```http
+GET /oauth/authorize?
+  client_id=CLIENT_ID&
+  request_uri=urn:ietf:params:oauth:request_uri:6esc_11ACC5bwc014ltc14eY
+```
+
+**Benefits:**
+
+- **Enhanced Security**: Parameters aren't exposed in browser URLs or server logs
+- **Prevents Tampering**: Authorization parameters can't be modified by attackers
+- **Large Requests**: Bypasses URL length limitations for complex authorization requests
+- **Server-Side Validation**: Parameters validated before user interaction
+- **Replay Protection**: Request URIs are single-use and time-limited
+- **FAPI Compliant**: Required for Financial-grade API security profiles
+
+**Client Authentication:**
+
+PAR requires client authentication using one of:
+
+- `client_secret_basic`: HTTP Basic authentication (recommended)
+- `client_secret_post`: Client credentials in request body
+
+**Security Features:**
+
+- Request URIs expire after 90 seconds (configurable)
+- Single-use request URIs (consumed after authorization)
+- Client ID validation to prevent unauthorized use
+- Automatic cleanup of expired request URIs
+
 ### Certificate-Bound Access Tokens (mTLS)
 
 Certificate-bound tokens (RFC 8705) bind access tokens to client certificates, preventing token theft and replay attacks. This feature requires mTLS (mutual TLS) configuration at the HTTP server level.
@@ -782,6 +897,7 @@ end
 - [x] OpenID Connect Discovery endpoint
 - [x] Certificate-bound access tokens (mTLS / RFC 8705)
 - [x] Enhanced PKCE implementation with S256 method enforcement
+- [x] Pushed Authorization Requests (PAR / RFC 9126)
 
 ### Planned Enhancements
 
@@ -792,7 +908,6 @@ end
 - [ ] Comprehensive integration examples
 - [ ] Admin UI for client and token management
 - [ ] Detailed logging and monitoring hooks
-- [ ] Pushed Authorization Requests (PAR / RFC 9126)
 - [ ] JWT Secured Authorization Response Mode (JARM)
 
 See the [open issues](https://github.com/azutoolkit/authly/issues) for a list of proposed features and known issues.

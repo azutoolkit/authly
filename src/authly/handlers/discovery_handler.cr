@@ -4,19 +4,20 @@ module Authly
       base_url = Authly.config.base_url
 
       metadata = {
-        issuer:                        base_url,
-        authorization_endpoint:        "#{base_url}/oauth/authorize",
-        token_endpoint:                "#{base_url}/oauth/token",
-        userinfo_endpoint:             "#{base_url}/oauth/userinfo",
-        jwks_uri:                      "#{base_url}/.well-known/jwks.json",
-        registration_endpoint:         "#{base_url}/oauth/register",
-        revocation_endpoint:           "#{base_url}/oauth/revoke",
-        introspection_endpoint:        "#{base_url}/oauth/introspect",
-        device_authorization_endpoint: "#{base_url}/oauth/device/code",
-        scopes_supported:              ["openid", "profile", "email", "address", "phone", "offline_access"],
-        response_types_supported:      ["code", "token", "id_token", "code token", "code id_token", "token id_token", "code token id_token"],
-        response_modes_supported:      ["query", "fragment"],
-        grant_types_supported:         [
+        issuer:                                base_url,
+        authorization_endpoint:                "#{base_url}/oauth/authorize",
+        token_endpoint:                        "#{base_url}/oauth/token",
+        userinfo_endpoint:                     "#{base_url}/oauth/userinfo",
+        jwks_uri:                              "#{base_url}/.well-known/jwks.json",
+        registration_endpoint:                 "#{base_url}/oauth/register",
+        revocation_endpoint:                   "#{base_url}/oauth/revoke",
+        introspection_endpoint:                "#{base_url}/oauth/introspect",
+        device_authorization_endpoint:         "#{base_url}/oauth/device/code",
+        pushed_authorization_request_endpoint: "#{base_url}/oauth/par",
+        scopes_supported:                      ["openid", "profile", "email", "address", "phone", "offline_access"],
+        response_types_supported:              ["code", "token", "id_token", "code token", "code id_token", "token id_token", "code token id_token"],
+        response_modes_supported:              ["query", "fragment"],
+        grant_types_supported:                 [
           "authorization_code",
           "implicit",
           "password",
@@ -44,8 +45,9 @@ module Authly
           "picture",
           "updated_at",
         ],
-        request_parameter_supported:     false,
-        request_uri_parameter_supported: false,
+        request_parameter_supported:           false,
+        request_uri_parameter_supported:       true,
+        require_pushed_authorization_requests: Authly.config.require_par?,
       }
 
       ResponseHelper.write(context, 200, "application/json", metadata.to_json)

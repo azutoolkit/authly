@@ -17,6 +17,8 @@ module Authly
         handle_if_method(context, "GET") { AuthorizationHandler.handle(context) }
       when "/oauth/token"
         handle_token_endpoint(context)
+      when "/oauth/par"
+        handle_if_method(context, "POST") { PARHandler.handle(context) }
       when "/oauth/device/code"
         handle_if_method(context, "POST") { DeviceAuthorizationHandler.handle(context) }
       when "/device"

@@ -16,6 +16,8 @@ module Authly
     authorization_pending:  "The authorization request is still pending; the client should retry the request",
     slow_down:              "The client is polling too frequently and should slow down",
     expired_token:          "The device code has expired; the client should request a new device authorization",
+    invalid_request_uri:    "The request_uri is invalid, expired, or does not exist",
+    invalid_request_object: "The request object is invalid or malformed",
   }
 
   class Error(Code) < Exception
@@ -69,6 +71,14 @@ module Authly
 
     def self.expired_token
       raise Error(400).new(:expired_token)
+    end
+
+    def self.invalid_request_uri
+      raise Error(400).new(:invalid_request_uri)
+    end
+
+    def self.invalid_request_object
+      raise Error(400).new(:invalid_request_object)
     end
 
     def self.bad_request(type : Symbol)

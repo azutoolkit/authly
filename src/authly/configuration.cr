@@ -28,5 +28,10 @@ module Authly
     # Certificate-Bound Tokens (mTLS)
     property? require_certificate_bound_tokens : Bool = false
     property trusted_ca_certificates : Array(String) = [] of String
+
+    # Pushed Authorization Requests (PAR)
+    property par_store : PARStore = InMemoryPARStore.new
+    property par_ttl : Time::Span = 90.seconds
+    property? require_par : Bool = false
   end
 end
