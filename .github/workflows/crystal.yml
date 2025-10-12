@@ -15,7 +15,9 @@ jobs:
       - uses: actions/checkout@v1
 
       - name: Install system dependencies
-        run: apt-get update && apt-get install -y libreadline-dev libevent-dev libssl-dev libxml2-dev libyaml-dev libgmp-dev
+        run: |
+          apt-get update
+          apt-get install -y libreadline-dev libevent-dev libssl-dev libxml2-dev libyaml-dev libgmp-dev
 
       - name: Install dependencies
         run: shards install
