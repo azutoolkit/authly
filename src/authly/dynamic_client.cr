@@ -51,6 +51,19 @@ module Authly
     @[JSON::Field(emit_null: false)]
     getter software_version : String?
 
+    # JARM (JWT Secured Authorization Response Mode) settings
+    @[JSON::Field(emit_null: false)]
+    getter authorization_signed_response_alg : String?
+
+    @[JSON::Field(emit_null: false)]
+    getter authorization_encrypted_response_alg : String?
+
+    @[JSON::Field(emit_null: false)]
+    getter authorization_encrypted_response_enc : String?
+
+    @[JSON::Field(emit_null: false)]
+    getter jwks : String?
+
     # Registration metadata
     getter client_id_issued_at : Int64
 
@@ -74,6 +87,10 @@ module Authly
       @jwks_uri : String? = nil,
       @software_id : String? = nil,
       @software_version : String? = nil,
+      @authorization_signed_response_alg : String? = nil,
+      @authorization_encrypted_response_alg : String? = nil,
+      @authorization_encrypted_response_enc : String? = nil,
+      @jwks : String? = nil,
       @client_id_issued_at : Int64 = Time.utc.to_unix,
       @client_secret_expires_at : Int64? = nil,
     )
@@ -110,6 +127,12 @@ module Authly
       software_id = params["software_id"]?.try(&.as_s)
       software_version = params["software_version"]?.try(&.as_s)
 
+      # Extract JARM metadata
+      authorization_signed_response_alg = params["authorization_signed_response_alg"]?.try(&.as_s)
+      authorization_encrypted_response_alg = params["authorization_encrypted_response_alg"]?.try(&.as_s)
+      authorization_encrypted_response_enc = params["authorization_encrypted_response_enc"]?.try(&.as_s)
+      jwks = params["jwks"]?.try(&.to_json)
+
       new(
         client_id: client_id,
         client_secret: client_secret,
@@ -126,7 +149,11 @@ module Authly
         policy_uri: policy_uri,
         jwks_uri: jwks_uri,
         software_id: software_id,
-        software_version: software_version
+        software_version: software_version,
+        authorization_signed_response_alg: authorization_signed_response_alg,
+        authorization_encrypted_response_alg: authorization_encrypted_response_alg,
+        authorization_encrypted_response_enc: authorization_encrypted_response_enc,
+        jwks: jwks
       )
     end
 
@@ -180,6 +207,29 @@ module Authly
       if method = token_endpoint_auth_method
         supported_auth_methods = ["client_secret_basic", "client_secret_post", "none"]
         return false unless supported_auth_methods.includes?(method)
+      end
+
+      # Validate JARM signing algorithm
+      if alg = authorization_signed_response_alg
+        supported_signing_algs = ["RS256", "RS384", "RS512", "ES256", "ES384", "ES512", "HS256", "HS384", "HS512", "PS256", "PS384", "PS512"]
+        return false unless supported_signing_algs.includes?(alg)
+      end
+
+      # Validate JARM encryption algorithm
+      if alg = authorization_encrypted_response_alg
+        supported_encryption_algs = ["RSA-OAEP", "RSA-OAEP-256", "ECDH-ES", "ECDH-ES+A128KW", "ECDH-ES+A192KW", "ECDH-ES+A256KW"]
+        return false unless supported_encryption_algs.includes?(alg)
+      end
+
+      # Validate JARM encryption encoding
+      if enc = authorization_encrypted_response_enc
+        supported_encryption_encs = ["A128GCM", "A192GCM", "A256GCM", "A128CBC-HS256", "A192CBC-HS384", "A256CBC-HS512"]
+        return false unless supported_encryption_encs.includes?(enc)
+      end
+
+      # If encryption is specified, encoding must also be specified
+      if authorization_encrypted_response_alg && !authorization_encrypted_response_enc
+        return false
       end
 
       true

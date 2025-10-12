@@ -33,5 +33,14 @@ module Authly
     property par_store : PARStore = InMemoryPARStore.new
     property par_ttl : Time::Span = 90.seconds
     property? require_par : Bool = false
+
+    # JWT Secured Authorization Response Mode (JARM)
+    property jarm_signing_key : String? = nil
+    property jarm_signing_alg : JWT::Algorithm = JWT::Algorithm::RS256
+    property jarm_encryption_key : String? = nil
+    property jarm_encryption_alg : String? = nil
+    property jarm_encryption_enc : String? = nil
+    property default_jarm_response_mode : String? = nil
+    property jarm_lifetime : Time::Span = 10.minutes
   end
 end

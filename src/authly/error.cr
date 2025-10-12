@@ -45,6 +45,10 @@ module Authly
       raise Error(400).new(:invalid_redirect_uri)
     end
 
+    def self.invalid_request
+      raise Error(400).new(:invalid_request)
+    end
+
     def self.invalid_state
       raise Error(400).new(:invalid_state)
     end

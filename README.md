@@ -61,6 +61,7 @@ Authly provides a comprehensive authentication solution with the following capab
 
 - ✅ PKCE (Proof Key for Code Exchange) support with S256 enforcement
 - ✅ Certificate-bound access tokens (mTLS / RFC 8705)
+- ✅ JWT Secured Authorization Response Mode (JARM / RFC 9101)
 - ✅ State parameter validation
 - ✅ Redirect URI validation
 - ✅ Secure token generation
@@ -723,6 +724,189 @@ server {
 - Suitable for high-security environments (banking, healthcare, government)
 - Compliant with FAPI (Financial-grade API) security profile
 
+### JWT Secured Authorization Response Mode (JARM)
+
+JARM (RFC 9101) protects authorization responses by encoding them in signed and optionally encrypted JWTs. This prevents response tampering, injection attacks, and ensures the integrity and authenticity of authorization responses.
+
+**Configuration:**
+
+```crystal
+Authly.configure do |config|
+  # JARM signing configuration
+  config.jarm_signing_key = ENV["JARM_SIGNING_KEY"]
+  config.jarm_signing_alg = JWT::Algorithm::RS256
+
+  # Optional: JARM encryption configuration
+  config.jarm_encryption_key = ENV["JARM_ENCRYPTION_KEY"]
+  config.jarm_encryption_alg = "RSA-OAEP"
+  config.jarm_encryption_enc = "A256GCM"
+
+  # Optional: Default JARM response mode
+  config.default_jarm_response_mode = "query.jwt"
+
+  # JARM JWT lifetime (default: 10 minutes)
+  config.jarm_lifetime = 10.minutes
+end
+```
+
+**How It Works:**
+
+When JARM is enabled, instead of returning authorization parameters in the query string or fragment:
+
+```
+https://client.example.com/callback?code=AUTH_CODE&state=xyz
+```
+
+The authorization server returns a signed JWT containing the response:
+
+```
+https://client.example.com/callback?response=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+The JWT payload contains:
+
+```json
+{
+  "iss": "https://auth.example.com",
+  "aud": "client_id",
+  "exp": 1640000600,
+  "code": "AUTH_CODE",
+  "state": "xyz"
+}
+```
+
+**Response Modes:**
+
+JARM supports multiple response modes:
+
+1. **query.jwt** - JWT in query parameter `response`
+
+   ```
+   GET /callback?response=<JWT>
+   ```
+
+2. **fragment.jwt** - JWT in fragment parameter `response`
+
+   ```
+   GET /callback#response=<JWT>
+   ```
+
+3. **form_post.jwt** - Auto-submitting HTML form with JWT
+
+   ```html
+   <form method="post" action="callback_url">
+     <input type="hidden" name="response" value="<JWT>" />
+   </form>
+   ```
+
+4. **jwt** - Direct JWT response (for JAR flows)
+
+   ```
+   HTTP/1.1 200 OK
+   Content-Type: application/jwt
+
+   <JWT>
+   ```
+
+**Per-Client Configuration:**
+
+Clients can request JARM during dynamic registration:
+
+```json
+{
+  "redirect_uris": ["https://client.example.com/callback"],
+  "authorization_signed_response_alg": "RS256",
+  "authorization_encrypted_response_alg": "RSA-OAEP",
+  "authorization_encrypted_response_enc": "A256GCM"
+}
+```
+
+Or configure it statically:
+
+```crystal
+client = Authly::Client.new(
+  name: "Secure Client",
+  secret: "client_secret",
+  redirect_uri: "https://client.example.com/callback",
+  id: "client_123",
+  jarm_signing_alg: "RS256",
+  jarm_encryption_alg: "RSA-OAEP",
+  jarm_encryption_enc: "A256GCM"
+)
+```
+
+**Usage Example:**
+
+Client requests authorization with JARM:
+
+```http
+GET /oauth/authorize?
+  response_type=code&
+  client_id=CLIENT_ID&
+  redirect_uri=REDIRECT_URI&
+  response_mode=query.jwt&
+  state=STATE
+```
+
+Authorization server redirects with JARM response:
+
+```http
+HTTP/1.1 302 Found
+Location: https://client.example.com/callback?response=eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+Client decodes and validates the JWT:
+
+```crystal
+# Extract JWT from response parameter
+jwt = params["response"]
+
+# Verify signature and decode
+payload, header = JWT.decode(jwt, server_public_key, JWT::Algorithm::RS256,
+  iss: "https://auth.example.com",
+  aud: client_id
+)
+
+# Extract authorization code
+authorization_code = payload["code"]
+state = payload["state"]
+```
+
+**Supported Algorithms:**
+
+**Signing Algorithms (JWS):**
+
+- RS256, RS384, RS512 (RSA with SHA)
+- ES256, ES384, ES512 (ECDSA with SHA)
+- HS256, HS384, HS512 (HMAC with SHA)
+- PS256, PS384, PS512 (RSA PSS with SHA)
+
+**Encryption Algorithms (JWE - Key Encryption):**
+
+- RSA-OAEP, RSA-OAEP-256
+- ECDH-ES, ECDH-ES+A128KW, ECDH-ES+A192KW, ECDH-ES+A256KW
+
+**Encryption Encodings (JWE - Content Encryption):**
+
+- A128GCM, A192GCM, A256GCM
+- A128CBC-HS256, A192CBC-HS384, A256CBC-HS512
+
+**Benefits:**
+
+- **Response Integrity**: Prevents tampering with authorization responses
+- **Response Authentication**: Verifies the authorization server issued the response
+- **Confidentiality**: Optional encryption protects sensitive response data
+- **Injection Prevention**: Prevents authorization response injection attacks
+- **FAPI Compliance**: Required for Financial-grade API Advanced security profile
+
+**Security Considerations:**
+
+- JARM JWTs should have short lifetimes (default: 10 minutes)
+- Clients must validate the `iss` (issuer) and `aud` (audience) claims
+- Clients must verify JWT signatures using the authorization server's public key
+- Use RS256 or ES256 for production deployments (asymmetric algorithms)
+- Enable encryption for highly sensitive authorization responses
+
 ## Customization
 
 Authly provides extension points for integrating with your application's authentication logic:
@@ -898,6 +1082,7 @@ end
 - [x] Certificate-bound access tokens (mTLS / RFC 8705)
 - [x] Enhanced PKCE implementation with S256 method enforcement
 - [x] Pushed Authorization Requests (PAR / RFC 9126)
+- [x] JWT Secured Authorization Response Mode (JARM / RFC 9101)
 
 ### Planned Enhancements
 
@@ -908,7 +1093,6 @@ end
 - [ ] Comprehensive integration examples
 - [ ] Admin UI for client and token management
 - [ ] Detailed logging and monitoring hooks
-- [ ] JWT Secured Authorization Response Mode (JARM)
 
 See the [open issues](https://github.com/azutoolkit/authly/issues) for a list of proposed features and known issues.
 

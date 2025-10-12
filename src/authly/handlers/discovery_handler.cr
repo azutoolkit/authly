@@ -16,7 +16,7 @@ module Authly
         pushed_authorization_request_endpoint: "#{base_url}/oauth/par",
         scopes_supported:                      ["openid", "profile", "email", "address", "phone", "offline_access"],
         response_types_supported:              ["code", "token", "id_token", "code token", "code id_token", "token id_token", "code token id_token"],
-        response_modes_supported:              ["query", "fragment"],
+        response_modes_supported:              ["query", "fragment", "form_post", "query.jwt", "fragment.jwt", "form_post.jwt", "jwt"],
         grant_types_supported:                 [
           "authorization_code",
           "implicit",
@@ -45,9 +45,12 @@ module Authly
           "picture",
           "updated_at",
         ],
-        request_parameter_supported:           false,
-        request_uri_parameter_supported:       true,
-        require_pushed_authorization_requests: Authly.config.require_par?,
+        request_parameter_supported:                   false,
+        request_uri_parameter_supported:               true,
+        require_pushed_authorization_requests:         Authly.config.require_par?,
+        authorization_signing_alg_values_supported:    jarm_signing_algorithms,
+        authorization_encryption_alg_values_supported: jarm_encryption_algorithms,
+        authorization_encryption_enc_values_supported: jarm_encryption_encodings,
       }
 
       ResponseHelper.write(context, 200, "application/json", metadata.to_json)
@@ -75,6 +78,48 @@ module Authly
       # Add 'plain' only if S256 is not enforced
       methods << "plain" unless Authly.config.enforce_pkce_s256?
       methods
+    end
+
+    private def self.jarm_signing_algorithms : Array(String)
+      # Return list of supported JARM signing algorithms
+      [
+        "RS256",
+        "RS384",
+        "RS512",
+        "ES256",
+        "ES384",
+        "ES512",
+        "HS256",
+        "HS384",
+        "HS512",
+        "PS256",
+        "PS384",
+        "PS512",
+      ]
+    end
+
+    private def self.jarm_encryption_algorithms : Array(String)
+      # Return list of supported JARM encryption algorithms
+      [
+        "RSA-OAEP",
+        "RSA-OAEP-256",
+        "ECDH-ES",
+        "ECDH-ES+A128KW",
+        "ECDH-ES+A192KW",
+        "ECDH-ES+A256KW",
+      ]
+    end
+
+    private def self.jarm_encryption_encodings : Array(String)
+      # Return list of supported JARM encryption encodings
+      [
+        "A128GCM",
+        "A192GCM",
+        "A256GCM",
+        "A128CBC-HS256",
+        "A192CBC-HS384",
+        "A256CBC-HS512",
+      ]
     end
   end
 end

@@ -8,8 +8,23 @@ module Authly
     getter redirect_uri : String
     getter scopes : String
     getter grant_types : String
+    getter jarm_signing_alg : String?
+    getter jarm_encryption_alg : String?
+    getter jarm_encryption_enc : String?
+    getter public_key : String?
 
-    def initialize(@name, @secret, @redirect_uri, @id, @scopes = "read", @grant_types = "authorization_code client_credentials password refresh_token")
+    def initialize(
+      @name,
+      @secret,
+      @redirect_uri,
+      @id,
+      @scopes = "read",
+      @grant_types = "authorization_code client_credentials password refresh_token",
+      @jarm_signing_alg = nil,
+      @jarm_encryption_alg = nil,
+      @jarm_encryption_enc = nil,
+      @public_key = nil
+    )
     end
   end
 
@@ -65,6 +80,42 @@ module Authly
       the_client.grant_types.split(" ").includes?(grant_type)
     rescue
       false
+    end
+
+    # JARM methods
+    def jarm_required?(client_id : String) : Bool
+      the_client = self.find { |client| client.id == client_id }
+      return false unless the_client
+
+      !the_client.jarm_signing_alg.nil?
+    end
+
+    def jarm_signing_algorithm(client_id : String) : String?
+      the_client = self.find { |client| client.id == client_id }
+      return nil unless the_client
+
+      the_client.jarm_signing_alg
+    end
+
+    def jarm_encryption_algorithm(client_id : String) : String?
+      the_client = self.find { |client| client.id == client_id }
+      return nil unless the_client
+
+      the_client.jarm_encryption_alg
+    end
+
+    def jarm_encryption_encoding(client_id : String) : String?
+      the_client = self.find { |client| client.id == client_id }
+      return nil unless the_client
+
+      the_client.jarm_encryption_enc
+    end
+
+    def client_public_key(client_id : String) : String?
+      the_client = self.find { |client| client.id == client_id }
+      return nil unless the_client
+
+      the_client.public_key
     end
   end
 end
