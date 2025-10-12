@@ -80,4 +80,4 @@ jobs:
           tag_name: ${{steps.semver.outputs.version_tag}}
           release_name: Release v${{steps.semver.outputs.version}}
           draft: false
-          prerelease: true
+          prerelease: false
