@@ -244,7 +244,7 @@ module Authly
       token_type : String? = nil,
       expires_in : Int64? = nil,
       scope : String? = nil,
-      id_token : String? = nil
+      id_token : String? = nil,
     )
       # Determine response mode (use client/global default if not specified)
       mode = response_mode

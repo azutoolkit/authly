@@ -23,7 +23,7 @@ module Authly
       @jarm_signing_alg = nil,
       @jarm_encryption_alg = nil,
       @jarm_encryption_enc = nil,
-      @public_key = nil
+      @public_key = nil,
     )
     end
   end
