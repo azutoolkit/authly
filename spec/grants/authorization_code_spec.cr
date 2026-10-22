@@ -51,6 +51,25 @@ module Authly
         end
       end
 
+      describe "single use" do
+        it "rejects a code that was already redeemed" do
+          code = Code.new(client_id, scope, uri).to_s
+          AuthorizationCode.new(client_id, secret, uri, code).authorized?.should be_true
+
+          expect_raises Error, ERROR_MSG[:invalid_grant] do
+            AuthorizationCode.new(client_id, secret, uri, code).authorized?
+          end
+        end
+
+        it "does not consume a code when the request is rejected" do
+          challenge = Digest::SHA256.base64digest(code_verifier)
+          code = Code.new(client_id, scope, uri, challenge, "S256", "user_id").to_s
+
+          expect_raises(Error) { AuthorizationCode.new(client_id, secret, uri, code).authorized? }
+          AuthorizationCode.new(client_id, secret, uri, code, code_verifier).authorized?.should be_true
+        end
+      end
+
       it "returns true" do
         code = Code.new(client_id, scope, uri).to_s
         authorization_code = AuthorizationCode.new(client_id, secret, uri, code)

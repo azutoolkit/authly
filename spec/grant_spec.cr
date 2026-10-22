@@ -16,7 +16,8 @@ module Authly
       "iss"  => Authly.config.issuer,
       "exp"  => Authly.config.refresh_ttl.from_now.to_unix,
     })
-    authorization_code = Authly::Code.new(client_id, "read", redirect_uri, "", "", username).to_s
+    # A code is single use, so every example needs its own.
+    authorization_code = -> { Authly::Code.new(client_id, "read", redirect_uri, "", "", username).to_s }
 
     it "creates an access token with valid client credentials grant" do
       grant = Grant.new("client_credentials", client_id: client_id, client_secret: client_secret)
@@ -44,7 +45,7 @@ module Authly
         client_id: client_id,
         client_secret: client_secret,
         redirect_uri: redirect_uri,
-        code: authorization_code)
+        code: authorization_code.call)
 
       token = grant.token
 
@@ -57,7 +58,7 @@ module Authly
         client_id: client_id,
         client_secret: client_secret,
         refresh_token: refresh_token,
-        code: authorization_code)
+        code: authorization_code.call)
 
       token = grant.token
 
@@ -74,7 +75,7 @@ module Authly
         client_id: client_id,
         client_secret: client_secret,
         redirect_uri: redirect_uri,
-        code: authorization_code)
+        code: authorization_code.call)
 
       token = grant.token
 
@@ -85,13 +86,13 @@ module Authly
       scope = "pluto"
       invalid_scope = "mars"
       Authly.clients << Authly::Client.new("new_client", "secret", "https://www.example.com/callback", "2", scope)
-      authorization_code = Authly::Code.new("2", invalid_scope, redirect_uri, "", "", username).to_s
+      invalid_code = Authly::Code.new("2", invalid_scope, redirect_uri, "", "", username).to_s
 
       grant = Grant.new("authorization_code",
         client_id: "2",
         client_secret: client_secret,
         redirect_uri: redirect_uri,
-        code: authorization_code)
+        code: invalid_code)
 
       expect_raises(Error) { grant.token }
     end
