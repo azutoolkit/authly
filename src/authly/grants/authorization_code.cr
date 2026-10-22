@@ -20,7 +20,7 @@ module Authly
     end
 
     def authorized? : Bool
-      decode_code unless @code.empty?
+      decode_code
       validate!
       verify_challenge!
       true
@@ -51,7 +51,8 @@ module Authly
     end
 
     private def verify_challenge!
-      return if verifier.empty?
+      return if challenge.empty?
+      raise Error.unauthorized_client if verifier.empty?
       raise Error.unauthorized_client unless code_challenge.valid?(verifier)
     end
 
