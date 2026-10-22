@@ -10,7 +10,11 @@ module Authly
     getter access_token : String
     getter token_type : String = "Bearer"
     getter scope : String
-    getter expires_in : Int64 = ACCESS_TTL.from_now.to_unix
+    # Lifetime in seconds, as RFC 6749 section 5.1 defines `expires_in`.
+    getter expires_in : Int64 = ACCESS_TTL.total_seconds.to_i64
+    # Absolute expiry as a Unix timestamp (the `exp` claim).
+    @[JSON::Field(ignore: true)]
+    getter expires_at : Int64 = ACCESS_TTL.from_now.to_unix
     getter? revoked : Bool = false
     @[JSON::Field(emit_null: false)]
     getter refresh_token : String
