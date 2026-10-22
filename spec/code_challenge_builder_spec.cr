@@ -26,6 +26,23 @@ module Authly
       end
     end
 
+    describe "S256 Code Challenge (RFC 7636 appendix B)" do
+      verifier = "dBjftJeZ4CVP-mB92K27uhbUJU1p1r_wW1gFWFOEjXk"
+      rfc_challenge = "E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM"
+
+      it "accepts the unpadded base64url challenge a standards-compliant client sends" do
+        CodeChallengeBuilder.build(rfc_challenge, "S256").valid?(verifier).should be_true
+      end
+
+      it "still accepts the padded standard base64 challenge older clients of this library sent" do
+        CodeChallengeBuilder.build(Digest::SHA256.base64digest(verifier), "S256").valid?(verifier).should be_true
+      end
+
+      it "rejects another verifier" do
+        CodeChallengeBuilder.build(rfc_challenge, "S256").valid?("another-verifier").should be_false
+      end
+    end
+
     describe "S256 Code Challenge" do
       challenge = CodeChallengeBuilder.build
 
