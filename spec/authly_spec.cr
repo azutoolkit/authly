@@ -33,13 +33,16 @@ describe Authly do
     end
 
     it "returns access_token for AuthorizationCode grant" do
-      code = Authly.code("code", client_id, redirect_uri, "read", state, code_challenge, code_challenge_method).to_s
+      verifier = "code_verifier"
+      challenge = Digest::SHA256.base64digest(verifier)
+      code = Authly.code("code", client_id, redirect_uri, "read", challenge, code_challenge_method).to_s
       token = Authly.access_token(
         grant_type: "authorization_code",
         client_id: client_id,
         client_secret: client_secret,
         redirect_uri: redirect_uri,
-        code: code)
+        code: code,
+        verifier: verifier)
 
       token.should be_a Authly::AccessToken
     end

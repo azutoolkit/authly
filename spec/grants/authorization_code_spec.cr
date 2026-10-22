@@ -31,6 +31,26 @@ module Authly
         end
       end
 
+      describe "PKCE enforcement" do
+        it "rejects a code that carries a challenge when no verifier is sent" do
+          challenge = Digest::SHA256.base64digest(code_verifier)
+          code = Code.new(client_id, scope, uri, challenge, "S256", "user_id").to_s
+          authorization_code = AuthorizationCode.new(client_id, secret, uri, code)
+
+          expect_raises Error, ERROR_MSG[:unauthorized_client] do
+            authorization_code.authorized?
+          end
+        end
+
+        it "rejects a request that carries no code" do
+          authorization_code = AuthorizationCode.new(client_id, secret, uri)
+
+          expect_raises Error, ERROR_MSG[:invalid_grant] do
+            authorization_code.authorized?
+          end
+        end
+      end
+
       it "returns true" do
         code = Code.new(client_id, scope, uri).to_s
         authorization_code = AuthorizationCode.new(client_id, secret, uri, code)
