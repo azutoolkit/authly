@@ -134,7 +134,7 @@ describe Authly do
         "active" => true,
         "scope"  => scope,
         "cid"    => client_id,
-        "exp"    => a_token.expires_in,
+        "exp"    => a_token.expires_at,
         "sub"    => expected_token["sub"],
       })
     end

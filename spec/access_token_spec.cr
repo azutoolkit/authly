@@ -37,7 +37,15 @@ module Authly
         expected_expiry = Authly.config.access_ttl.from_now.to_unix
 
         # Allow 2 second tolerance for test execution time
-        token.expires_in.should be_close(expected_expiry, 2)
+        token.expires_at.should be_close(expected_expiry, 2)
+      end
+
+      it "reports expires_in as the lifetime in seconds, as RFC 6749 requires" do
+        token = AccessToken.new("client_123", "read")
+
+        token.expires_in.should eq Authly.config.access_ttl.total_seconds.to_i64
+        JSON.parse(token.to_json)["expires_in"].as_i64.should eq token.expires_in
+        JSON.parse(token.to_json)["expires_at"]?.should be_nil
       end
 
       it "can decode and verify JWT access token" do

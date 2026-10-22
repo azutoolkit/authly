@@ -145,7 +145,7 @@ module Authly
         "active" => true,
         "scope"  => token.scope,
         "cid"    => token.client_id,
-        "exp"    => token.expires_in,
+        "exp"    => token.expires_at,
         "sub"    => token.sub,
       })
     end
