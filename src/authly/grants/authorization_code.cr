@@ -62,9 +62,7 @@ module Authly
     # An authorization code is good for one redemption (RFC 6749 section 4.1.2); it is
     # consumed only once the request has passed every other check.
     private def redeem_code!
-      store = Authly.config.token_store
-      raise Error.invalid_grant if store.revoked?(@jti)
-      store.revoke(@jti)
+      raise Error.invalid_grant unless Authly.config.token_store.consume(@jti)
     end
 
     private def code_challenge

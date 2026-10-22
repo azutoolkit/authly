@@ -203,3 +203,41 @@ module Authly
     end
   end
 end
+
+module Authly
+  # A store that only implements the abstract methods, as documented for custom stores.
+  class MinimalTokenStore
+    include TokenStore
+
+    @revoked = Set(String).new
+
+    def store(token_id : String, payload)
+    end
+
+    def fetch(token_id : String)
+      raise Error.invalid_token
+    end
+
+    def revoke(token_id : String)
+      @revoked.add(token_id)
+    end
+
+    def revoked?(token_id : String) : Bool
+      @revoked.includes?(token_id)
+    end
+
+    def valid?(token_id : String) : Bool
+      !revoked?(token_id)
+    end
+  end
+
+  describe "TokenStore#consume" do
+    {InMemoryStore.new, MinimalTokenStore.new}.each do |store|
+      it "revokes an id once and reports only the first call (#{store.class})" do
+        store.consume("one_time").should be_true
+        store.revoked?("one_time").should be_true
+        store.consume("one_time").should be_false
+      end
+    end
+  end
+end

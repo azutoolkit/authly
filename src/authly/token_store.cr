@@ -5,6 +5,16 @@ module Authly
     abstract def revoke(token_id : String)
     abstract def revoked?(token_id : String) : Bool
     abstract def valid?(token_id : String) : Bool
+
+    # Revoke `token_id` and report whether this call was the one that revoked it, so a
+    # one-time credential can be redeemed by exactly one of several concurrent requests.
+    # The default is check-then-revoke; a shared store should override it with an atomic
+    # operation (for Redis, `SET NX`).
+    def consume(token_id : String) : Bool
+      return false if revoked?(token_id)
+      revoke(token_id)
+      true
+    end
   end
 
   class InMemoryStore
@@ -45,6 +55,10 @@ module Authly
 
     def valid?(token_id : String) : Bool
       !revoked?(token_id)
+    end
+
+    def consume(token_id : String) : Bool
+      @revoked_tokens.add?(token_id)
     end
   end
 end
