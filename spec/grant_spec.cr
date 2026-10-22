@@ -53,6 +53,53 @@ module Authly
       token.scope.should eq "read"
     end
 
+    describe "the sub claim" do
+      owner_id = ->(name : String) { Authly.owners.id_token(name)["sub"].to_s }
+
+      it "is the client for a client credentials token" do
+        token = Grant.new("client_credentials", client_id: client_id, client_secret: client_secret).token
+
+        token.sub.should eq client_id
+      end
+
+      it "is the owner's id for a password grant token, matching the ID token" do
+        token = Grant.new("password", client_id: client_id, client_secret: client_secret, username: username, password: password).token
+
+        token.sub.should eq owner_id.call(username)
+      end
+
+      it "is the owner's id for the user the authorization code was issued to" do
+        code = Authly::Code.new(client_id, "read", redirect_uri, "", "", username).to_s
+        token = Grant.new("authorization_code", client_id: client_id, client_secret: client_secret, redirect_uri: redirect_uri, code: code).token
+
+        token.sub.should eq owner_id.call(username)
+        Authly.jwt_decode(token.access_token).first["sub"].as_s.should eq owner_id.call(username)
+      end
+
+      it "falls back to the user name for a user the owner store does not know" do
+        code = Authly::Code.new(client_id, "read", redirect_uri, "", "", "user-42").to_s
+        token = Grant.new("authorization_code", client_id: client_id, client_secret: client_secret, redirect_uri: redirect_uri, code: code).token
+
+        token.sub.should eq "user-42"
+      end
+
+      it "stays with the owner when the token is refreshed" do
+        first = Grant.new("password", client_id: client_id, client_secret: client_secret, username: username, password: password).token
+        refreshed = Grant.new("refresh_token", client_id: client_id, client_secret: client_secret, refresh_token: first.refresh_token).token
+
+        refreshed.sub.should eq first.sub
+      end
+
+      it "is not shared between anonymous tokens, so unrelated subjects never collide" do
+        code = Authly::Code.new(client_id, "read", redirect_uri).to_s
+        first = Grant.new("authorization_code", client_id: client_id, client_secret: client_secret, redirect_uri: redirect_uri, code: code).token
+        second = Grant.new("authorization_code", client_id: client_id, client_secret: client_secret, redirect_uri: redirect_uri, code: Authly::Code.new(client_id, "read", redirect_uri).to_s).token
+
+        first.sub.should_not eq second.sub
+        first.sub.should_not eq client_id
+      end
+    end
+
     it "creates an access token with valid refresh token grant" do
       grant = Grant.new("refresh_token",
         client_id: client_id,

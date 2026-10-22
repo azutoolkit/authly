@@ -80,6 +80,12 @@ module Authly
         end
       end
 
+      it "does not let the request choose who an implicit token is about" do
+        rt = ResponseType.new("token", "client_1", "https://example.com/callback", "read", "", "", "admin")
+
+        rt.decode.as(AccessToken).sub.should_not eq "admin"
+      end
+
       context "with token response type" do
         it "returns AccessToken object for valid request" do
           rt = ResponseType.new("token", "client_1", "https://example.com/callback", "read")

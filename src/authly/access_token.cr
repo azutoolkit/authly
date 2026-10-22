@@ -4,8 +4,11 @@ module Authly
     ACCESS_TTL  = Authly.config.access_ttl
     REFRESH_TTL = Authly.config.refresh_ttl
 
+    # The subject the token was issued for: the resource owner, or the client itself for
+    # the client credentials grant. A token whose grant identifies nobody gets a random one,
+    # so that no two unrelated subjects ever share a `sub`.
+    getter sub : String
     # The JWT ID (jti), used to track and revoke individual tokens
-    getter sub : String = Random::Secure.hex(32)
     getter jti : String
     getter access_token : String
     getter token_type : String = "Bearer"
@@ -27,13 +30,14 @@ module Authly
       new(client_id, scope, id_token).to_json
     end
 
-    def initialize(@client_id : String, @scope : String, @id_token : String? = nil, cert_thumbprint : String? = nil)
+    def initialize(@client_id : String, @scope : String, @id_token : String? = nil, cert_thumbprint : String? = nil, subject : String? = nil)
+      @sub = subject || Random::Secure.hex(32)
       @jti = Random::Secure.hex(32)
       generator = TokenGeneratorFactory.create
       @access_token = generator.generate_access_token(@client_id, @scope, sub, @jti, cert_thumbprint)
 
       refresh_jti = Random::Secure.hex(32)
-      @refresh_token = generator.generate_refresh_token(@client_id, refresh_jti)
+      @refresh_token = generator.generate_refresh_token(@client_id, refresh_jti, subject || @client_id)
 
       # Store metadata for opaque tokens (use access_token as key)
       expires_at = ACCESS_TTL.from_now

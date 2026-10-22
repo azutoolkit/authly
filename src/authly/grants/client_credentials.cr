@@ -3,6 +3,10 @@ module Authly
     include GrantStrategy
     getter client_id : String, client_secret : String
 
+    def subject : String?
+      client_id
+    end
+
     def initialize(@client_id, @client_secret)
     end
 
