@@ -2,7 +2,10 @@ module Authly
   class Configuration
     property issuer : String = "The Authority Server Provider"
     property secret_key : String = Random::Secure.hex(16)
-    property public_key : String = Random::Secure.hex(16)
+    # The key tokens are verified with. For HMAC algorithms (the default) it has to be the
+    # signing key, so it follows `secret_key` until it is set to something else, such as the
+    # public half of an asymmetric pair.
+    setter public_key : String?
     property refresh_ttl : Time::Span = 1.day
     property code_ttl : Time::Span = 5.minutes
     property access_ttl : Time::Span = 1.hour
@@ -13,6 +16,10 @@ module Authly
     property token_strategy : Symbol = :jwt
     property state_store : StateStore = InMemoryStateStore.new
     property device_code_store : DeviceCodeStore = InMemoryDeviceCodeStore.new
+
+    def public_key : String
+      @public_key || secret_key
+    end
 
     # PKCE Enforcement
     property? enforce_pkce : Bool = false
