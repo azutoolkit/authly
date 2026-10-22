@@ -9,6 +9,10 @@ module Authly
     def initialize(@client_id, @client_secret, @username, @password)
     end
 
+    def subject : String?
+      owner_subject(username)
+    end
+
     def authorized? : Bool
       raise Error.unauthorized_client unless client_authorized?
       raise Error.unauthorized_client unless grant_type_authorized?

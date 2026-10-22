@@ -3,6 +3,8 @@ module Authly
     include GrantStrategy
     getter client_id : String, client_secret : String, refresh_token : String
 
+    @subject : String? = nil
+
     def initialize(@client_id, @client_secret, @refresh_token)
     end
 
@@ -13,8 +15,15 @@ module Authly
       true
     end
 
+    # The subject the refresh token was issued for. One issued for the client itself (or by
+    # an older version, which always said so) identifies nobody.
+    def subject : String?
+      sub = @subject
+      sub unless sub == client_id
+    end
+
     private def validate_code!
-      Authly.jwt_decode(refresh_token)
+      @subject = Authly.jwt_decode(refresh_token).first["sub"]?.try(&.as_s)
     rescue e
       raise Error.invalid_grant
     end

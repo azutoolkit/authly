@@ -17,12 +17,14 @@ module Authly
         token.revoked?.should be_false
       end
 
-      it "generates unique sub and jti for each token" do
-        token1 = AccessToken.new("client_1", "read")
-        token2 = AccessToken.new("client_1", "read")
+      it "uses the subject it is given, and a random one otherwise" do
+        anonymous1 = AccessToken.new("client_1", "read")
+        anonymous2 = AccessToken.new("client_1", "read")
+        identified = AccessToken.new("client_1", "read", subject: "user-7")
 
-        token1.sub.should_not eq token2.sub
-        token1.jti.should_not eq token2.jti
+        identified.sub.should eq "user-7"
+        anonymous1.sub.should_not eq anonymous2.sub
+        anonymous1.jti.should_not eq anonymous2.jti
       end
 
       it "generates refresh token along with access token" do

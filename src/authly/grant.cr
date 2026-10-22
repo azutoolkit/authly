@@ -1,6 +1,21 @@
 module Authly
   module GrantStrategy
     abstract def authorized? : Bool
+
+    # Who the issued token is about, when the grant identifies someone it can trust:
+    # the client for the client credentials grant, the resource owner for grants that
+    # authenticated one. Nil leaves the token with an anonymous subject.
+    def subject : String?
+      nil
+    end
+
+    # The identifier an owner carries in its ID token, which is what the `sub` of its access
+    # tokens must match; the username when the owner store cannot say.
+    private def owner_subject(username : String) : String
+      Authly.owners.id_token(username)["sub"].to_s
+    rescue
+      username
+    end
   end
 
   class GrantFactory
@@ -77,7 +92,7 @@ module Authly
     end
 
     private def access_token
-      AccessToken.new(@grant_strategy.client_id, scope, generate_id_token, @cert_thumbprint)
+      AccessToken.new(@grant_strategy.client_id, scope, generate_id_token, @cert_thumbprint, @grant_strategy.subject)
     end
 
     private def generate_id_token

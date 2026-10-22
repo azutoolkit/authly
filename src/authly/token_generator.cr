@@ -2,6 +2,14 @@ module Authly
   module TokenGenerator
     abstract def generate_access_token(client_id : String, scope : String, sub : String, jti : String, cert_thumbprint : String? = nil) : String
     abstract def generate_refresh_token(client_id : String, jti : String) : String
+
+    # A refresh token that remembers who it was issued for, so the access token a refresh
+    # produces is about the same subject. Generators that do not override it keep issuing
+    # tokens for the client.
+    def generate_refresh_token(client_id : String, jti : String, sub : String) : String
+      generate_refresh_token(client_id, jti)
+    end
+
     abstract def store_token_metadata(jti : String, client_id : String, scope : String, sub : String, expires_at : Time, cert_thumbprint : String? = nil)
   end
 
@@ -31,9 +39,13 @@ module Authly
     end
 
     def generate_refresh_token(client_id : String, jti : String) : String
+      generate_refresh_token(client_id, jti, client_id)
+    end
+
+    def generate_refresh_token(client_id : String, jti : String, sub : String) : String
       Authly.jwt_encode({
         "jti"  => jti,
-        "sub"  => client_id,
+        "sub"  => sub,
         "name" => "refresh token",
         "iat"  => Time.utc.to_unix,
         "iss"  => @config.issuer,

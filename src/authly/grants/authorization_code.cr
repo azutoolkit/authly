@@ -18,6 +18,12 @@ module Authly
       @challenge = ""
       @method = ""
       @jti = ""
+      @user_id = ""
+    end
+
+    # The user the code was issued to; nobody when it was issued without one.
+    def subject : String?
+      @user_id.empty? ? nil : owner_subject(@user_id)
     end
 
     def authorized? : Bool
@@ -33,6 +39,7 @@ module Authly
       @challenge = decoded["challenge"].as_s
       @method = decoded["method"].as_s
       @jti = decoded["jti"].as_s
+      @user_id = decoded["user_id"]?.try(&.as_s) || ""
       code_redirect_uri = decoded["redirect_uri"].as_s
 
       # Validate redirect_uri matches the one in the code
