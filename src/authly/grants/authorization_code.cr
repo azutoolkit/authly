@@ -17,12 +17,14 @@ module Authly
     )
       @challenge = ""
       @method = ""
+      @jti = ""
     end
 
     def authorized? : Bool
       decode_code
       validate!
       verify_challenge!
+      redeem_code!
       true
     end
 
@@ -30,6 +32,7 @@ module Authly
       decoded = Authly.jwt_decode(@code).first
       @challenge = decoded["challenge"].as_s
       @method = decoded["method"].as_s
+      @jti = decoded["jti"].as_s
       code_redirect_uri = decoded["redirect_uri"].as_s
 
       # Validate redirect_uri matches the one in the code
@@ -54,6 +57,14 @@ module Authly
       return if challenge.empty?
       raise Error.unauthorized_client if verifier.empty?
       raise Error.unauthorized_client unless code_challenge.valid?(verifier)
+    end
+
+    # An authorization code is good for one redemption (RFC 6749 section 4.1.2); it is
+    # consumed only once the request has passed every other check.
+    private def redeem_code!
+      store = Authly.config.token_store
+      raise Error.invalid_grant if store.revoked?(@jti)
+      store.revoke(@jti)
     end
 
     private def code_challenge
