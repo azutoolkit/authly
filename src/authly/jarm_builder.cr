@@ -5,15 +5,6 @@ require "openssl_ext"
 require "base64"
 require "random/secure"
 
-# LibCrypto extensions for GCM mode
-lib LibCrypto
-  EVP_CTRL_GCM_SET_IVLEN =  0x9
-  EVP_CTRL_GCM_GET_TAG   = 0x10
-  EVP_CTRL_GCM_SET_TAG   = 0x11
-
-  fun evp_cipher_ctx_ctrl = EVP_CIPHER_CTX_ctrl(ctx : Void*, type : Int32, arg : Int32, ptr : Void*) : Int32
-end
-
 module Authly
   # JarmBuilder constructs JWT-secured authorization responses per RFC 9101
   # Supports JWS signing and optional JWE encryption
@@ -253,16 +244,7 @@ module Authly
       ciphertext_io.write(cipher.final)
       ciphertext = ciphertext_io.to_slice
 
-      # Get authentication tag (16 bytes for GCM)
-      # We need to use LibCrypto directly to get the GCM tag
-      auth_tag = Bytes.new(16)
-      ctx = cipher.@ctx # Access the internal context
-      ret = LibCrypto.evp_cipher_ctx_ctrl(ctx, LibCrypto::EVP_CTRL_GCM_GET_TAG, 16, auth_tag.to_unsafe.as(Void*))
-      if ret != 1
-        raise "Failed to get GCM authentication tag"
-      end
-
-      {ciphertext, auth_tag}
+      {ciphertext, cipher.gcm_tag}
     end
 
     # Base64 URL-safe encoding without padding
