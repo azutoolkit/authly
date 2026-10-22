@@ -39,8 +39,8 @@ module Authly
 
     def fetch(request_uri : String) : PARData?
       par_data = @store[request_uri]?
-      return nil unless par_data
-      return nil if par_data.expired?
+      return unless par_data
+      return if par_data.expired?
       par_data
     rescue
       nil

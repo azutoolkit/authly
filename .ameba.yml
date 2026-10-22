@@ -1,0 +1,17 @@
+# Ameba configuration. The specs may use not_nil! and discard values they only destructure;
+# the registration validator is a long flat list of field checks, to be split up separately.
+Lint/NotNil:
+  Excluded:
+    - spec/*.cr
+    - spec/**/*.cr
+Lint/UselessAssign:
+  Excluded:
+    - spec/*.cr
+    - spec/**/*.cr
+Naming/BlockParameterName:
+  Excluded:
+    - spec/*.cr
+    - spec/**/*.cr
+Metrics/CyclomaticComplexity:
+  Excluded:
+    - src/authly/dynamic_client.cr

@@ -50,7 +50,7 @@ module Authly
 
         fetched["string_val"].should eq "test"
         fetched["int_val"].should eq 123_i64
-        fetched["bool_val"].should eq true
+        fetched["bool_val"].should be_true
         fetched["float_val"].should eq 3.14
       end
     end

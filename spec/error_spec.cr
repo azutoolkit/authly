@@ -84,55 +84,43 @@ module Authly
 
     describe "#code" do
       it "returns correct HTTP status code" do
-        begin
-          Error.invalid_token
-        rescue e : Error(400)
-          e.code.should eq 400
-        end
+        Error.invalid_token
+      rescue e : Error(400)
+        e.code.should eq 400
       end
 
       it "returns 401 for unauthorized_client" do
-        begin
-          Error.unauthorized_client
-        rescue e : Error(401)
-          e.code.should eq 401
-        end
+        Error.unauthorized_client
+      rescue e : Error(401)
+        e.code.should eq 401
       end
     end
 
     describe "#type" do
       it "returns error type as symbol" do
-        begin
-          Error.invalid_grant
-        rescue e : Error
-          e.type.should eq :invalid_grant
-        end
+        Error.invalid_grant
+      rescue e : Error
+        e.type.should eq :invalid_grant
       end
 
       it "returns correct type for each error" do
-        begin
-          Error.authorization_pending
-        rescue e : Error
-          e.type.should eq :authorization_pending
-        end
+        Error.authorization_pending
+      rescue e : Error
+        e.type.should eq :authorization_pending
       end
     end
 
     describe "#message" do
       it "returns descriptive error message" do
-        begin
-          Error.invalid_scope
-        rescue e : Error
-          e.message.should eq "Invalid scope value in the request"
-        end
+        Error.invalid_scope
+      rescue e : Error
+        e.message.should eq "Invalid scope value in the request"
       end
 
       it "matches ERROR_MSG hash" do
-        begin
-          Error.expired_token
-        rescue e : Error
-          e.message.should eq ERROR_MSG[:expired_token]
-        end
+        Error.expired_token
+      rescue e : Error
+        e.message.should eq ERROR_MSG[:expired_token]
       end
     end
 
@@ -144,11 +132,9 @@ module Authly
       end
 
       it "uses 400 status code for bad_request" do
-        begin
-          Error.bad_request(:invalid_scope)
-        rescue e : Error(400)
-          e.code.should eq 400
-        end
+        Error.bad_request(:invalid_scope)
+      rescue e : Error(400)
+        e.code.should eq 400
       end
     end
 

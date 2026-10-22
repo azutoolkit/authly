@@ -54,13 +54,13 @@ module Authly
 
     def fetch(device_code : String) : DeviceCodeData?
       data = @store[device_code]?
-      return nil if data.nil? || data.expired?
+      return if data.nil? || data.expired?
       data
     end
 
     def fetch_by_user_code(user_code : String) : DeviceCodeData?
       device_code = @user_code_index[user_code]?
-      return nil unless device_code
+      return unless device_code
       fetch(device_code)
     end
 

@@ -25,7 +25,7 @@ module Authly
 
       begin
         params = JSON.parse(body).as_h
-      rescue e : JSON::ParseException
+      rescue JSON::ParseException
         ResponseHelper.write(context, 400, "application/json", {
           error:             "invalid_request",
           error_description: "Invalid JSON in request body",

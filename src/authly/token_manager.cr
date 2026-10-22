@@ -128,7 +128,7 @@ module Authly
         "exp"    => exp,
         "sub"    => sub_value.is_a?(String) ? sub_value : sub_value.to_s,
       }
-    rescue e : Error
+    rescue Error
       {"active" => false}
     rescue
       {"active" => false}

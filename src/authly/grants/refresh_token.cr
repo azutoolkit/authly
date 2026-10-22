@@ -24,7 +24,7 @@ module Authly
 
     private def validate_code!
       @subject = Authly.jwt_decode(refresh_token).first["sub"]?.try(&.as_s)
-    rescue e
+    rescue
       raise Error.invalid_grant
     end
 

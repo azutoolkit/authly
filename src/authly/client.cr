@@ -63,7 +63,7 @@ module Authly
     end
 
     def allowed_scopes?(client_id, scopes) : Bool
-      the_client = self.find { |client| client.id == client_id }
+      the_client = find { |client| client.id == client_id }
       return false unless the_client
 
       scopes.split(" ").all? do |scope|
@@ -74,7 +74,7 @@ module Authly
     end
 
     def allowed_grant_type?(client_id, grant_type) : Bool
-      the_client = self.find { |client| client.id == client_id }
+      the_client = find { |client| client.id == client_id }
       return false unless the_client
 
       the_client.grant_types.split(" ").includes?(grant_type)
@@ -84,36 +84,36 @@ module Authly
 
     # JARM methods
     def jarm_required?(client_id : String) : Bool
-      the_client = self.find { |client| client.id == client_id }
+      the_client = find { |client| client.id == client_id }
       return false unless the_client
 
       !the_client.jarm_signing_alg.nil?
     end
 
     def jarm_signing_algorithm(client_id : String) : String?
-      the_client = self.find { |client| client.id == client_id }
-      return nil unless the_client
+      the_client = find { |client| client.id == client_id }
+      return unless the_client
 
       the_client.jarm_signing_alg
     end
 
     def jarm_encryption_algorithm(client_id : String) : String?
-      the_client = self.find { |client| client.id == client_id }
-      return nil unless the_client
+      the_client = find { |client| client.id == client_id }
+      return unless the_client
 
       the_client.jarm_encryption_alg
     end
 
     def jarm_encryption_encoding(client_id : String) : String?
-      the_client = self.find { |client| client.id == client_id }
-      return nil unless the_client
+      the_client = find { |client| client.id == client_id }
+      return unless the_client
 
       the_client.jarm_encryption_enc
     end
 
     def client_public_key(client_id : String) : String?
-      the_client = self.find { |client| client.id == client_id }
-      return nil unless the_client
+      the_client = find { |client| client.id == client_id }
+      return unless the_client
 
       the_client.public_key
     end

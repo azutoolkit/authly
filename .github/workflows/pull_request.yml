@@ -18,6 +18,10 @@ jobs:
       - name: Run Code Format
         run: crystal tool format --check
 
+      # Built from the shard: the repository used to carry a macOS binary that cannot run here.
+      - name: Run Ameba Checks
+        run: crystal run lib/ameba/bin/ameba.cr
+
       - name: Run Authorization Service
         run: crystal ./spec/support/test_server.cr &
 

@@ -13,7 +13,7 @@ module Authly
       # For now, we'll check for a custom header that contains the certificate
       # (this would be set by a reverse proxy like nginx or a custom TLS handler)
       cert_header = context.request.headers["X-Client-Certificate"]?
-      return nil unless cert_header
+      return unless cert_header
 
       # Decode the certificate (assuming it's base64 encoded)
       begin
