@@ -49,7 +49,7 @@ module Authly
     rescue e : Error
       # Re-raise Authly errors as-is
       raise e
-    rescue e
+    rescue
       # For other errors (JWT decode failures, etc), raise invalid_grant
       raise Error.invalid_grant
     end

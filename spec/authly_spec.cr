@@ -85,12 +85,12 @@ describe Authly do
     it "revokes token" do
       a_token = Authly::AccessToken.new(client_id, scope).access_token
       Authly.revoke(a_token)
-      Authly.revoked?(a_token).should eq true
+      Authly.revoked?(a_token).should be_true
     end
 
     it "does not revoke token" do
       a_token = Authly::AccessToken.new(client_id, scope).access_token
-      Authly.revoked?(a_token).should eq false
+      Authly.revoked?(a_token).should be_false
     end
 
     it "raises error for invalid jwt token" do
@@ -104,7 +104,7 @@ describe Authly do
     it "returns true" do
       a_token = Authly::AccessToken.new(client_id, scope)
       token = a_token.access_token
-      Authly.valid?(token).should eq true
+      Authly.valid?(token).should be_true
     end
 
     it "returns false" do
@@ -113,14 +113,14 @@ describe Authly do
 
       Authly.revoke(token)
 
-      Authly.valid?(token).should eq false
+      Authly.valid?(token).should be_false
     end
 
     it "returns false" do
       a_token = Authly::AccessToken.new(client_id, scope)
       token = a_token.access_token
       Authly.revoke(token)
-      Authly.valid?(token).should eq false
+      Authly.valid?(token).should be_false
     end
   end
 

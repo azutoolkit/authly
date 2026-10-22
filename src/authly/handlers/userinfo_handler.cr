@@ -52,7 +52,7 @@ module Authly
 
     private def self.validate_token(token : String)
       # Check if token is valid
-      return nil unless Authly.valid?(token)
+      return unless Authly.valid?(token)
 
       # For JWT tokens, decode them
       if Authly.config.token_strategy == :jwt

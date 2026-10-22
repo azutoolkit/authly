@@ -259,22 +259,22 @@ module Authly
     # Create a form_post HTML response
     def self.build_form_post_html(redirect_uri : String, jwt : String) : String
       <<-HTML
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <title>Submit Authorization Response</title>
-        </head>
-        <body onload="javascript:document.forms[0].submit()">
-          <form method="post" action="#{escape_html(redirect_uri)}">
-            <input type="hidden" name="response" value="#{escape_html(jwt)}" />
-            <noscript>
-              <p>JavaScript is disabled. Please click the button below to continue.</p>
-              <button type="submit">Continue</button>
-            </noscript>
-          </form>
-        </body>
-      </html>
-      HTML
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <title>Submit Authorization Response</title>
+          </head>
+          <body onload="javascript:document.forms[0].submit()">
+            <form method="post" action="#{escape_html(redirect_uri)}">
+              <input type="hidden" name="response" value="#{escape_html(jwt)}" />
+              <noscript>
+                <p>JavaScript is disabled. Please click the button below to continue.</p>
+                <button type="submit">Continue</button>
+              </noscript>
+            </form>
+          </body>
+        </html>
+        HTML
     end
 
     private def self.escape_html(text : String) : String

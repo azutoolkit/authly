@@ -540,7 +540,7 @@ module Authly
 
       test_ctx.context.response.status_code.should eq 200
       body = JSON.parse(test_ctx.response_body)
-      body["active"].should eq false
+      body["active"].should be_false
     end
 
     it "returns active=false for revoked token" do
@@ -561,7 +561,7 @@ module Authly
 
       test_ctx.context.response.status_code.should eq 200
       body = JSON.parse(test_ctx.response_body)
-      body["active"].should eq false
+      body["active"].should be_false
     end
 
     it "returns active=false for invalid token format" do
@@ -571,7 +571,7 @@ module Authly
 
       test_ctx.context.response.status_code.should eq 200
       body = JSON.parse(test_ctx.response_body)
-      body["active"].should eq false
+      body["active"].should be_false
     end
   end
 end

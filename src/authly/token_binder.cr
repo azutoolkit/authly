@@ -3,7 +3,7 @@ module Authly
     # Extract certificate thumbprint from token claims
     def self.extract_thumbprint(token_data : Hash(String, JSON::Any)) : String?
       cnf = token_data["cnf"]?
-      return nil unless cnf
+      return unless cnf
 
       # Handle both Hash and JSON::Any types
       case cnf.raw

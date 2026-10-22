@@ -152,7 +152,7 @@ module Authly
             </form>
           </body>
         </html>
-      HTML
+        HTML
     end
 
     private def self.valid_state?(state)
@@ -310,7 +310,7 @@ module Authly
 
     # Parse JWT algorithm name to JWT::Algorithm
     private def self.parse_jwt_algorithm(alg_name : String?) : JWT::Algorithm?
-      return nil unless alg_name
+      return unless alg_name
 
       case alg_name
       when "HS256" then JWT::Algorithm::HS256
@@ -322,8 +322,6 @@ module Authly
       when "ES256" then JWT::Algorithm::ES256
       when "ES384" then JWT::Algorithm::ES384
       when "ES512" then JWT::Algorithm::ES512
-      else
-        nil
       end
     end
   end
