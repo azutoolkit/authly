@@ -22,6 +22,11 @@ Authly is a production-ready Crystal library that provides secure, standards-com
   - [Custom Authorizable Owner](#custom-authorizable-owner)
   - [Custom Token Store](#custom-token-store)
 - [Token Strategies](#token-strategies)
+- [Protecting Your API](#protecting-your-api)
+  - [Bearer Handler](#bearer-handler)
+  - [Requiring Scopes](#requiring-scopes)
+  - [JWKS and Metadata](#jwks-and-metadata)
+  - [Mounting in an Azu App](#mounting-in-an-azu-app)
 - [Roadmap](#roadmap)
 - [Contributing](#contributing)
 - [License](#license)
@@ -1072,6 +1077,145 @@ Authly.configure do |config|
 end
 ```
 
+## Protecting Your API
+
+`Authly::Handler` is the authorization server. The handlers below are for the **resource server**: the
+routes that accept access tokens. They are plain `HTTP::Handler`s with no web framework behind them, so
+they go into any handler chain.
+
+### Bearer Handler
+
+`Authly::Handler::Bearer` reads `Authorization: Bearer <token>`, verifies it with Authly's own
+configuration and hands the verified claims to the handlers after it:
+
+```crystal
+require "authly"
+
+server = HTTP::Server.new([
+  Authly::Handler::Bearer.new(realm: "api", prefixes: ["/api"]),
+  MyApp.new,
+])
+```
+
+Downstream, the claims are `context.authly_claims` (an `Authly::Claims`, `nil` where the handler did
+not apply). They are an instance variable of that request's own `HTTP::Server::Context`, so concurrent
+requests never see each other's claims and nothing global has to be cleaned up:
+
+```crystal
+class MyApp
+  include HTTP::Handler
+
+  def call(context)
+    claims = context.authly_claims!
+    claims.subject            # "sub"
+    claims.client_id          # "cid"
+    claims.scopes             # ["read:users", "write:users"]
+    claims.scope?("read:users")
+    claims["exp"].as_i64      # any other claim, as JSON::Any
+  end
+end
+```
+
+What is verified: the signature with the configured `algorithm` (the token's own `alg` header is never
+trusted, so `alg: none` and key-confusion tokens fail), `exp` (required), `nbf`, the issuer, and
+revocation. Only **access tokens** pass: a refresh token is signed with the same key but has no `scope`,
+and is refused. Both `:jwt` and `:opaque` token strategies work. To also require an audience:
+
+```crystal
+verifier = Authly::StrategyTokenVerifier.new(audience: "https://api.example.com")
+Authly::Handler::Bearer.new(verifier, realm: "api")
+```
+
+Tokens issued by Authly carry no `aud` claim, so an audience check only suits tokens you add one to.
+Anything else (remote introspection, another key source) is an `Authly::TokenVerifier`: implement
+`verify(token : String) : Authly::Claims?` and pass it as the first argument.
+
+Failures follow RFC 6750 and never echo the token or log it:
+
+| Request                                    | Status | `WWW-Authenticate`                               |
+| ------------------------------------------ | ------ | ------------------------------------------------ |
+| No credentials (or another scheme)         | 401    | `Bearer realm="api"`                             |
+| Malformed header, two headers, empty token | 400    | `Bearer realm="api", error="invalid_request"`    |
+| Bad, expired, revoked, wrong-key token     | 401    | `Bearer realm="api", error="invalid_token"`      |
+| Valid token without the required scope     | 403    | `... error="insufficient_scope", scope="a b"`    |
+
+The scheme is case-insensitive (`bearer`, `BEARER`). The token is read from the header only. Set
+`allow_query_token: true` to also accept `?access_token=`, which RFC 6750 discourages because URLs end up
+in logs; it is off by default, and a request with both a header and a query token is refused.
+
+`prefixes:` limits a handler to those paths (whole segments: `/api` covers `/api/users`, not `/apiary`),
+so `/health` and the like can sit in the same chain.
+
+### Requiring Scopes
+
+`Authly::Handler::RequireScope` goes after `Bearer`. `all` needs every scope listed, `any` at least one:
+
+```crystal
+HTTP::Server.new([
+  Authly::Handler::Bearer.new,
+  Authly::Handler::RequireScope.all("read:users", prefixes: ["/users"]),
+  Authly::Handler::RequireScope.any("admin", "root", prefixes: ["/admin"]),
+  MyApp.new,
+])
+```
+
+`RequireScope.new(all: [...], any: [...])` needs both. A request that lacks a scope gets
+`403` with `error="insufficient_scope"` and the scopes it needs; a request that no `Bearer` authenticated
+gets `401`, it is never let through. Scope names and realms are checked when the handler is built, so a
+value cannot inject into the challenge header.
+
+### JWKS and Metadata
+
+`GET /.well-known/jwks.json` serves the key set tokens are verified with, and
+`GET /.well-known/oauth-authorization-server` (RFC 8414) serves the same metadata as
+`/.well-known/openid-configuration`. Both are routes of `Authly::Handler`; `Authly::JWKS.new.to_json`
+builds the document without a server.
+
+A key set only makes sense for **asymmetric** algorithms. Authly signs with HS256 by default, where the
+verification key is the signing secret and must never be published, so the set is empty (`{"keys":[]}`).
+To publish a key, sign with RS256/RS384/RS512 or ES256/ES384/ES512 and set the public half as a PEM:
+
+```crystal
+Authly.configure do |config|
+  config.algorithm = JWT::Algorithm::RS256
+  config.secret_key = File.read("private.pem")
+  config.public_key = File.read("public.pem")
+end
+```
+
+The key is published with `use`, `alg` and a `kid` (its RFC 7638 thumbprint). Authly does not put `kid`
+in the tokens it issues and publishes one key, so rotation (several keys at once) is not supported yet.
+A private key, or anything that is not a PEM public key, is refused (the endpoint answers 500) instead of
+being published. EdDSA, PS* and ES256K are not published.
+
+A resource server that is a separate process can verify the same tokens by configuring the public key
+(`algorithm` and `public_key`) and using `Bearer`; revocation is only seen where the token store is shared.
+
+### Mounting in an Azu App
+
+Authly needs no Azu, and Azu is not a dependency of it. In an [Azu](https://github.com/azutoolkit/azu)
+app, `Azu::App#server` takes the handler chain, and every `HTTP::Handler` is routable, so put the
+handlers after the app's default ones:
+
+```crystal
+require "azu"
+require "authly"
+
+app = Azu::App.default
+app.router.get "/users", UsersEndpoint.new
+
+server = app.server([
+  *app.default_handlers,
+  Authly::Handler.new,
+  Authly::Handler::Bearer.new(prefixes: ["/users"]),
+  Authly::Handler::RequireScope.all("read:users", prefixes: ["/users"]),
+] of HTTP::Handler)
+```
+
+An endpoint reads `context.authly_claims`. **This snippet is unchecked**: Azu is not a dependency of Authly,
+so CI does not compile it (it was written against Azu master's `App#server` and `default_handlers`). The
+Authly specs run the same handler chain over a real `HTTP::Server`.
+
 ## Roadmap
 
 ### Completed Features ✅
@@ -1089,7 +1233,8 @@ end
 - [ ] Rate limiting and throttling for authentication endpoints
 - [ ] Session management capabilities
 - [ ] Additional token storage backends (Redis, Memcached)
-- [ ] JWKS (JSON Web Key Set) endpoint for key rotation
+- [x] JWKS endpoint and RFC 8414 metadata (asymmetric algorithms only)
+- [ ] JWKS key rotation (several published keys)
 - [ ] Comprehensive integration examples
 - [ ] Admin UI for client and token management
 - [ ] Detailed logging and monitoring hooks
