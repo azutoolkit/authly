@@ -29,12 +29,20 @@ module Authly
         handle_if_method(context, "POST") { RevokeHandler.handle(context) }
       when "/oauth/userinfo"
         handle_if_method(context, "GET") { UserInfoHandler.handle(context) }
-      when "/.well-known/openid-configuration"
-        handle_if_method(context, "GET") { DiscoveryHandler.handle(context) }
+      when "/.well-known/openid-configuration", "/.well-known/oauth-authorization-server", "/.well-known/jwks.json"
+        handle_if_method(context, "GET") { handle_well_known(context, path) }
       when "/oauth/register"
         handle_registration_endpoint(context)
       else
         false
+      end
+    end
+
+    private def handle_well_known(context, path : String) : Nil
+      if path == "/.well-known/jwks.json"
+        JWKSHandler.handle(context)
+      else
+        DiscoveryHandler.handle(context)
       end
     end
 

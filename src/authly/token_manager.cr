@@ -81,21 +81,26 @@ module Authly
 
     def initialize
       @config = Authly.config
-      @token_store = @config.token_store
+    end
+
+    # Read at use, not at construction: the strategies are built once, before an app has
+    # configured its own store.
+    private def token_store : TokenStore
+      @config.token_store
     end
 
     def revoke(token)
-      @token_store.revoke(token)
+      token_store.revoke(token)
     end
 
     def revoked?(token) : Bool
-      @token_store.revoked?(token)
+      token_store.revoked?(token)
     end
 
     def valid?(token) : Bool
-      return false if @token_store.revoked?(token)
+      return false if token_store.revoked?(token)
 
-      payload = @token_store.fetch(token)
+      payload = token_store.fetch(token)
       return false if payload.nil?
 
       exp_value = payload["exp"]
@@ -106,7 +111,7 @@ module Authly
     end
 
     def introspect(token : String)
-      payload = @token_store.fetch(token)
+      payload = token_store.fetch(token)
       return {"active" => false} if payload.nil?
 
       # Check if token is expired

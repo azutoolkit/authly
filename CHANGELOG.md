@@ -4,6 +4,17 @@
 
 ### Added
 
+#### Resource Server Handlers
+
+- `Authly::Handler::Bearer`: a plain `HTTP::Handler` that verifies `Authorization: Bearer` tokens (signature
+  with the configured algorithm, `exp`, `nbf`, issuer, revocation, optional audience; JWT and opaque
+  strategies; access tokens only) and answers failures per RFC 6750 (401/400 with `WWW-Authenticate`)
+- `context.authly_claims` (`Authly::Claims`): the verified claims, stored per request context
+- `Authly::Handler::RequireScope`: all-of / any-of scope guard, 403 `insufficient_scope`
+- `Authly::TokenVerifier` / `Authly::StrategyTokenVerifier`: the verification strategy `Bearer` uses
+- `Authly::JWKS` and `GET /.well-known/jwks.json` (RSA and EC public keys with an RFC 7638 `kid`; empty
+  for HMAC), `GET /.well-known/oauth-authorization-server` (RFC 8414)
+
 #### Enhanced PKCE with S256 Method Enforcement
 
 - **PKCE Enforcement Configuration**:
