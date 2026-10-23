@@ -17,6 +17,14 @@ module Authly
     property state_store : StateStore = InMemoryStateStore.new
     property device_code_store : DeviceCodeStore = InMemoryDeviceCodeStore.new
 
+    # The `aud` of the access tokens issued, i.e. which API they are for. Defaults to `base_url`.
+    # A resource server that sets the same `audience` on its verifier refuses tokens meant for others.
+    property access_token_audience : String? = nil
+
+    def token_audience : String
+      access_token_audience || base_url
+    end
+
     def public_key : String
       @public_key || secret_key
     end

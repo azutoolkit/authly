@@ -47,19 +47,6 @@ module Authly
       end
     end
 
-    # Which requests a handler applies to: all of them, or those under one of the path prefixes
-    # (matched on whole segments, so "/api" covers "/api" and "/api/users" but not "/apiary").
-    module PathPrefixes
-      private def covers?(path : String) : Bool
-        prefixes = @prefixes
-        return true if prefixes.nil?
-
-        prefixes.any? do |prefix|
-          path == prefix || path.starts_with?(prefix.ends_with?('/') ? prefix : "#{prefix}/")
-        end
-      end
-    end
-
     # Header-safe: no quotes, backslashes, whitespace or control characters could split a challenge.
     # :nodoc:
     def self.header_token!(value : String, what : String) : String

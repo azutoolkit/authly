@@ -49,6 +49,7 @@ module Authly
         access_payload["iat"] = Time.utc.to_unix
         access_payload["exp"] = expires_at.to_unix
         access_payload["token_type"] = "access_token"
+        access_payload["aud"] = Authly.config.token_audience
         access_payload["jti"] = @jti
 
         # Add certificate thumbprint if provided

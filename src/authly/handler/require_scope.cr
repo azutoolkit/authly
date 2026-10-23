@@ -1,5 +1,6 @@
 require "http/server"
 require "./challenge"
+require "./path_filter"
 
 module Authly
   class Handler
@@ -11,11 +12,13 @@ module Authly
     # ```
     # users = Authly::Handler::RequireScope.all("read:users", prefixes: ["/users"])
     # admin = Authly::Handler::RequireScope.any("admin", "root", prefixes: ["/admin"])
+    #
+    # Applies to every path unless narrowed (`prefixes:` is an allowlist, `except:` lists open paths);
+    # see `PathFilter`.
     # HTTP::Server.new([bearer, users, admin, app])
     # ```
     class RequireScope
       include HTTP::Handler
-      include PathPrefixes
 
       getter realm : String
 
@@ -23,24 +26,26 @@ module Authly
         @all : Array(String) = [] of String,
         @any : Array(String) = [] of String,
         realm : String = "authly",
-        @prefixes : Array(String)? = nil,
+        prefixes : Array(String)? = nil,
+        except : Array(String) = [] of String,
       )
         raise ArgumentError.new("RequireScope needs at least one scope") if @all.empty? && @any.empty?
 
         (@all + @any).each { |scope| Handler.header_token!(scope, "scope") }
         @realm = Handler.header_token!(realm, "realm")
+        @paths = PathFilter.new(prefixes, except)
       end
 
-      def self.all(*scopes : String, realm : String = "authly", prefixes : Array(String)? = nil) : RequireScope
-        new(all: scopes.to_a, realm: realm, prefixes: prefixes)
+      def self.all(*scopes : String, realm : String = "authly", prefixes : Array(String)? = nil, except : Array(String) = [] of String) : RequireScope
+        new(all: scopes.to_a, realm: realm, prefixes: prefixes, except: except)
       end
 
-      def self.any(*scopes : String, realm : String = "authly", prefixes : Array(String)? = nil) : RequireScope
-        new(any: scopes.to_a, realm: realm, prefixes: prefixes)
+      def self.any(*scopes : String, realm : String = "authly", prefixes : Array(String)? = nil, except : Array(String) = [] of String) : RequireScope
+        new(any: scopes.to_a, realm: realm, prefixes: prefixes, except: except)
       end
 
       def call(context : HTTP::Server::Context)
-        return call_next(context) unless covers?(context.request.path)
+        return call_next(context) unless @paths.protects?(context.request.path)
 
         claims = context.authly_claims
         if claims.nil?

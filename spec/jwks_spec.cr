@@ -98,6 +98,16 @@ describe Authly::JWKS do
     JWKSSpec.keys(JWT::Algorithm::RS256, pem).first["kid"].should eq "NzbLsXh8uDCcd-6MNwXF4W_7noWXFZAfHkxZsRGC9Xs"
   end
 
+  it "refuses to publish a key under an algorithm it does not fit" do
+    ec_p256 = JWKSSpec::EC["ES256"][1]
+    ec_p384 = JWKSSpec::EC["ES384"][1]
+
+    expect_raises(ArgumentError) { JWKSSpec.keys(JWT::Algorithm::RS256, ec_p256) }
+    expect_raises(ArgumentError) { JWKSSpec.keys(JWT::Algorithm::ES256, JWKSSpec::RSA_PUBLIC) }
+    expect_raises(ArgumentError) { JWKSSpec.keys(JWT::Algorithm::ES256, ec_p384) }
+    expect_raises(ArgumentError) { JWKSSpec.keys(JWT::Algorithm::ES512, ec_p256) }
+  end
+
   it "refuses a private key and anything that is not a PEM public key" do
     private_pem = OpenSSL::PKey::RSA.new(2048).to_pem
 
@@ -140,6 +150,19 @@ describe "the well-known endpoints" do
 
       oauth.should eq openid
       oauth["jwks_uri"].as_s.should end_with "/.well-known/jwks.json"
+    end
+  end
+
+  it "mark a published key set cacheable and an error uncacheable" do
+    BearerSpec.with_server([Authly::Handler.new] of HTTP::Handler) do |client|
+      client.get("/.well-known/jwks.json").headers["Cache-Control"].should eq "public, max-age=300"
+
+      private_pem = OpenSSL::PKey::RSA.new(2048).to_pem
+      JWKSSpec.with_key(JWT::Algorithm::RS256, private_pem, private_pem) do
+        failed = client.get("/.well-known/jwks.json")
+        failed.status_code.should eq 500
+        failed.headers["Cache-Control"].should eq "no-store"
+      end
     end
   end
 
