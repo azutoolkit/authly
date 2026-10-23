@@ -23,7 +23,6 @@ module Authly
       payload = {
         "sub"        => sub,
         "iss"        => @config.issuer,
-        "aud"        => @config.token_audience,
         "token_type" => "access_token",
         "cid"        => client_id,
         "iat"        => Time.utc.to_unix,
@@ -31,6 +30,8 @@ module Authly
         "scope"      => scope,
         "jti"        => jti,
       } of String => (String | Int64 | Hash(String, String))
+
+      @config.token_audience.try { |audience| payload["aud"] = audience }
 
       # Add certificate binding if thumbprint is provided
       if cert_thumbprint
@@ -84,7 +85,7 @@ module Authly
       payload["iat"] = Time.utc.to_unix
       payload["exp"] = expires_at.to_unix
       payload["token_type"] = "access_token"
-      payload["aud"] = @config.token_audience
+      @config.token_audience.try { |audience| payload["aud"] = audience }
 
       # Add certificate thumbprint if provided
       if cert_thumbprint

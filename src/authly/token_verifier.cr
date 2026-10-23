@@ -61,24 +61,21 @@ module Authly
       claims if (claims["exp"]?.try(&.as_i64?) || 0_i64) > Time.utc.to_unix
     end
 
-    # A store that fails is not a token that is wrong: say so, instead of answering "invalid".
+    # A store that cannot be reached is not a token that is wrong: say so, instead of answering
+    # "invalid". Any other exception propagates and means "invalid" (see `TokenStore`).
     private def revoked?(id : String) : Bool
-      @config.token_store.revoked?(id)
-    rescue e
-      raise unavailable(e)
+      available { @config.token_store.revoked?(id) }
     end
 
     private def stored(token : String)
-      @config.token_store.fetch(token)
-    rescue e : Error
-      raise e
-    rescue e
-      raise unavailable(e)
+      available { @config.token_store.fetch(token) }
     end
 
-    private def unavailable(cause : Exception) : VerificationUnavailable
-      Log.error { "Token store unavailable (#{cause.class})" }
-      VerificationUnavailable.new("Token store unavailable", cause)
+    private def available(&)
+      yield
+    rescue e : StoreUnavailable | IO::Error
+      Log.error { "Token store unavailable (#{e.class})" }
+      raise VerificationUnavailable.new("Token store unavailable", e)
     end
 
     private def access_token?(claims : Claims) : Bool

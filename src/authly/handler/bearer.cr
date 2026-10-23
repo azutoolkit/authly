@@ -7,11 +7,13 @@ module Authly
     # Protects the routes behind it with OAuth 2.0 bearer tokens (RFC 6750). It is a plain
     # `HTTP::Handler`: it needs no web framework, so it goes into any handler chain.
     #
-    # It protects **every** request unless told otherwise; list what is public with `except`:
+    # It protects **every** request unless told otherwise. List what is public with `except_exact`
+    # (just that path) or `except` (that path **and everything below it**, case-sensitively:
+    # `except: ["/health"]` also exempts `/health/anything`). Prefer `except_exact` for a health check:
     #
     # ```
     # verifier = Authly::StrategyTokenVerifier.new(audience: "https://api.example.com")
-    # bearer = Authly::Handler::Bearer.new(verifier, realm: "api", except: ["/health"])
+    # bearer = Authly::Handler::Bearer.new(verifier, realm: "api", except_exact: ["/health"])
     # HTTP::Server.new([bearer, Authly::Handler::RequireScope.all("read:users"), app])
     # ```
     #
@@ -33,7 +35,9 @@ module Authly
     #
     # Put a CORS handler **before** this one, or browsers cannot read the 401. A CORS preflight
     # (`OPTIONS` with `Access-Control-Request-Method`) carries no credentials; `pass_preflight: true`
-    # lets it through to the next handler instead of answering 401.
+    # lets it through to the next handler instead of answering 401. That is decided by headers anyone
+    # can forge: whatever answers `OPTIONS` behind it is public and must have no side effects. Give
+    # `RequireScope` the same flag.
     class Bearer
       include HTTP::Handler
 
@@ -49,16 +53,17 @@ module Authly
         @allow_query_token : Bool = false,
         prefixes : Array(String)? = nil,
         except : Array(String) = [] of String,
+        except_exact : Array(String) = [] of String,
         @pass_preflight : Bool = false,
       )
         @realm = Handler.header_token!(realm, "realm")
-        @paths = PathFilter.new(prefixes, except)
+        @paths = PathFilter.new(prefixes, except, except_exact)
       end
 
       def call(context : HTTP::Server::Context)
         context.authly_claims = nil
         return call_next(context) unless @paths.protects?(context.request.path)
-        return call_next(context) if @pass_preflight && preflight?(context.request)
+        return call_next(context) if @pass_preflight && Handler.preflight?(context.request)
 
         keep_query_token_private(context) if @allow_query_token
 
@@ -68,10 +73,6 @@ module Authly
         in String
           authenticate(context, credential)
         end
-      end
-
-      private def preflight?(request : HTTP::Request) : Bool
-        request.method == "OPTIONS" && request.headers.has_key?("Access-Control-Request-Method")
       end
 
       private def keep_query_token_private(context : HTTP::Server::Context) : Nil

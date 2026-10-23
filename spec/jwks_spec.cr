@@ -166,6 +166,20 @@ describe "the well-known endpoints" do
     end
   end
 
+  it "answer HEAD with the length of the GET body and no body, leaving the connection usable" do
+    BearerSpec.with_server([Authly::Handler.new] of HTTP::Handler) do |client|
+      ["/.well-known/jwks.json", "/.well-known/oauth-authorization-server"].each do |path|
+        get = client.get(path)
+        head = client.exec("HEAD", path)
+
+        head.status_code.should eq 200
+        head.body.should be_empty
+        head.headers["Content-Length"].should eq get.body.bytesize.to_s
+        client.get(path).body.should eq get.body
+      end
+    end
+  end
+
   it "only answer GET" do
     BearerSpec.with_server([Authly::Handler.new] of HTTP::Handler) do |client|
       client.post("/.well-known/jwks.json").status_code.should eq 404

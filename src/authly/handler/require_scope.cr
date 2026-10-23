@@ -14,7 +14,8 @@ module Authly
     # admin = Authly::Handler::RequireScope.any("admin", "root", prefixes: ["/admin"])
     #
     # Applies to every path unless narrowed (`prefixes:` is an allowlist, `except:` lists open paths);
-    # see `PathFilter`.
+    # see `PathFilter`. With `pass_preflight: true` it lets CORS preflights through like `Bearer` does,
+    # and the same caution applies.
     # HTTP::Server.new([bearer, users, admin, app])
     # ```
     class RequireScope
@@ -28,24 +29,27 @@ module Authly
         realm : String = "authly",
         prefixes : Array(String)? = nil,
         except : Array(String) = [] of String,
+        except_exact : Array(String) = [] of String,
+        @pass_preflight : Bool = false,
       )
         raise ArgumentError.new("RequireScope needs at least one scope") if @all.empty? && @any.empty?
 
         (@all + @any).each { |scope| Handler.header_token!(scope, "scope") }
         @realm = Handler.header_token!(realm, "realm")
-        @paths = PathFilter.new(prefixes, except)
+        @paths = PathFilter.new(prefixes, except, except_exact)
       end
 
-      def self.all(*scopes : String, realm : String = "authly", prefixes : Array(String)? = nil, except : Array(String) = [] of String) : RequireScope
-        new(all: scopes.to_a, realm: realm, prefixes: prefixes, except: except)
+      def self.all(*scopes : String, realm : String = "authly", prefixes : Array(String)? = nil, except : Array(String) = [] of String, except_exact : Array(String) = [] of String, pass_preflight : Bool = false) : RequireScope
+        new(all: scopes.to_a, realm: realm, prefixes: prefixes, except: except, except_exact: except_exact, pass_preflight: pass_preflight)
       end
 
-      def self.any(*scopes : String, realm : String = "authly", prefixes : Array(String)? = nil, except : Array(String) = [] of String) : RequireScope
-        new(any: scopes.to_a, realm: realm, prefixes: prefixes, except: except)
+      def self.any(*scopes : String, realm : String = "authly", prefixes : Array(String)? = nil, except : Array(String) = [] of String, except_exact : Array(String) = [] of String, pass_preflight : Bool = false) : RequireScope
+        new(any: scopes.to_a, realm: realm, prefixes: prefixes, except: except, except_exact: except_exact, pass_preflight: pass_preflight)
       end
 
       def call(context : HTTP::Server::Context)
         return call_next(context) unless @paths.protects?(context.request.path)
+        return call_next(context) if @pass_preflight && Handler.preflight?(context.request)
 
         claims = context.authly_claims
         if claims.nil?

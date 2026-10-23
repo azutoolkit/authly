@@ -30,7 +30,7 @@ module Authly
       when "/oauth/userinfo"
         handle_if_method(context, "GET") { UserInfoHandler.handle(context) }
       when "/.well-known/openid-configuration", "/.well-known/oauth-authorization-server", "/.well-known/jwks.json"
-        handle_if_method(context, "GET") { handle_well_known(context, path) }
+        handle_if_methods(context, ["GET", "HEAD"]) { handle_well_known(context, path) }
       when "/oauth/register"
         handle_registration_endpoint(context)
       else

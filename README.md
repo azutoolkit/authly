@@ -1092,7 +1092,7 @@ configuration and hands the verified claims to the handlers after it:
 require "authly"
 
 server = HTTP::Server.new([
-  Authly::Handler::Bearer.new(realm: "api", except: ["/health"]),
+  Authly::Handler::Bearer.new(realm: "api", except_exact: ["/health"]),
   MyApp.new,
 ])
 ```
@@ -1134,7 +1134,7 @@ config.access_token_audience = "https://api.example.com"
 
 # on the resource server
 verifier = Authly::StrategyTokenVerifier.new(audience: "https://api.example.com")
-Authly::Handler::Bearer.new(verifier, realm: "api", except: ["/health"])
+Authly::Handler::Bearer.new(verifier, realm: "api", except_exact: ["/health"])
 ```
 
 Without `audience:` any `aud` is accepted. Authly issues one audience per server, not per request
@@ -1153,7 +1153,9 @@ Failures follow RFC 6750 and never echo the token or log it:
 | Valid token without the required scope     | 403    | `... error="insufficient_scope", scope="a b"`    |
 | Token store unreachable (Redis down)       | 503    | none; `Retry-After: 1`                           |
 
-A store outage is a 503, not a 401: a 401 would send every client off to re-authenticate. It still fails
+A store outage is a 503, not a 401. A `TokenStore` signals it by raising `Authly::StoreUnavailable` (an `IO::Error` counts too);
+it raises `Authly::Error` from `fetch` for an unknown token, and any other exception is read as "not a valid token" (401), so a
+store that raises `KeyError` for an unknown token cannot be used to make the server answer 503. A 401 would send every client off to re-authenticate: a 401 would send every client off to re-authenticate. It still fails
 closed (nobody gets in).
 
 The scheme is case-insensitive (`bearer`, `BEARER`); a tab is not a separator. The token is read from the
@@ -1162,17 +1164,23 @@ is refused). RFC 6750 discourages it: URLs end up in access logs, referrers and 
 make sure your logs do not record query strings. Such responses get `Cache-Control: private` and
 `Referrer-Policy: no-referrer`.
 
-**Which paths.** `except: ["/health"]` lists what stays open (it covers `/health/live` too, not `/healthz`);
-everything else is protected, so a route added later is protected by default. `prefixes: ["/api"]` is the
-opposite, an **allowlist: every path you do not list is open**. A forgotten route, a new top-level path or
-a router that matches differently is then unprotected, so prefer `except`. Paths are compared after
-percent-decoding, collapsing `//` and resolving `.`/`..`, so `/%61pi/x`, `//api/x` and `/x/../api/x` are
-`/api/x`. `prefixes` ignores case (`/API/x` is protected by `/api`), `except` is exact (`/HEALTH` is not
-skipped by `/health`). A trailing slash does not matter, and an empty `prefixes: []` is refused.
+**Which paths.** Everything is protected except what you list, so a route added later is protected by
+default. `except_exact: ["/health"]` exempts just that path (`/health` and `/health/`, not `/health/details`):
+use it for health checks. `except: ["/oauth"]` is a **segment-prefix** match, case-sensitive: it exempts
+`/oauth` **and everything below it**, not `/oauthx`. `prefixes: ["/api"]` is the opposite, an
+**allowlist: every path you do not list is open**. A forgotten route, a new top-level path or a router that
+matches differently is then unprotected, so prefer the other two. Paths are compared after percent-decoding
+(once, like a router), collapsing `//` and resolving `.`/`..`, so `/%61pi/x`, `//api/x` and `/x/../api/x` are
+`/api/x`. A path that still has a `%` after decoding (double encoding, `%zz`) or a NUL byte is not
+understood, and is protected. `prefixes` ignores case (`/API/x` is protected), `except`/`except_exact` do not
+(`/HEALTH` is not exempted by `/health`). A trailing slash does not matter, `prefixes: []` is refused, and an
+entry with encoded characters is refused.
 
 **CORS.** Put the CORS handler **before** `Bearer`, or a browser cannot read the 401. A preflight
 (`OPTIONS` with `Access-Control-Request-Method`) carries no credentials: either let the CORS handler
-answer it, or give `Bearer` `pass_preflight: true` to hand it to the next handler. Off by default.
+answer it, or give `Bearer` **and `RequireScope`** `pass_preflight: true` to hand it to the next handler. Off
+by default. A preflight is recognised by headers anyone can send, so what answers `OPTIONS` behind this flag is
+**public** and must have no side effects.
 
 ### Requiring Scopes
 
@@ -1180,14 +1188,14 @@ answer it, or give `Bearer` `pass_preflight: true` to hand it to the next handle
 
 ```crystal
 HTTP::Server.new([
-  Authly::Handler::Bearer.new(except: ["/health"]),
+  Authly::Handler::Bearer.new(except_exact: ["/health"]),
   Authly::Handler::RequireScope.all("read:users", prefixes: ["/users"]),
   Authly::Handler::RequireScope.any("admin", "root", prefixes: ["/admin"]),
   MyApp.new,
 ])
 ```
 
-`RequireScope.new(all: [...], any: [...])` needs both. It takes `prefixes:` and `except:` like `Bearer` and applies to
+`RequireScope.new(all: [...], any: [...])` needs both. It takes `prefixes:`, `except:`, `except_exact:` and `pass_preflight:` like `Bearer` and applies to
 every path unless narrowed, so repeat the `except` paths of `Bearer` if it is used without `prefixes`. A request that lacks a scope gets
 `403` with `error="insufficient_scope"` and the scopes it needs; a request that no `Bearer` authenticated
 gets `401`, it is never let through. Scope names and realms are checked when the handler is built, so a
@@ -1239,7 +1247,7 @@ app.router.get "/users", UsersEndpoint.new
 server = app.server([
   *app.default_handlers,
   Authly::Handler.new,
-  Authly::Handler::Bearer.new(except: ["/health", "/oauth"]),
+  Authly::Handler::Bearer.new(except_exact: ["/health"], except: ["/oauth"]),
   Authly::Handler::RequireScope.all("read:users", prefixes: ["/users"]),
 ] of HTTP::Handler)
 ```

@@ -1,4 +1,13 @@
 module Authly
+  # Raise it from a `TokenStore` that cannot be reached (Redis down, connection refused). Resource
+  # servers then answer 503 instead of 401. `IO::Error` (so `Socket::Error`) counts as the same.
+  class StoreUnavailable < Exception
+  end
+
+  # The contract of a token store: `fetch` raises `Authly::Error` (`Error.invalid_token`) for a token
+  # it does not know, and `StoreUnavailable` when the store is down. Any other exception from a store
+  # is treated as "not a valid token" (401), never as an outage, so a store that raises `KeyError` for
+  # an unknown token does not let clients make the server answer 503.
   module TokenStore
     abstract def store(token_id : String, payload)
     abstract def fetch(token_id : String)

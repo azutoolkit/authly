@@ -5,6 +5,7 @@ class FailingStore
   include Authly::TokenStore
 
   property? failing = false
+  property failure : Exception = IO::Error.new("connection refused")
 
   def initialize(@store = Authly::InMemoryStore.new)
   end
@@ -32,7 +33,7 @@ class FailingStore
   end
 
   private def guard
-    raise IO::Error.new("connection refused") if failing?
+    raise failure if failing?
   end
 end
 
@@ -93,6 +94,50 @@ describe Authly::Handler::PathFilter do
 
       both.protects?("/api/users").should be_true
       both.protects?("/api/health").should be_false
+    end
+  end
+
+  describe "exempting exact paths" do
+    filter = Authly::Handler::PathFilter.new(exact: ["/health"], except: ["/static"])
+
+    it "exempts the path itself, not what is below it" do
+      ["/health", "/health/", "//health", "/x/../health", "/static/app.css"].each do |path|
+        {path, filter.protects?(path)}.should eq({path, false})
+      end
+      ["/health/live", "/healthz", "/HEALTH", "/"].each do |path|
+        {path, filter.protects?(path)}.should eq({path, true})
+      end
+    end
+  end
+
+  describe "paths it does not understand" do
+    filter = Authly::Handler::PathFilter.new(except: ["/health", "/pub"])
+
+    it "protects them, even below an exempt path" do
+      ["/health/%252e%252e/admin", "/health/%2e%2e%2fadmin%00", "/health%00", "/health/%zz", "/health/%", "/pub/%255cadmin"].each do |path|
+        {path, filter.protects?(path)}.should eq({path, true})
+      end
+    end
+
+    it "protects an allowlisted prefix however it is double-encoded or invalid" do
+      allowlist = Authly::Handler::PathFilter.new(prefixes: ["/api"])
+      ["/%2561pi/x", "/api/%zz", "/api%00", "/api/%"].each do |path|
+        {path, allowlist.protects?(path)}.should eq({path, true})
+      end
+    end
+  end
+
+  describe "entries" do
+    it "read a backslash as a slash and a trailing slash as nothing" do
+      filter = Authly::Handler::PathFilter.new(except: ["/a\\b/"])
+
+      filter.protects?("/a/b/c").should be_false
+      filter.protects?("/a").should be_true
+    end
+
+    it "refuse encoded characters" do
+      expect_raises(ArgumentError) { Authly::Handler::PathFilter.new(except: ["/%68ealth"]) }
+      expect_raises(ArgumentError) { Authly::Handler::PathFilter.new(exact: ["/health%00"]) }
     end
   end
 
@@ -187,6 +232,41 @@ describe "token store failures" do
     end
   end
 
+  it "answers 503 for an explicit StoreUnavailable, but 401 for any other exception from a store" do
+    HardeningSpec.with_config do |config|
+      store = FailingStore.new
+      config.token_strategy = :opaque
+      config.token_store = store
+      token = BearerSpec.token
+
+      HardeningSpec.server(Authly::Handler::Bearer.new) do |client|
+        store.failing = true
+        store.failure = Authly::StoreUnavailable.new("redis down")
+        BearerSpec.get(client, "/", "Bearer #{token}").status_code.should eq 503
+
+        [KeyError.new("missing"), NilAssertionError.new("nil"), JSON::ParseException.new("bad", 1, 1)].each do |failure|
+          store.failure = failure
+          {failure.class, BearerSpec.get(client, "/", "Bearer #{token}").status_code}.should eq({failure.class, 401})
+        end
+      end
+    end
+  end
+
+  it "also reads a failing revocation lookup of a JWT by the same rule" do
+    HardeningSpec.with_config do |config|
+      store = FailingStore.new
+      config.token_strategy = :jwt
+      config.token_store = store
+      token = BearerSpec.token
+      store.failing = true
+      store.failure = KeyError.new("missing")
+
+      Authly::StrategyTokenVerifier.new.verify(token).should be_nil
+      store.failure = Authly::StoreUnavailable.new("down")
+      expect_raises(Authly::VerificationUnavailable) { Authly::StrategyTokenVerifier.new.verify(token) }
+    end
+  end
+
   it "does not take a malformed token for a store failure" do
     HardeningSpec.with_config do |config|
       store = FailingStore.new
@@ -208,6 +288,24 @@ describe "access token audience and type" do
 
       config.access_token_audience = "https://api.example.com"
       Authly::StrategyTokenVerifier.new.verify(BearerSpec.token).not_nil!["aud"].as_s.should eq "https://api.example.com"
+    end
+  end
+
+  it "treats a blank audience and base_url as unset: no aud claim" do
+    HardeningSpec.with_config do |config|
+      previous = config.base_url
+      begin
+        config.base_url = ""
+        claims = Authly::StrategyTokenVerifier.new.verify(BearerSpec.token).not_nil!
+        claims["aud"]?.should be_nil
+        Authly::StrategyTokenVerifier.new(audience: "https://api.example.com").verify(BearerSpec.token).should be_nil
+
+        config.access_token_audience = "   "
+        config.base_url = "https://auth.example.com"
+        Authly::StrategyTokenVerifier.new.verify(BearerSpec.token).not_nil!["aud"].as_s.should eq "https://auth.example.com"
+      ensure
+        config.base_url = previous
+      end
     end
   end
 
@@ -299,6 +397,50 @@ describe "Bearer request edge cases" do
       client.exec("OPTIONS", "/", preflight).status_code.should eq 200
       client.exec("OPTIONS", "/").status_code.should eq 401
       client.get("/", preflight).status_code.should eq 401
+    end
+  end
+
+  describe "pass_preflight" do
+    preflight = HTTP::Headers{"Origin" => "https://app.example", "Access-Control-Request-Method" => "GET"}
+
+    it "works end to end with RequireScope given the same flag" do
+      handlers = [
+        Authly::Handler::Bearer.new(pass_preflight: true),
+        Authly::Handler::RequireScope.all("read:users", pass_preflight: true),
+        ClaimsEcho.new,
+      ] of HTTP::Handler
+      BearerSpec.with_server(handlers) do |client|
+        client.exec("OPTIONS", "/users", preflight).status_code.should eq 200
+        client.get("/users", preflight).status_code.should eq 401
+        BearerSpec.get(client, "/users", "Bearer #{BearerSpec.token("read:users")}").status_code.should eq 200
+        BearerSpec.get(client, "/users", "Bearer #{BearerSpec.token("other")}").status_code.should eq 403
+      end
+    end
+
+    it "is refused by RequireScope without the flag" do
+      handlers = [Authly::Handler::Bearer.new(pass_preflight: true), Authly::Handler::RequireScope.all("read:users"), ClaimsEcho.new] of HTTP::Handler
+      BearerSpec.with_server(handlers) { |client| client.exec("OPTIONS", "/users", preflight).status_code.should eq 401 }
+    end
+
+    it "is decided by a header anyone can forge, so what answers OPTIONS behind it is public" do
+      handlers = [Authly::Handler::Bearer.new(pass_preflight: true), ClaimsEcho.new] of HTTP::Handler
+      BearerSpec.with_server(handlers) do |client|
+        forged = HTTP::Headers{"Access-Control-Request-Method" => "DELETE"}
+        response = client.exec("OPTIONS", "/anything", forged)
+
+        response.status_code.should eq 200
+        JSON.parse(response.body)["sub"].raw.should be_nil
+        client.exec("OPTIONS", "/anything", HTTP::Headers{"Access-Control-Request-Method" => "GET"}).status_code.should eq 200
+        client.exec("DELETE", "/anything", forged).status_code.should eq 401
+      end
+    end
+  end
+
+  it "exempts only the path itself with except_exact" do
+    HardeningSpec.server(Authly::Handler::Bearer.new(except_exact: ["/health"])) do |client|
+      client.get("/health").status_code.should eq 200
+      client.get("/health/").status_code.should eq 200
+      client.get("/health/details").status_code.should eq 401
     end
   end
 
