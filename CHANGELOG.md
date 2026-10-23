@@ -2,6 +2,24 @@
 
 ## [Unreleased] - 2024
 
+### Changed
+
+#### Resource-server hardening
+
+- `Bearer` and `RequireScope` protect every path by default; `except:` lists open paths and `prefixes:` is now
+  an allowlist with a documented warning. Paths are percent-decoded, `//`-collapsed and dot-resolved before
+  matching (`Authly::Handler::PathFilter`); `/api/` covers `/api`; `prefixes: []` is refused
+- A token store that fails (Redis down) gives 503 + `Retry-After` instead of 401; `Authly::VerificationUnavailable`
+- Access tokens carry `aud` (`config.access_token_audience`, `base_url` by default) and `token_type`;
+  `StrategyTokenVerifier` requires `token_type: "access_token"` (`legacy_tokens: true` for older tokens) and
+  enforces `audience:`; refresh tokens carry `token_type: "refresh_token"`
+- `StrategyTokenVerifier` honors the configuration it is given and decodes the token once
+- `context.authly_claims!` raises `Authly::MissingClaims`
+- JWKS: the algorithm must fit the key type; the endpoint sets `Cache-Control` only on success (`no-store` on errors)
+- `Bearer`: `pass_preflight:` for CORS preflights, repeated `access_token` query values refused, `Cache-Control: private` and
+  `Referrer-Policy: no-referrer` on query-token responses
+- `OpaqueToken#valid?` no longer turns store errors into "invalid"; `JWTToken#valid?` logs at debug, without token content
+
 ### Added
 
 #### Resource Server Handlers

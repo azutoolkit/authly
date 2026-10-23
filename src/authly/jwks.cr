@@ -87,9 +87,23 @@ module Authly
       def initialize(@members : Hash(String, String))
       end
 
+      # The key must be of the kind the algorithm signs with: RS* an RSA key, ES256/384/512 an EC key
+      # on P-256/P-384/P-521. Publishing a key under an algorithm it cannot verify would mislead clients.
       # `kid` is the RFC 7638 thumbprint, so it follows the key.
       def to_jwk(algorithm : String) : Hash(String, String)
+        raise ArgumentError.new("The public key does not fit #{algorithm}") unless fits?(algorithm)
+
         @members.merge({"use" => "sig", "alg" => algorithm, "kid" => thumbprint})
+      end
+
+      private def fits?(algorithm : String) : Bool
+        case algorithm
+        when .starts_with?("RS") then @members["kty"] == "RSA"
+        when "ES256"             then @members["crv"]? == "P-256"
+        when "ES384"             then @members["crv"]? == "P-384"
+        when "ES512"             then @members["crv"]? == "P-521"
+        else                          false
+        end
       end
 
       private def thumbprint : String

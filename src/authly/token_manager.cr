@@ -45,7 +45,7 @@ module Authly
       exp = decoded_token["exp"].to_s.to_i64
       Time.utc.to_unix < exp
     rescue e : JWT::DecodeError
-      Log.error { "Invalid token - #{e.message}" }
+      Log.debug { "Invalid token (#{e.class})" }
       false
     end
 
@@ -106,7 +106,7 @@ module Authly
       exp_value = payload["exp"]
       exp = exp_value.is_a?(Int64) ? exp_value : exp_value.to_s.to_i64
       Time.utc.to_unix < exp
-    rescue
+    rescue Error | KeyError | ArgumentError
       false
     end
 

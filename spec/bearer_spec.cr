@@ -11,19 +11,31 @@ describe Authly::Handler::Bearer do
     end
   end
 
-  it "leaves paths outside its prefixes alone, with no claims" do
+  it "protects every path except the ones listed" do
     BearerSpec.with_server(BearerSpec.chain) do |client|
       response = BearerSpec.get(client, "/public")
-
       response.status_code.should eq 200
       JSON.parse(response.body)["sub"].raw.should be_nil
+
+      BearerSpec.get(client, "/public/deep/er").status_code.should eq 200
+      BearerSpec.get(client, "/anything-else").status_code.should eq 401
     end
   end
 
-  it "does not match a prefix inside a longer segment" do
+  it "does not let a listed path cover a longer segment" do
     BearerSpec.with_server(BearerSpec.chain) do |client|
-      BearerSpec.get(client, "/usersettings").status_code.should eq 200
+      BearerSpec.get(client, "/publicity").status_code.should eq 401
       BearerSpec.get(client, "/users/1").status_code.should eq 401
+    end
+  end
+
+  it "keeps protecting after a request on a connection to a skipped path" do
+    BearerSpec.with_server(BearerSpec.chain) do |client|
+      BearerSpec.get(client, "/health").status_code.should eq 200
+      BearerSpec.get(client, "/users").status_code.should eq 401
+      BearerSpec.get(client, "/health").status_code.should eq 200
+      BearerSpec.get(client, "/users", "Bearer #{BearerSpec.token}").status_code.should eq 200
+      BearerSpec.get(client, "/users").status_code.should eq 401
     end
   end
 

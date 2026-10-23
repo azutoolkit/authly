@@ -8,6 +8,8 @@ class ClaimsEcho
     sleep 50.milliseconds if context.request.path == "/slow"
     claims = context.authly_claims
     context.response.content_type = "application/json"
+    return if context.request.method == "HEAD"
+
     context.response.print({
       sub:    claims.try(&.subject),
       scopes: claims.try(&.scopes),
@@ -28,13 +30,14 @@ module BearerSpec
 
   def payload(overrides = {} of String => JSON::Any::Type)
     base = {
-      "sub"   => "alice",
-      "iss"   => Authly.config.issuer,
-      "cid"   => "test_client",
-      "iat"   => Time.utc.to_unix,
-      "exp"   => 1.hour.from_now.to_unix,
-      "scope" => "read:users",
-      "jti"   => Random::Secure.hex(8),
+      "sub"        => "alice",
+      "iss"        => Authly.config.issuer,
+      "cid"        => "test_client",
+      "iat"        => Time.utc.to_unix,
+      "exp"        => 1.hour.from_now.to_unix,
+      "scope"      => "read:users",
+      "token_type" => "access_token",
+      "jti"        => Random::Secure.hex(8),
     } of String => JSON::Any::Type
     base.merge(overrides)
   end
@@ -57,7 +60,7 @@ module BearerSpec
 
   def chain : Array(HTTP::Handler)
     [
-      Authly::Handler::Bearer.new(realm: "api", prefixes: ["/users", "/admin", "/slow"]),
+      Authly::Handler::Bearer.new(realm: "api", except: ["/public", "/health"]),
       Authly::Handler::RequireScope.all("read:users", realm: "api", prefixes: ["/users"]),
       Authly::Handler::RequireScope.any("admin", "root", realm: "api", prefixes: ["/admin"]),
       ClaimsEcho.new,

@@ -1092,13 +1092,14 @@ configuration and hands the verified claims to the handlers after it:
 require "authly"
 
 server = HTTP::Server.new([
-  Authly::Handler::Bearer.new(realm: "api", prefixes: ["/api"]),
+  Authly::Handler::Bearer.new(realm: "api", except: ["/health"]),
   MyApp.new,
 ])
 ```
 
-Downstream, the claims are `context.authly_claims` (an `Authly::Claims`, `nil` where the handler did
-not apply). They are an instance variable of that request's own `HTTP::Server::Context`, so concurrent
+`Bearer` protects **every** request except the paths in `except` (see below). Downstream, the claims are
+`context.authly_claims` (an `Authly::Claims`, `nil` where the handler did not apply) or
+`context.authly_claims!`, which raises `Authly::MissingClaims` instead of returning nil. They are an instance variable of that request's own `HTTP::Server::Context`, so concurrent
 requests never see each other's claims and nothing global has to be cleaned up:
 
 ```crystal
@@ -1118,15 +1119,27 @@ end
 
 What is verified: the signature with the configured `algorithm` (the token's own `alg` header is never
 trusted, so `alg: none` and key-confusion tokens fail), `exp` (required), `nbf`, the issuer, and
-revocation. Only **access tokens** pass: a refresh token is signed with the same key but has no `scope`,
-and is refused. Both `:jwt` and `:opaque` token strategies work. To also require an audience:
+revocation. Only **access tokens** pass: they carry `token_type: "access_token"`, and a refresh token (same
+key, other type) is refused. Both `:jwt` and `:opaque` token strategies work. The token is decoded once per
+request. Tokens issued before `token_type` existed (up to `access_ttl` old after an upgrade) are accepted
+only with `StrategyTokenVerifier.new(legacy_tokens: true)`, for the length of that rollout.
+
+**Set an audience.** Access tokens carry `aud` (`config.access_token_audience`, `base_url` by default). A
+resource server that does not check it accepts a token minted for *any* API that shares the key (a confused
+deputy). Give each API its own audience and check it:
 
 ```crystal
+# on the authorization server
+config.access_token_audience = "https://api.example.com"
+
+# on the resource server
 verifier = Authly::StrategyTokenVerifier.new(audience: "https://api.example.com")
-Authly::Handler::Bearer.new(verifier, realm: "api")
+Authly::Handler::Bearer.new(verifier, realm: "api", except: ["/health"])
 ```
 
-Tokens issued by Authly carry no `aud` claim, so an audience check only suits tokens you add one to.
+Without `audience:` any `aud` is accepted. Authly issues one audience per server, not per request
+(no RFC 8707 resource indicators), so use one authorization server per audience if APIs must be isolated.
+
 Anything else (remote introspection, another key source) is an `Authly::TokenVerifier`: implement
 `verify(token : String) : Authly::Claims?` and pass it as the first argument.
 
@@ -1138,13 +1151,28 @@ Failures follow RFC 6750 and never echo the token or log it:
 | Malformed header, two headers, empty token | 400    | `Bearer realm="api", error="invalid_request"`    |
 | Bad, expired, revoked, wrong-key token     | 401    | `Bearer realm="api", error="invalid_token"`      |
 | Valid token without the required scope     | 403    | `... error="insufficient_scope", scope="a b"`    |
+| Token store unreachable (Redis down)       | 503    | none; `Retry-After: 1`                           |
 
-The scheme is case-insensitive (`bearer`, `BEARER`). The token is read from the header only. Set
-`allow_query_token: true` to also accept `?access_token=`, which RFC 6750 discourages because URLs end up
-in logs; it is off by default, and a request with both a header and a query token is refused.
+A store outage is a 503, not a 401: a 401 would send every client off to re-authenticate. It still fails
+closed (nobody gets in).
 
-`prefixes:` limits a handler to those paths (whole segments: `/api` covers `/api/users`, not `/apiary`),
-so `/health` and the like can sit in the same chain.
+The scheme is case-insensitive (`bearer`, `BEARER`); a tab is not a separator. The token is read from the
+header only. Set `allow_query_token: true` to also accept `?access_token=` (one value only; a header as well
+is refused). RFC 6750 discourages it: URLs end up in access logs, referrers and browser history, so
+make sure your logs do not record query strings. Such responses get `Cache-Control: private` and
+`Referrer-Policy: no-referrer`.
+
+**Which paths.** `except: ["/health"]` lists what stays open (it covers `/health/live` too, not `/healthz`);
+everything else is protected, so a route added later is protected by default. `prefixes: ["/api"]` is the
+opposite, an **allowlist: every path you do not list is open**. A forgotten route, a new top-level path or
+a router that matches differently is then unprotected, so prefer `except`. Paths are compared after
+percent-decoding, collapsing `//` and resolving `.`/`..`, so `/%61pi/x`, `//api/x` and `/x/../api/x` are
+`/api/x`. `prefixes` ignores case (`/API/x` is protected by `/api`), `except` is exact (`/HEALTH` is not
+skipped by `/health`). A trailing slash does not matter, and an empty `prefixes: []` is refused.
+
+**CORS.** Put the CORS handler **before** `Bearer`, or a browser cannot read the 401. A preflight
+(`OPTIONS` with `Access-Control-Request-Method`) carries no credentials: either let the CORS handler
+answer it, or give `Bearer` `pass_preflight: true` to hand it to the next handler. Off by default.
 
 ### Requiring Scopes
 
@@ -1152,14 +1180,15 @@ so `/health` and the like can sit in the same chain.
 
 ```crystal
 HTTP::Server.new([
-  Authly::Handler::Bearer.new,
+  Authly::Handler::Bearer.new(except: ["/health"]),
   Authly::Handler::RequireScope.all("read:users", prefixes: ["/users"]),
   Authly::Handler::RequireScope.any("admin", "root", prefixes: ["/admin"]),
   MyApp.new,
 ])
 ```
 
-`RequireScope.new(all: [...], any: [...])` needs both. A request that lacks a scope gets
+`RequireScope.new(all: [...], any: [...])` needs both. It takes `prefixes:` and `except:` like `Bearer` and applies to
+every path unless narrowed, so repeat the `except` paths of `Bearer` if it is used without `prefixes`. A request that lacks a scope gets
 `403` with `error="insufficient_scope"` and the scopes it needs; a request that no `Bearer` authenticated
 gets `401`, it is never let through. Scope names and realms are checked when the handler is built, so a
 value cannot inject into the challenge header.
@@ -1185,8 +1214,11 @@ end
 
 The key is published with `use`, `alg` and a `kid` (its RFC 7638 thumbprint). Authly does not put `kid`
 in the tokens it issues and publishes one key, so rotation (several keys at once) is not supported yet.
-A private key, or anything that is not a PEM public key, is refused (the endpoint answers 500) instead of
-being published. EdDSA, PS* and ES256K are not published.
+The algorithm has to fit the key (RS* an RSA key, ES256/384/512 an EC key on P-256/P-384/P-521). A private key, a key that does not fit, or anything that is not a PEM public key, is refused (the endpoint answers 500 with `Cache-Control: no-store`) instead of
+being published; a published set is `public, max-age=300`. EdDSA, PS* and ES256K are not published.
+
+The metadata's `issuer` is `base_url`, while tokens carry `iss` = `config.issuer`. Set both to the same
+URL if clients validate the metadata issuer against the token.
 
 A resource server that is a separate process can verify the same tokens by configuring the public key
 (`algorithm` and `public_key`) and using `Bearer`; revocation is only seen where the token store is shared.
@@ -1207,7 +1239,7 @@ app.router.get "/users", UsersEndpoint.new
 server = app.server([
   *app.default_handlers,
   Authly::Handler.new,
-  Authly::Handler::Bearer.new(prefixes: ["/users"]),
+  Authly::Handler::Bearer.new(except: ["/health", "/oauth"]),
   Authly::Handler::RequireScope.all("read:users", prefixes: ["/users"]),
 ] of HTTP::Handler)
 ```

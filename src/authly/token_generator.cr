@@ -21,13 +21,15 @@ module Authly
 
     def generate_access_token(client_id : String, scope : String, sub : String, jti : String, cert_thumbprint : String? = nil) : String
       payload = {
-        "sub"   => sub,
-        "iss"   => @config.issuer,
-        "cid"   => client_id,
-        "iat"   => Time.utc.to_unix,
-        "exp"   => @config.access_ttl.from_now.to_unix,
-        "scope" => scope,
-        "jti"   => jti,
+        "sub"        => sub,
+        "iss"        => @config.issuer,
+        "aud"        => @config.token_audience,
+        "token_type" => "access_token",
+        "cid"        => client_id,
+        "iat"        => Time.utc.to_unix,
+        "exp"        => @config.access_ttl.from_now.to_unix,
+        "scope"      => scope,
+        "jti"        => jti,
       } of String => (String | Int64 | Hash(String, String))
 
       # Add certificate binding if thumbprint is provided
@@ -44,12 +46,13 @@ module Authly
 
     def generate_refresh_token(client_id : String, jti : String, sub : String) : String
       Authly.jwt_encode({
-        "jti"  => jti,
-        "sub"  => sub,
-        "name" => "refresh token",
-        "iat"  => Time.utc.to_unix,
-        "iss"  => @config.issuer,
-        "exp"  => @config.refresh_ttl.from_now.to_unix,
+        "jti"        => jti,
+        "sub"        => sub,
+        "name"       => "refresh token",
+        "token_type" => "refresh_token",
+        "iat"        => Time.utc.to_unix,
+        "iss"        => @config.issuer,
+        "exp"        => @config.refresh_ttl.from_now.to_unix,
       })
     end
 
@@ -81,6 +84,7 @@ module Authly
       payload["iat"] = Time.utc.to_unix
       payload["exp"] = expires_at.to_unix
       payload["token_type"] = "access_token"
+      payload["aud"] = @config.token_audience
 
       # Add certificate thumbprint if provided
       if cert_thumbprint
