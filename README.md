@@ -1212,8 +1212,9 @@ server = app.server([
 ] of HTTP::Handler)
 ```
 
-An endpoint reads `context.authly_claims`. This snippet is not compiled by CI, since Azu is not a
-dependency of Authly; the handler specs run the same chain over a real `HTTP::Server`.
+An endpoint reads `context.authly_claims`. **This snippet is unchecked**: Azu is not a dependency of Authly,
+so CI does not compile it (it was written against Azu master's `App#server` and `default_handlers`). The
+Authly specs run the same handler chain over a real `HTTP::Server`.
 
 ## Roadmap
 
