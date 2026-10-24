@@ -4,8 +4,12 @@ module Authly
       context.response.status_code = status_code
       context.response.content_type = content_type
       # A HEAD response has no body: bytes written anyway are read as the start of the next response
-      # on a kept-alive connection.
-      context.response.print body unless context.request.method == "HEAD"
+      # on a kept-alive connection. It still advertises the length a GET would have.
+      if context.request.method == "HEAD"
+        context.response.content_length = body.to_s.bytesize
+      else
+        context.response.print body
+      end
     end
 
     def self.redirect(context, location)

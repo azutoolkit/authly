@@ -21,8 +21,9 @@ module Authly
     # A resource server that sets the same `audience` on its verifier refuses tokens meant for others.
     property access_token_audience : String? = nil
 
-    def token_audience : String
-      access_token_audience || base_url
+    # Blank counts as unset: with neither an audience nor a `base_url`, tokens carry no `aud`.
+    def token_audience : String?
+      access_token_audience.presence || base_url.presence
     end
 
     def public_key : String

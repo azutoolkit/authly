@@ -47,6 +47,13 @@ module Authly
       end
     end
 
+    # A CORS preflight is told apart by its headers only: anyone can send them, so what a handler lets
+    # through on this ground is public. The next handler must answer `OPTIONS` without side effects.
+    # :nodoc:
+    def self.preflight?(request : HTTP::Request) : Bool
+      request.method == "OPTIONS" && request.headers.has_key?("Access-Control-Request-Method")
+    end
+
     # Header-safe: no quotes, backslashes, whitespace or control characters could split a challenge.
     # :nodoc:
     def self.header_token!(value : String, what : String) : String

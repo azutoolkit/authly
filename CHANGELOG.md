@@ -14,6 +14,10 @@
   `StrategyTokenVerifier` requires `token_type: "access_token"` (`legacy_tokens: true` for older tokens) and
   enforces `audience:`; refresh tokens carry `token_type: "refresh_token"`
 - `StrategyTokenVerifier` honors the configuration it is given and decodes the token once
+- `except_exact:` exempts one path only; `except:` is documented as a case-sensitive segment-prefix match. Paths with a `%` left
+  after decoding, or a NUL byte, are protected. `RequireScope` takes `pass_preflight:` too
+- `Authly::StoreUnavailable` (and `IO::Error`) mean 503; any other exception from a token store is an invalid token, not an outage
+- Blank `base_url`/audience means no `aud` claim; HEAD on JWKS/metadata advertises the GET `Content-Length`
 - `context.authly_claims!` raises `Authly::MissingClaims`
 - JWKS: the algorithm must fit the key type; the endpoint sets `Cache-Control` only on success (`no-store` on errors)
 - `Bearer`: `pass_preflight:` for CORS preflights, repeated `access_token` query values refused, `Cache-Control: private` and
