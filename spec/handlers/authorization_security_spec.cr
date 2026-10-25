@@ -229,6 +229,8 @@ describe "Authorization endpoint security" do
         page.header("Cache-Control").should eq "no-store"
         page.header("Referrer-Policy").should eq "no-referrer"
       end
+    ensure
+      Authly.clients.as(Authly::Clients).delete(%(c"><i>1))
     end
   end
 
@@ -378,9 +380,13 @@ describe "Authorization endpoint review follow-ups" do
       AuthorizationSecuritySpec.authorize(AuthorizationSecuritySpec.params(client_id: "nobody"), user: "john").status.should eq 400
       AuthorizationSecuritySpec.authorize(AuthorizationSecuritySpec.params(redirect_uri: "https://evil.example/"), user: "john").status.should eq 400
       Authly.clients << Authly::Client.new("CodeOnly", "s", AuthorizationSecuritySpec::CALLBACK, "code-only", "read", "authorization_code")
-      probe = AuthorizationSecuritySpec.authorize(AuthorizationSecuritySpec.params(client_id: "code-only", response_type: "token"), user: "john")
-      probe.status.should eq 400
-      probe.location.should be_nil
+      begin
+        probe = AuthorizationSecuritySpec.authorize(AuthorizationSecuritySpec.params(client_id: "code-only", response_type: "token"), user: "john")
+        probe.status.should eq 400
+        probe.location.should be_nil
+      ensure
+        Authly.clients.as(Authly::Clients).delete("code-only")
+      end
     end
   end
 
@@ -462,7 +468,56 @@ describe Authly::InMemoryStateStore do
 
   it "drops expired states as new ones are stored" do
     store = Authly::InMemoryStateStore.new
-    300.times { |i| store.store("old-#{i}", -1.second) }
+    400.times { |i| store.store("old-#{i}", -1.second) }
     store.size.should be < 100
+  end
+end
+
+describe "Atomic single-use stores" do
+  it "PARStore#consume answers true to exactly one caller" do
+    store = Authly::InMemoryPARStore.new
+    store.store("urn:x", {"client_id" => "1"}, "1", 90.seconds)
+    store.consume("urn:x").should be_true
+    store.consume("urn:x").should be_false
+    store.consume("urn:unknown").should be_false
+    store.store("urn:old", {"client_id" => "1"}, "1", -1.second)
+    store.consume("urn:old").should be_false
+  end
+
+  it "has one winner when many fibers race to consume" do
+    {Authly::InMemoryPARStore.new, Authly::InMemoryStateStore.new}.each do |store|
+      store.is_a?(Authly::InMemoryPARStore) ? store.store("k", {"client_id" => "1"}, "1", 90.seconds) : store.as(Authly::InMemoryStateStore).store("k")
+      results = Channel(Bool).new(50)
+      50.times { spawn { Fiber.yield; results.send(store.consume("k")) } }
+      50.times.count { results.receive }.should eq 1
+    end
+  end
+
+  it "rejects the replay of a pushed request_uri after a signed-in GET" do
+    AuthorizationSecuritySpec.with_hook do
+      pushed = {"client_id" => "1", "response_type" => "code", "redirect_uri" => AuthorizationSecuritySpec::CALLBACK, "scope" => "read"}
+      request_uri = "urn:ietf:params:oauth:request_uri:#{Random::Secure.hex(8)}"
+      Authly.config.par_store.store(request_uri, pushed, "1", 90.seconds)
+      query = "client_id=1&request_uri=#{URI.encode_www_form(request_uri)}"
+      AuthorizationSecuritySpec.authorize(query, user: "john").status.should eq 200
+      AuthorizationSecuritySpec.authorize(query, user: "john").status.should eq 400
+    end
+  end
+
+  it "caps the live nonces of the in-memory state store, dropping the oldest" do
+    store = Authly::InMemoryStateStore.new
+    (Authly::InMemoryStateStore::MAX_ENTRIES + 50).times { |i| store.store("n-#{i}") }
+    store.size.should be <= Authly::InMemoryStateStore::MAX_ENTRIES
+    store.valid?("n-#{Authly::InMemoryStateStore::MAX_ENTRIES + 49}").should be_true
+    store.consume("n-0").should be_false
+  end
+
+  it "links 'Try again' relative to the device page" do
+    AuthorizationSecuritySpec.with_hook do
+      page = AuthorizationSecuritySpec.device_get("/auth/device", user: "john")
+      probe = AuthorizationSecuritySpec.device_post({"user_code" => "NOPE", "action" => "approve", "csrf_token" => page.csrf_token}, user: "john")
+      probe.body.should_not contain(%(href="/device"))
+      probe.body.should contain(%(href="))
+    end
   end
 end

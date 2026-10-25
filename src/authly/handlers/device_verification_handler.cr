@@ -205,7 +205,7 @@ module Authly
           <body>
             <h1 class="error">Error</h1>
             <p>#{HTML.escape(message)}</p>
-            <a href="/device">Try again</a>
+            <a href="">Try again</a>
           </body>
         </html>
         HTML

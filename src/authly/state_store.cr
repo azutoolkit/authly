@@ -7,6 +7,8 @@ module Authly
   # never as `valid?` followed by a delete. With more than one node the store must be shared.
   module StateStore
     abstract def store(state : String, ttl : Time::Span = 5.minutes)
+
+    # Informational only: Authly's handlers never call it (a check followed by `consume` is not atomic).
     abstract def valid?(state : String) : Bool
 
     # true when `state` was stored, has not expired and has not been consumed before
@@ -16,8 +18,14 @@ module Authly
   class InMemoryStateStore
     include StateStore
 
-    # Expired entries are swept once per this many writes, so the hash stays bounded without a timer.
-    SWEEP_EVERY = 64
+    # Live nonces kept at most; past it the oldest are dropped, so a signed-in user requesting consent pages
+    # in a loop cannot grow the hash without bound (a dropped nonce just means that form must be reloaded).
+    MAX_ENTRIES = 10_000
+
+    # Every this many writes, once at least SWEEP_THRESHOLD entries exist, expired entries are removed.
+    # The sweep is at most MAX_ENTRIES long, and small stores are never swept.
+    SWEEP_EVERY     =  64
+    SWEEP_THRESHOLD = 256
 
     @store : Hash(String, Time)
     @writes = 0
@@ -29,9 +37,10 @@ module Authly
 
     def store(state : String, ttl : Time::Span = 5.minutes)
       @mutex.synchronize do
-        @store[state] = ttl.from_now
         @writes += 1
-        sweep if @writes % SWEEP_EVERY == 0
+        sweep if @writes % SWEEP_EVERY == 0 && @store.size >= SWEEP_THRESHOLD
+        @store.shift if @store.size >= MAX_ENTRIES && !@store.has_key?(state)
+        @store[state] = ttl.from_now
       end
     end
 

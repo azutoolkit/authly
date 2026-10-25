@@ -40,6 +40,11 @@ module Authly
       @clients << client
     end
 
+    # Unregisters every client with this id
+    def delete(client_id : String) : Nil
+      @clients.reject! { |client| client.id == client_id }
+    end
+
     def valid_redirect?(client_id, redirect_uri) : Bool
       any? do |client|
         client.id == client_id && client.redirect_uri == redirect_uri

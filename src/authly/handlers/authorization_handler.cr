@@ -277,8 +277,8 @@ module Authly
       query_client_id = query_params["client_id"]?
       raise Error.invalid_request_uri if query_client_id && query_client_id != par_data.client_id
 
-      # The request_uri is single-use
-      Authly.config.par_store.consume(request_uri)
+      # The request_uri is single-use; `consume` is the gate, two racing requests cannot both pass it
+      raise Error.invalid_request_uri unless Authly.config.par_store.consume(request_uri)
 
       par_data.params.dup.tap { |params| params["client_id"] = par_data.client_id }
     end

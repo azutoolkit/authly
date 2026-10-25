@@ -36,6 +36,13 @@
   grows. With several nodes share `secret_key` and `state_store` (see README)
 - The subject returned by `authenticate_user` is stripped
 
+- **Breaking for custom stores:** `PARStore#consume` returns `Bool` too and is the only gate for a pushed `request_uri`
+  (`InMemoryPARStore` is mutex-protected); `StateStore#valid?` stays in the interface but no handler calls it.
+  `InMemoryStateStore` keeps at most 10,000 live nonces (oldest dropped first) and sweeps expired ones only from 256 entries up
+- `allowed_scopes?` is shared with the token endpoint (`validate_scope!`): doubled spaces in a code's scope are accepted there
+  too; an empty scope at the token endpoint behaves as before
+- The "Try again" link of the device error page is relative; `Clients#delete(client_id)` added
+
 ### Upgrading
 
 Hosts that mount `Authly::Handler` (or call `AuthorizationHandler` / `DeviceVerificationHandler`) must configure the hook:
