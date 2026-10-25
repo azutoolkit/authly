@@ -1,6 +1,11 @@
 # Changelog
 
-## [Unreleased] - 2024
+## [Unreleased]
+
+## [1.3.0] - 2026-10-25
+
+Includes the P0 fixes and the consent/authorization hardening (#21). Several changes are breaking for hosts and custom
+stores; read "Upgrading" below. Minor rather than major bump: see the pull request for the reasoning.
 
 ### Security
 
@@ -57,6 +62,16 @@ end
 Clients and tests that sent `consent=approved&user_id=...` must stop: the consent page now has to be approved by the
 signed-in owner (POST with `consent_token` and `decision=approve|deny`). Hosts that call `Authly.code` themselves (not
 through `AuthorizationHandler`) are unaffected.
+
+Summary of what to check when moving from 1.2.x:
+
+- `Authly.config.authenticate_user` must be set, or `/oauth/authorize` and `/device` answer 500 and issue nothing
+- An unregistered `redirect_uri`, an unknown client or a grant the client lacks is now `400` (was `401`) at the
+  authorization endpoint, and nothing is rendered or redirected
+- Consent and device approval are POSTs carrying a signed, single-use, subject-bound `Authly::FormToken`
+  (`consent_token`, `decision=approve|deny`); `user_id` and `consent` query parameters are ignored
+- Custom `StateStore` and `PARStore` implementations: `consume` returns `Bool` (true for exactly one caller) and is the only
+  call the handlers make
 
 ### Changed
 
