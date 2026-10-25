@@ -42,7 +42,7 @@ module Authly
 
   describe "AuthorizationHandler" do
     it "returns an authorization code for the signed-in owner after a consent POST and includes state" do
-      query = "client_id=1&redirect_uri=https://www.example.com/callback&response_type=code&state=test_state"
+      query = "client_id=1&redirect_uri=https://www.example.com/callback&response_type=code&scope=read&state=test_state"
       result = AuthorizationSecuritySpec.approve(query, "john")
 
       result.status.should eq 302
@@ -52,7 +52,7 @@ module Authly
     end
 
     it "renders the consent page for a signed-in owner" do
-      query = "client_id=1&redirect_uri=https://www.example.com/callback&response_type=code&state=test_state_consent"
+      query = "client_id=1&redirect_uri=https://www.example.com/callback&response_type=code&scope=read&state=test_state_consent"
       page = AuthorizationSecuritySpec.authorize(query, "john")
 
       page.status.should eq 200
@@ -63,12 +63,12 @@ module Authly
       body.should contain("consent_token")
     end
 
-    it "returns 401 for invalid client_id or redirect_uri" do
+    it "returns 400 for invalid client_id or redirect_uri" do
       query = "client_id=invalid&redirect_uri=invalid&response_type=code&state=s"
       result = AuthorizationSecuritySpec.authorize(query, "john")
 
-      result.status.should eq 401
-      result.body.should eq "This client is not authorized to use the requested grant type"
+      result.status.should eq 400
+      result.body.should eq "Invalid redirect uri"
     end
   end
 
@@ -212,7 +212,7 @@ module Authly
       uri_complete.should contain("user_code=")
     end
 
-    it "returns 401 for invalid client_id" do
+    it "returns 400 for invalid client_id" do
       form_data = {"client_id" => "invalid_client_999"}
       test_ctx = create_test_context("POST", "/device/code", form_data: form_data)
       DeviceAuthorizationHandler.handle(test_ctx.context)

@@ -357,6 +357,16 @@ form carries a signed, single-use token binding client, redirect URI, scope, sta
 with that token, from the same signed-in owner, issues the code or token. The pages are served with
 `Content-Security-Policy`, `X-Frame-Options: DENY`, `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
 
+**Running more than one node.** Consent and device forms are signed with a key derived from `config.secret_key`, whose
+default is random per process: every node must be configured with the same `secret_key`, and the nonces live in
+`config.state_store`, which must be shared too (the in-memory default is per process). A custom `StateStore` must make
+`consume(state) : Bool` atomic (it answers `true` to exactly one caller, e.g. Redis `DEL` returning 1); the handlers use
+only `consume`, never `valid?` followed by `consume`.
+
+**Security notes.** Authorization codes without PKCE are accepted by default and `plain` is a valid method. Set
+`config.enforce_pkce = true` and `config.enforce_pkce_s256 = true` for every deployment that has public clients (and
+preferably all of them). The scope of an authorization request is required and must be within the client's scopes.
+
 **Parameters:**
 
 - `response_type` - Type of response (`code`, `token`)

@@ -139,7 +139,7 @@ module Authly
           "POST",
           "/oauth/par",
           headers: HTTP::Headers{"Content-Type" => "application/x-www-form-urlencoded"},
-          body: "response_type=code&client_id=test_client&client_secret=test_secret&redirect_uri=https://example.com/callback&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256&state=pkce123"
+          body: "response_type=code&client_id=test_client&client_secret=test_secret&redirect_uri=https://example.com/callback&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256&scope=openid&state=pkce123"
         )
 
         par_io = IO::Memory.new

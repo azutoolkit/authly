@@ -24,6 +24,18 @@
 - `/oauth/authorize` also routes `POST` in `Authly::Handler`; the `state` parameter is passed through to the client, no
   longer checked against a store the same caller filled
 
+- Pushed `request_uri`s are consumed after the owner is signed in, so PAR works together with `login_url`
+- The device page shows the client and scopes behind a user code before the owner approves (RFC 8628 5.4); forms post
+  to the path they were served from
+- An unknown client, unregistered `redirect_uri` or a grant the client lacks is `400` at the authorization endpoint (was 401);
+  a blank scope is `invalid_scope`; `allowed_scopes?` ignores empty tokens from doubled spaces and refuses an empty request
+- `form_post.jwt` responses have no inline `onload` handler and are served with a CSP (hash of the one script),
+  `X-Frame-Options: DENY` and `Cache-Control: no-store`
+- **Breaking for custom stores:** `StateStore#consume` returns `Bool` (true for exactly one caller of a stored, unexpired
+  state) and is the only check the handlers make. `InMemoryStateStore` is mutex-protected and sweeps expired entries as it
+  grows. With several nodes share `secret_key` and `state_store` (see README)
+- The subject returned by `authenticate_user` is stripped
+
 ### Upgrading
 
 Hosts that mount `Authly::Handler` (or call `AuthorizationHandler` / `DeviceVerificationHandler`) must configure the hook:

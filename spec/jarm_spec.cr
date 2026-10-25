@@ -87,7 +87,8 @@ describe "JARM (JWT Secured Authorization Response Mode)" do
       html.should contain("https://client.example.com/callback")
       html.should contain("jwt_token_here")
       html.should contain("response")
-      html.should contain("onload")
+      html.should_not contain("onload")
+      html.should contain("submit()")
     end
 
     it "escapes HTML in form_post" do
@@ -96,7 +97,7 @@ describe "JARM (JWT Secured Authorization Response Mode)" do
         "token_with_\"quotes\""
       )
 
-      html.should_not contain("<script>")
+      html.should_not contain("foo=<script>")
       html.should contain("&lt;script&gt;")
       html.should_not contain("\"quotes\"")
     end

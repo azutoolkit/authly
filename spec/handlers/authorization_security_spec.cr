@@ -193,7 +193,7 @@ describe "Authorization endpoint security" do
       AuthorizationSecuritySpec.with_hook do
         ["https://evil.example/cb", AuthorizationSecuritySpec::XSS, "#{AuthorizationSecuritySpec::CALLBACK}/../x"].each do |uri|
           probe = AuthorizationSecuritySpec.authorize(AuthorizationSecuritySpec.params(redirect_uri: uri), user: "john")
-          probe.status.should eq 401
+          probe.status.should eq 400
           probe.location.should be_nil
           probe.body.should_not contain("<script>")
           probe.body.should_not contain("evil.example")
@@ -356,5 +356,113 @@ describe "Device verification security" do
 
   it "generates user codes with a secure RNG alphabet and shape" do
     Authly::DeviceCode.generate_user_code.should match(/\A[A-Z2-9]{4}-[A-Z2-9]{4}\z/)
+  end
+end
+
+describe "Authorization endpoint review follow-ups" do
+  it "keeps a pushed request_uri for the signed-in user: an anonymous visit does not consume it" do
+    AuthorizationSecuritySpec.with_hook do
+      Authly.config.login_url = ->(_ctx : HTTP::Server::Context) { "/login" }
+      pushed = {"client_id" => "1", "response_type" => "code", "redirect_uri" => AuthorizationSecuritySpec::CALLBACK, "scope" => "read"}
+      request_uri = "urn:ietf:params:oauth:request_uri:#{Random::Secure.hex(8)}"
+      Authly.config.par_store.store(request_uri, pushed, "1", 90.seconds)
+      query = "client_id=1&request_uri=#{URI.encode_www_form(request_uri)}"
+
+      AuthorizationSecuritySpec.authorize(query).location.should eq "/login"
+      AuthorizationSecuritySpec.authorize(query, user: "john").status.should eq 200
+    end
+  end
+
+  it "answers 400 for an unknown client, an unregistered redirect_uri and a grant the client lacks" do
+    AuthorizationSecuritySpec.with_hook do
+      AuthorizationSecuritySpec.authorize(AuthorizationSecuritySpec.params(client_id: "nobody"), user: "john").status.should eq 400
+      AuthorizationSecuritySpec.authorize(AuthorizationSecuritySpec.params(redirect_uri: "https://evil.example/"), user: "john").status.should eq 400
+      Authly.clients << Authly::Client.new("CodeOnly", "s", AuthorizationSecuritySpec::CALLBACK, "code-only", "read", "authorization_code")
+      probe = AuthorizationSecuritySpec.authorize(AuthorizationSecuritySpec.params(client_id: "code-only", response_type: "token"), user: "john")
+      probe.status.should eq 400
+      probe.location.should be_nil
+    end
+  end
+
+  it "trims the subject the hook returns" do
+    AuthorizationSecuritySpec.with_hook do
+      page = AuthorizationSecuritySpec.authorize(AuthorizationSecuritySpec.params, user: "  john ")
+      probe = AuthorizationSecuritySpec.decide({"consent_token" => page.consent_token, "decision" => "approve"}, user: "john")
+      probe.status.should eq 302
+    end
+  end
+
+  it "rejects a blank scope" do
+    AuthorizationSecuritySpec.with_hook do
+      probe = AuthorizationSecuritySpec.authorize(AuthorizationSecuritySpec.params(scope: " "), user: "john")
+      probe.location.to_s.should contain("error=invalid_scope")
+    end
+  end
+
+  it "ignores empty scope tokens from doubled spaces but never accepts an empty scope" do
+    Authly.clients.allowed_scopes?("1", "read  write").should be_true
+    Authly.clients.allowed_scopes?("1", "").should be_false
+    Authly.clients.allowed_scopes?("1", "  ").should be_false
+  end
+
+  it "submits the consent form to the path it was served from" do
+    AuthorizationSecuritySpec.with_hook do
+      probe = AuthorizationSecuritySpec::Probe.new("GET", "/auth/oauth/authorize?#{AuthorizationSecuritySpec.params}", "john")
+      Authly::AuthorizationHandler.handle(probe.context)
+      probe.body.should contain(%(action="/auth/oauth/authorize"))
+    end
+  end
+
+  it "serves the form_post.jwt page without an inline handler, under a CSP, not framable or cacheable" do
+    previous = Authly.config.jarm_signing_alg
+    Authly.config.jarm_signing_alg = JWT::Algorithm::HS256
+    AuthorizationSecuritySpec.with_hook do
+      page = AuthorizationSecuritySpec.authorize(AuthorizationSecuritySpec.params(response_mode: "form_post.jwt"), user: "john")
+      probe = AuthorizationSecuritySpec.decide({"consent_token" => page.consent_token, "decision" => "approve"}, user: "john")
+      probe.status.should eq 200
+      probe.body.should_not contain("onload")
+      probe.header("Content-Security-Policy").to_s.should contain("script-src 'sha256-")
+      probe.header("X-Frame-Options").should eq "DENY"
+      probe.header("Cache-Control").should eq "no-store"
+    end
+  ensure
+    Authly.config.jarm_signing_alg = previous.not_nil!
+  end
+
+  it "shows the client and scope on the device confirmation step, escaped" do
+    Authly.config.device_code_store = Authly::InMemoryDeviceCodeStore.new
+    AuthorizationSecuritySpec.with_hook do
+      data = Authly::DeviceCode.create_device_authorization(%(c"><i>1), %(read<b>x))
+      page = AuthorizationSecuritySpec.device_get("/device?user_code=#{data.user_code}", user: "john")
+      page.body.should contain("c&quot;&gt;&lt;i&gt;1")
+      page.body.should contain("read&lt;b&gt;x")
+      page.body.should_not contain("<i>")
+      page.body.should_not contain("<b>")
+    end
+  end
+
+  it "submits the device form to the path it was served from" do
+    AuthorizationSecuritySpec.with_hook do
+      page = AuthorizationSecuritySpec.device_get("/auth/device", user: "john")
+      page.body.should contain(%(action="/auth/device"))
+    end
+  end
+end
+
+describe Authly::InMemoryStateStore do
+  it "consume answers true once, false for a replay, an unknown or an expired state" do
+    store = Authly::InMemoryStateStore.new
+    store.store("a")
+    store.consume("a").should be_true
+    store.consume("a").should be_false
+    store.consume("unknown").should be_false
+    store.store("b", -1.second)
+    store.consume("b").should be_false
+  end
+
+  it "drops expired states as new ones are stored" do
+    store = Authly::InMemoryStateStore.new
+    300.times { |i| store.store("old-#{i}", -1.second) }
+    store.size.should be < 100
   end
 end

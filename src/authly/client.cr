@@ -66,9 +66,9 @@ module Authly
       the_client = find { |client| client.id == client_id }
       return false unless the_client
 
-      scopes.split(" ").all? do |scope|
-        the_client.scopes.split(" ").includes?(scope)
-      end
+      requested = scopes.split(" ", remove_empty: true)
+      granted = the_client.scopes.split(" ", remove_empty: true)
+      !requested.empty? && requested.all? { |scope| granted.includes?(scope) }
     rescue
       false
     end

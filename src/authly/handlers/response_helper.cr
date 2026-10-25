@@ -1,3 +1,6 @@
+require "base64"
+require "openssl"
+
 module Authly
   module ResponseHelper
     def self.write(context, status_code, content_type = "text/plain", body = "")
@@ -14,9 +17,11 @@ module Authly
 
     # An HTML page for the browser (consent, device verification): not framable, not cacheable, no
     # scripts or external loads, no referrer. Every value interpolated into `html` must be escaped.
-    def self.write_page(context, status_code, html)
+    # `script_src` is the exact text of the one inline script the page may run (allowed by its hash).
+    def self.write_page(context, status_code, html, script_src : String? = nil)
       headers = context.response.headers
-      headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'"
+      script = script_src ? " script-src 'sha256-#{Base64.strict_encode(OpenSSL::Digest.new("SHA256").update(script_src).final)}';" : ""
+      headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline';#{script} base-uri 'none'; frame-ancestors 'none'"
       headers["X-Frame-Options"] = "DENY"
       headers["X-Content-Type-Options"] = "nosniff"
       headers["Cache-Control"] = "no-store"

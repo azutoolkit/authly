@@ -32,7 +32,8 @@ module Authly
       return unless subject
 
       user_code = context.request.query_params["user_code"]?
-      ResponseHelper.write_page(context, 200, render_verification_page(user_code, form_token(subject)))
+      page = render_verification_page(context.request.path, user_code, pending_request(user_code), form_token(subject))
+      ResponseHelper.write_page(context, 200, page)
     end
 
     private def self.handle_post(context, authenticator)
@@ -84,11 +85,9 @@ module Authly
       return 400 unless claims
       return 403 unless claims["subject"]? == subject
 
-      store = Authly.config.state_store
       nonce = claims["nonce"]?
-      return 400 unless nonce && store.valid?(nonce)
+      return 400 unless nonce && Authly.config.state_store.consume(nonce)
 
-      store.consume(nonce)
       nil
     end
 
@@ -99,7 +98,7 @@ module Authly
     end
 
     private def self.signed_in_subject(context, authenticator) : String?
-      subject = authenticator.call(context).presence
+      subject = authenticator.call(context).try(&.strip).presence
       return subject if subject
 
       if login_url = Authly.config.login_url
@@ -113,7 +112,19 @@ module Authly
       nil
     end
 
-    private def self.render_verification_page(user_code : String?, csrf_token : String)
+    # The device authorization behind a user code, so the owner sees what they are approving (RFC 8628 5.4)
+    private def self.pending_request(user_code : String?) : DeviceCodeData?
+      return unless user_code
+      data = Authly.config.device_code_store.fetch_by_user_code(user_code.upcase.gsub(/[^A-Z0-9\-]/, ""))
+      data unless data.nil? || data.expired?
+    end
+
+    private def self.request_details(data : DeviceCodeData?) : String
+      return "" unless data
+      "<p>Client: #{HTML.escape(data.client_id)}</p>\n            <p>Requested Scopes: #{HTML.escape(data.scope)}</p>"
+    end
+
+    private def self.render_verification_page(path : String, user_code : String?, pending : DeviceCodeData?, csrf_token : String)
       <<-HTML
         <html>
           <head>
@@ -129,7 +140,8 @@ module Authly
           <body>
             <h1>Device Verification</h1>
             <p>Enter the code shown on your device:</p>
-            <form action="/device" method="post">
+            #{request_details(pending)}
+            <form action="#{HTML.escape(path)}" method="post">
               <input type="hidden" name="csrf_token" value="#{HTML.escape(csrf_token)}">
               <input type="text" name="user_code" placeholder="XXXX-XXXX" value="#{HTML.escape(user_code.to_s)}" required autofocus pattern="[A-Z0-9-]{9}">
               <div>

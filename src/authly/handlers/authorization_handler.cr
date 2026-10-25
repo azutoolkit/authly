@@ -65,12 +65,13 @@ module Authly
     private def self.show_consent(context, authenticator)
       return par_required(context) if par_required?(context)
 
+      # Sign in first: loading a pushed request consumes its request_uri, which must survive the login detour
+      subject = signed_in_subject(context, authenticator)
+      return unless subject
+
       request = load_request(context)
       validate!(request)
       return redirect_error(context, request, "invalid_scope") unless scope_allowed?(request)
-
-      subject = signed_in_subject(context, authenticator)
-      return unless subject
 
       nonce = Random::Secure.hex(16)
       Authly.config.state_store.store(nonce, Authly.config.consent_ttl)
@@ -101,11 +102,7 @@ module Authly
 
     private def self.consume_nonce(nonce : String?) : Bool
       return false unless nonce
-      store = Authly.config.state_store
-      return false unless store.valid?(nonce)
-
-      store.consume(nonce)
-      true
+      Authly.config.state_store.consume(nonce)
     end
 
     private def self.invalid_consent(context, status : Int32)
@@ -114,7 +111,7 @@ module Authly
 
     # The signed-in owner, or nil after answering with the login redirect / 401.
     private def self.signed_in_subject(context, authenticator) : String?
-      subject = authenticator.call(context).presence
+      subject = authenticator.call(context).try(&.strip).presence
       return subject if subject
 
       if login_url = Authly.config.login_url
@@ -154,9 +151,9 @@ module Authly
     # is rendered or redirected: a request that fails here is never answered with a redirect.
     private def self.validate!(request : AuthorizationRequest) : Nil
       raise Error.invalid_redirect_uri if request.redirect_uri.empty?
-      raise Error.unauthorized_client unless Authly.clients.valid_redirect?(request.client_id, request.redirect_uri)
+      raise Error.invalid_redirect_uri unless Authly.clients.valid_redirect?(request.client_id, request.redirect_uri)
       raise Error.invalid_response_type unless ["code", "token"].includes?(request.response_type)
-      raise Error.unauthorized_client unless Authly.clients.allowed_grant_type?(request.client_id, grant_type(request))
+      raise Error(400).new(:unauthorized_client) unless Authly.clients.allowed_grant_type?(request.client_id, grant_type(request))
 
       validate_pkce!(request.client_id, request.code_challenge, request.challenge_method)
     end
@@ -166,7 +163,7 @@ module Authly
     end
 
     private def self.scope_allowed?(request : AuthorizationRequest) : Bool
-      request.scope.blank? || Authly.clients.allowed_scopes?(request.client_id, request.scope)
+      !request.scope.blank? && Authly.clients.allowed_scopes?(request.client_id, request.scope)
     end
 
     # `validate!` already matched the client, redirect_uri, grant type and scope, so the implicit token
@@ -367,7 +364,7 @@ module Authly
       when "form_post.jwt"
         # Auto-submit HTML form with JWT
         html = JarmBuilder.build_form_post_html(redirect_uri, jwt_response)
-        ResponseHelper.write(context, 200, "text/html", html)
+        ResponseHelper.write_page(context, 200, html, script_src: JarmBuilder::FORM_POST_SCRIPT)
       when "jwt"
         # Direct JWT response (for JAR flows)
         ResponseHelper.write(context, 200, "application/jwt", jwt_response)
