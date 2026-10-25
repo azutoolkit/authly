@@ -12,6 +12,18 @@ module Authly
       end
     end
 
+    # An HTML page for the browser (consent, device verification): not framable, not cacheable, no
+    # scripts or external loads, no referrer. Every value interpolated into `html` must be escaped.
+    def self.write_page(context, status_code, html)
+      headers = context.response.headers
+      headers["Content-Security-Policy"] = "default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; frame-ancestors 'none'"
+      headers["X-Frame-Options"] = "DENY"
+      headers["X-Content-Type-Options"] = "nosniff"
+      headers["Cache-Control"] = "no-store"
+      headers["Referrer-Policy"] = "no-referrer"
+      write(context, status_code, "text/html; charset=utf-8", html)
+    end
+
     def self.redirect(context, location)
       context.response.status_code = 302
       context.response.headers["Location"] = location

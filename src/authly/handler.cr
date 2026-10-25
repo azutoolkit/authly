@@ -14,7 +14,7 @@ module Authly
 
       case path
       when "/oauth/authorize"
-        handle_if_method(context, "GET") { AuthorizationHandler.handle(context) }
+        handle_if_methods(context, ["GET", "POST"]) { AuthorizationHandler.handle(context) }
       when "/oauth/token"
         handle_token_endpoint(context)
       when "/oauth/par"

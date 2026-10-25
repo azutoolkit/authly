@@ -8,6 +8,8 @@ Authly.configure do |config|
   config.secret_key = secret_key
   config.public_key = secret_key
   config.state_store = STATE_STORE
+  # The signed-in owner of a spec request is named by this header (stands in for the host's session)
+  config.authenticate_user = ->(context : HTTP::Server::Context) { context.request.headers["X-Test-User"]?.presence }
 end
 
 Authly.clients << Authly::Client.new("example", "secret", "https://www.example.com/callback", "1", "read write admin openid", "authorization_code client_credentials password refresh_token implicit")

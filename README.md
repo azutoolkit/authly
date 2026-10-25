@@ -153,6 +153,10 @@ Authly.configure do |config|
   config.token_strategy = :jwt    # Options: :jwt or :opaque
   config.algorithm = JWT::Algorithm::HS256  # JWT signing algorithm
 
+  # Resource-owner login (REQUIRED for /oauth/authorize and /device, see "Authorization Endpoint")
+  config.authenticate_user = ->(context : HTTP::Server::Context) { MySession.user_id(context) }
+  config.login_url = ->(context : HTTP::Server::Context) { "/login?return_to=#{URI.encode_www_form(context.request.resource)}" }
+
   # PKCE Enforcement
   config.enforce_pkce = false           # Require PKCE for all authorization code flows
   config.enforce_pkce_s256 = false      # Enforce S256 method only (reject plain)
@@ -327,9 +331,31 @@ See [Pushed Authorization Requests](#pushed-authorization-requests-par) for deta
 
 ### Authorization Endpoint
 
-**Path:** `GET /oauth/authorize`
+**Path:** `GET /oauth/authorize` (consent page) and `POST /oauth/authorize` (the owner's decision)
 
 Initiates the authorization flow for grant types requiring user interaction.
+
+Authly does not own the login: the host application tells it who is signed in.
+
+```crystal
+Authly.configure do |config|
+  # Returns the subject id of the signed-in resource owner, or nil. It is the ONLY source of the
+  # subject of a code or token: `user_id` and `consent` request parameters are ignored.
+  config.authenticate_user = ->(context : HTTP::Server::Context) { MySession.user_id(context) }
+
+  # Optional: where to send a visitor who is not signed in (otherwise 401 `login_required`).
+  config.login_url = ->(context : HTTP::Server::Context) { "/login?return_to=#{URI.encode_www_form(context.request.resource)}" }
+
+  config.consent_ttl = 10.minutes # how long a consent form stays valid
+end
+```
+
+While `authenticate_user` is unset the authorization endpoint and the device page refuse every request
+(500, nothing is issued). The request is validated first (client, exact `redirect_uri` match, response type,
+grant type, requested scope against the client's scopes), then the signed-in owner gets a consent page whose
+form carries a signed, single-use token binding client, redirect URI, scope, state and the owner. Only a POST
+with that token, from the same signed-in owner, issues the code or token. The pages are served with
+`Content-Security-Policy`, `X-Frame-Options: DENY`, `Cache-Control: no-store` and `Referrer-Policy: no-referrer`.
 
 **Parameters:**
 

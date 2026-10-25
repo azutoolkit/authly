@@ -2,6 +2,43 @@
 
 ## [Unreleased] - 2024
 
+### Security
+
+- **Breaking: the authorization endpoint authenticates the resource owner through the host.** `/oauth/authorize`
+  used to read `user_id` and `consent=approved` from the query string, so anyone could obtain a code for any user
+  (and, with the implicit grant, a token with any scope). Set `Authly.config.authenticate_user` (a
+  `Proc(HTTP::Server::Context, String?)` returning the signed-in subject id); `user_id` and `consent` are now ignored,
+  consent is a POST with a signed, single-use, subject-bound token (`Authly::FormToken`), and until the hook is set the
+  endpoint answers 500 and issues nothing. `Authly.config.login_url` (optional) redirects visitors who are not signed in,
+  `Authly.config.consent_ttl` sets the form lifetime. See "Upgrading" below
+- The requested scope is checked against the client's scopes before a code or an implicit token is issued
+  (`invalid_scope` redirect); the redirect URI is matched exactly against the registration before anything is rendered or
+  redirected; implicit tokens carry the authenticated subject
+- PAR: only the pushed parameters are used at the authorization endpoint (the query can no longer override scope,
+  redirect_uri, user_id or consent); `user_id`, `consent` and `client_secret` are not stored with a pushed request
+- Reflected XSS fixed on the consent page, the device page and its error page (every value is HTML-escaped); these pages
+  send `Content-Security-Policy`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Cache-Control: no-store` and
+  `Referrer-Policy: no-referrer`
+- **Breaking: device verification (`/device`) requires `authenticate_user` too.** The approving user is the signed-in owner,
+  not a `user_id` form field; the form carries a signed single-use token. Device user codes use `Random::Secure`
+- `/oauth/authorize` also routes `POST` in `Authly::Handler`; the `state` parameter is passed through to the client, no
+  longer checked against a store the same caller filled
+
+### Upgrading
+
+Hosts that mount `Authly::Handler` (or call `AuthorizationHandler` / `DeviceVerificationHandler`) must configure the hook:
+
+```crystal
+Authly.configure do |config|
+  config.authenticate_user = ->(context : HTTP::Server::Context) { session_user_id(context) } # String? (nil: nobody)
+  config.login_url = ->(context : HTTP::Server::Context) { "/login?return_to=#{URI.encode_www_form(context.request.resource)}" }
+end
+```
+
+Clients and tests that sent `consent=approved&user_id=...` must stop: the consent page now has to be approved by the
+signed-in owner (POST with `consent_token` and `decision=approve|deny`). Hosts that call `Authly.code` themselves (not
+through `AuthorizationHandler`) are unaffected.
+
 ### Changed
 
 #### Resource-server hardening

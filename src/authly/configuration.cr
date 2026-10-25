@@ -1,5 +1,26 @@
+require "http/server"
+
 module Authly
+  # Resolves the signed-in resource owner of a request: the subject id, or nil when nobody is signed in.
+  alias OwnerAuthenticator = Proc(HTTP::Server::Context, String?)
+
+  # Where to send a request that has no signed-in resource owner, e.g. the host's login page.
+  alias LoginRedirect = Proc(HTTP::Server::Context, String)
+
   class Configuration
+    # The authorization endpoint (`/oauth/authorize`) and the device verification page (`/device`) act on
+    # behalf of a resource owner, and Authly does not own the login. The host application supplies the
+    # signed-in owner here, from its own session. It is the ONLY source of the subject: `user_id` and
+    # `consent` request parameters are never read. While it is unset those endpoints refuse every request.
+    property authenticate_user : OwnerAuthenticator? = nil
+
+    # Optional. When nobody is signed in, redirect to the URL this returns (a login page that sends the
+    # owner back afterwards) instead of answering 401 `login_required`.
+    property login_url : LoginRedirect? = nil
+
+    # How long a consent form (and its anti-CSRF token) stays valid.
+    property consent_ttl : Time::Span = 10.minutes
+
     property issuer : String = "The Authority Server Provider"
     property secret_key : String = Random::Secure.hex(16)
     # The key tokens are verified with. For HMAC algorithms (the default) it has to be the
