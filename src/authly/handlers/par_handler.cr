@@ -2,6 +2,8 @@ require "base64"
 
 module Authly
   class PARHandler
+    IGNORED_PARAMS = ["user_id", "consent", "client_secret"]
+
     def self.handle(context)
       # Extract and authenticate client
       client_id, client_secret = extract_client_credentials(context)
@@ -68,7 +70,10 @@ module Authly
       stored_params = Hash(String, String).new
 
       # Store all authorization parameters
+      # `user_id` and `consent` are never taken from a request; the authorization endpoint ignores them
+      # and a client has no business pushing them.
       params.each do |key, value|
+        next if IGNORED_PARAMS.includes?(key)
         stored_params[key] = value
       end
 

@@ -41,62 +41,34 @@ module Authly
   end
 
   describe "AuthorizationHandler" do
-    it "returns authorization code with valid client_id and redirect_uri after user consent and includes state" do
-      state = "test_state"
+    it "returns an authorization code for the signed-in owner after a consent POST and includes state" do
+      query = "client_id=1&redirect_uri=https://www.example.com/callback&response_type=code&scope=read&state=test_state"
+      result = AuthorizationSecuritySpec.approve(query, "john")
 
-      # Initial request to store state
-      query = "client_id=1&redirect_uri=https://www.example.com/callback&response_type=code&state=#{state}"
-      test_ctx = create_test_context("GET", "/oauth/authorize", query)
-      AuthorizationHandler.handle(test_ctx.context)
-
-      # Consent request
-      query_with_consent = "#{query}&consent=approved"
-      test_ctx2 = create_test_context("GET", "/oauth/authorize", query_with_consent)
-      AuthorizationHandler.handle(test_ctx2.context)
-
-      test_ctx2.context.response.status_code.should eq 302
-      test_ctx2.context.response.headers["Location"]?.should_not be_nil
-      location = test_ctx2.context.response.headers["Location"]
+      result.status.should eq 302
+      location = result.location.not_nil!
       location.should contain("code=")
-      location.should contain("state=#{state}")
+      location.should contain("state=test_state")
     end
 
-    it "renders consent page if user consent is not provided" do
-      state = "test_state_consent"
-      query = "client_id=1&redirect_uri=https://www.example.com/callback&response_type=code&state=#{state}"
-      test_ctx = create_test_context("GET", "/oauth/authorize", query)
+    it "renders the consent page for a signed-in owner" do
+      query = "client_id=1&redirect_uri=https://www.example.com/callback&response_type=code&scope=read&state=test_state_consent"
+      page = AuthorizationSecuritySpec.authorize(query, "john")
 
-      AuthorizationHandler.handle(test_ctx.context)
-
-      test_ctx.context.response.status_code.should eq 200
-      body = test_ctx.response_body
+      page.status.should eq 200
+      body = page.body
       body.should contain("Authorization Request")
       body.should contain("Approve")
       body.should contain("Deny")
-      body.should contain(state)
+      body.should contain("consent_token")
     end
 
-    it "returns 401 for invalid client_id or redirect_uri" do
-      state = "test_state_invalid_#{Random::Secure.hex(8)}"
-      Authly.config.state_store.store(state) # Store state in the configured store
+    it "returns 400 for invalid client_id or redirect_uri" do
+      query = "client_id=invalid&redirect_uri=invalid&response_type=code&state=s"
+      result = AuthorizationSecuritySpec.authorize(query, "john")
 
-      query = "client_id=invalid&redirect_uri=invalid&response_type=code&state=#{state}&consent=approved"
-      test_ctx = create_test_context("GET", "/oauth/authorize", query)
-      AuthorizationHandler.handle(test_ctx.context)
-
-      # Returns 401 for unauthorized client
-      test_ctx.context.response.status_code.should eq 401
-      test_ctx.response_body.should eq "This client is not authorized to use the requested grant type"
-    end
-
-    it "returns 400 for invalid state parameter" do
-      state = "invalid_state_not_stored"
-      query = "client_id=1&redirect_uri=https://www.example.com/callback&response_type=code&state=#{state}&consent=approved"
-      test_ctx = create_test_context("GET", "/oauth/authorize", query)
-      AuthorizationHandler.handle(test_ctx.context)
-
-      test_ctx.context.response.status_code.should eq 400
-      test_ctx.response_body.should eq "Invalid state parameter"
+      result.status.should eq 400
+      result.body.should eq "Invalid redirect uri"
     end
   end
 
@@ -240,7 +212,7 @@ module Authly
       uri_complete.should contain("user_code=")
     end
 
-    it "returns 401 for invalid client_id" do
+    it "returns 400 for invalid client_id" do
       form_data = {"client_id" => "invalid_client_999"}
       test_ctx = create_test_context("POST", "/device/code", form_data: form_data)
       DeviceAuthorizationHandler.handle(test_ctx.context)
@@ -278,11 +250,10 @@ module Authly
     end
 
     it "handles GET request and renders verification page" do
-      test_ctx = create_test_context("GET", "/device", nil)
-      DeviceVerificationHandler.handle(test_ctx.context)
+      page = AuthorizationSecuritySpec.device_get("/device", "test_user")
 
-      test_ctx.context.response.status_code.should eq 200
-      body = test_ctx.response_body
+      page.status.should eq 200
+      body = page.body
       body.should contain("Device Verification")
       body.should contain("Enter the code shown on your device")
       body.should contain("Approve")
@@ -290,95 +261,41 @@ module Authly
     end
 
     it "pre-fills user_code in GET request when provided" do
-      query = "user_code=ABCD-1234"
-      test_ctx = create_test_context("GET", "/device", query)
-      DeviceVerificationHandler.handle(test_ctx.context)
+      page = AuthorizationSecuritySpec.device_get("/device?user_code=ABCD-1234", "test_user")
 
-      test_ctx.context.response.status_code.should eq 200
-      body = test_ctx.response_body
-      body.should contain("ABCD-1234")
+      page.status.should eq 200
+      page.body.should contain("ABCD-1234")
     end
 
     it "handles POST approve action successfully" do
-      # Create a device code first
       device_data = DeviceCode.create_device_authorization("1", "read")
+      result = AuthorizationSecuritySpec.device_submit(device_data.user_code, "approve")
 
-      form_data = {
-        "user_code" => device_data.user_code,
-        "user_id"   => "test_user",
-        "action"    => "approve",
-      }
-      test_ctx = create_test_context("POST", "/device", form_data: form_data)
-      DeviceVerificationHandler.handle(test_ctx.context)
-
-      test_ctx.context.response.status_code.should eq 200
-      body = test_ctx.response_body
-      body.should contain("Device Authorized!")
+      result.status.should eq 200
+      result.body.should contain("Device Authorized!")
     end
 
     it "handles POST deny action successfully" do
       device_data = DeviceCode.create_device_authorization("1", "read")
+      result = AuthorizationSecuritySpec.device_submit(device_data.user_code, "deny")
 
-      form_data = {
-        "user_code" => device_data.user_code,
-        "user_id"   => "test_user",
-        "action"    => "deny",
-      }
-      test_ctx = create_test_context("POST", "/device", form_data: form_data)
-      DeviceVerificationHandler.handle(test_ctx.context)
-
-      test_ctx.context.response.status_code.should eq 200
-      body = test_ctx.response_body
-      body.should contain("Access Denied")
-    end
-
-    it "handles denial correctly" do
-      device_data = DeviceCode.create_device_authorization("1", "read")
-
-      form_data = {
-        "user_code" => device_data.user_code,
-        "user_id"   => "test_user",
-        "action"    => "deny",
-      }
-      test_ctx = create_test_context("POST", "/device", form_data: form_data)
-      DeviceVerificationHandler.handle(test_ctx.context)
-
-      test_ctx.context.response.status_code.should eq 200
-      body = test_ctx.response_body
-      body.should contain("Access Denied")
+      result.status.should eq 200
+      result.body.should contain("Access Denied")
+      Authly.config.device_code_store.fetch(device_data.device_code).should be_nil
     end
 
     it "returns error for invalid user_code" do
-      form_data = {
-        "user_code" => "INVALID",
-        "user_id"   => "test_user",
-        "action"    => "approve",
-      }
-      test_ctx = create_test_context("POST", "/device", form_data: form_data)
-      DeviceVerificationHandler.handle(test_ctx.context)
+      result = AuthorizationSecuritySpec.device_submit("INVALID", "approve")
 
-      test_ctx.context.response.status_code.should eq 400
-      body = test_ctx.response_body
-      body.should contain("Invalid or expired user code")
+      result.status.should eq 400
+      result.body.should contain("Invalid or expired user code")
     end
 
-    it "returns error for expired device code" do
+    it "returns error for a deleted device code" do
       device_data = DeviceCode.create_device_authorization("1", "read")
-      # Store but don't use it immediately
-      Authly.config.device_code_store.store(device_data.device_code, device_data)
-
-      # Delete it to simulate expiration
       Authly.config.device_code_store.delete(device_data.device_code)
 
-      form_data = {
-        "user_code" => device_data.user_code,
-        "user_id"   => "test_user",
-        "action"    => "approve",
-      }
-      test_ctx = create_test_context("POST", "/device", form_data: form_data)
-      DeviceVerificationHandler.handle(test_ctx.context)
-
-      test_ctx.context.response.status_code.should eq 400
+      AuthorizationSecuritySpec.device_submit(device_data.user_code, "approve").status.should eq 400
     end
 
     it "returns 405 for unsupported HTTP methods" do
@@ -392,16 +309,7 @@ module Authly
     it "normalizes user_code by uppercasing" do
       device_data = DeviceCode.create_device_authorization("1", "read")
 
-      # Submit user code in lowercase
-      form_data = {
-        "user_code" => device_data.user_code.downcase,
-        "user_id"   => "test_user",
-        "action"    => "approve",
-      }
-      test_ctx = create_test_context("POST", "/device", form_data: form_data)
-      DeviceVerificationHandler.handle(test_ctx.context)
-
-      test_ctx.context.response.status_code.should eq 200
+      AuthorizationSecuritySpec.device_submit(device_data.user_code.downcase, "approve").status.should eq 200
     end
   end
 

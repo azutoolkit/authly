@@ -26,26 +26,12 @@ module Authly
         par_result = JSON.parse(par_body)
         request_uri = par_result["request_uri"].as_s
 
-        # Pre-store the state (simulating the consent page flow)
-        Authly.config.state_store.store("abc123")
-
         # Step 2: User authorization with request_uri
-        auth_request = HTTP::Request.new(
-          "GET",
-          "/oauth/authorize?client_id=test_client&request_uri=#{URI.encode_www_form(request_uri)}&user_id=user123&consent=approved"
-        )
-
-        auth_io = IO::Memory.new
-        auth_response = HTTP::Server::Response.new(auth_io)
-        auth_context = HTTP::Server::Context.new(auth_request, auth_response)
-        AuthorizationHandler.handle(auth_context)
-
-        auth_response.close
-        auth_io.rewind
+        auth = AuthorizationSecuritySpec.approve("client_id=test_client&request_uri=#{URI.encode_www_form(request_uri)}")
 
         # Should redirect with authorization code
-        auth_response.status_code.should eq(302)
-        location = auth_response.headers["Location"]
+        auth.status.should eq(302)
+        location = auth.location.not_nil!
         location.should contain("code=")
         location.should contain("state=abc123")
       end
@@ -72,40 +58,15 @@ module Authly
         par_result = JSON.parse(par_body)
         request_uri = par_result["request_uri"].as_s
 
-        # Pre-store the state
-        Authly.config.state_store.store("xyz")
-
         # Step 2: First authorization attempt (should succeed)
-        auth_request1 = HTTP::Request.new(
-          "GET",
-          "/oauth/authorize?client_id=test_client&request_uri=#{URI.encode_www_form(request_uri)}&user_id=user123&consent=approved"
-        )
+        auth1 = AuthorizationSecuritySpec.approve("client_id=test_client&request_uri=#{URI.encode_www_form(request_uri)}")
 
-        auth_io1 = IO::Memory.new
-        auth_response1 = HTTP::Server::Response.new(auth_io1)
-        auth_context1 = HTTP::Server::Context.new(auth_request1, auth_response1)
-        AuthorizationHandler.handle(auth_context1)
-
-        auth_response1.close
-        auth_io1.rewind
-
-        auth_response1.status_code.should eq(302)
+        auth1.status.should eq(302)
 
         # Step 3: Second authorization attempt with same request_uri (should fail)
-        auth_request2 = HTTP::Request.new(
-          "GET",
-          "/oauth/authorize?client_id=test_client&request_uri=#{URI.encode_www_form(request_uri)}&user_id=user123&consent=approved"
-        )
+        auth2 = AuthorizationSecuritySpec.approve("client_id=test_client&request_uri=#{URI.encode_www_form(request_uri)}")
 
-        auth_io2 = IO::Memory.new
-        auth_response2 = HTTP::Server::Response.new(auth_io2)
-        auth_context2 = HTTP::Server::Context.new(auth_request2, auth_response2)
-        AuthorizationHandler.handle(auth_context2)
-
-        auth_response2.close
-        auth_io2.rewind
-
-        auth_response2.status_code.should eq(400)
+        auth2.status.should eq(400)
       end
 
       it "validates client_id matches the one used in PAR" do
@@ -131,28 +92,16 @@ module Authly
         request_uri = par_result["request_uri"].as_s
 
         # Step 2: Try to use request_uri with different client_id
-        auth_request = HTTP::Request.new(
-          "GET",
-          "/oauth/authorize?client_id=different_client&request_uri=#{URI.encode_www_form(request_uri)}&user_id=user123&consent=approved"
-        )
-
-        auth_io = IO::Memory.new
-        auth_response = HTTP::Server::Response.new(auth_io)
-        auth_context = HTTP::Server::Context.new(auth_request, auth_response)
-        AuthorizationHandler.handle(auth_context)
-
-        auth_response.close
-        auth_io.rewind
+        auth = AuthorizationSecuritySpec.approve("client_id=different_client&request_uri=#{URI.encode_www_form(request_uri)}")
 
         # Should fail due to client_id mismatch
-        auth_response.status_code.should eq(400)
+        auth.status.should eq(400)
       end
 
       it "handles expired request_uri" do
         # Create PAR store with short TTL for testing
-        original_store = Authly.config.par_store
-        test_store = InMemoryPARStore.new(0.seconds)
-        Authly.config.par_store = test_store
+        original_ttl = Authly.config.par_ttl
+        Authly.config.par_ttl = 0.seconds
 
         # Step 1: Create PAR request
         par_request = HTTP::Request.new(
@@ -176,24 +125,12 @@ module Authly
         request_uri = par_result["request_uri"].as_s
 
         # Step 2: Try to use expired request_uri
-        auth_request = HTTP::Request.new(
-          "GET",
-          "/oauth/authorize?client_id=test_client&request_uri=#{URI.encode_www_form(request_uri)}&user_id=user123&consent=approved"
-        )
-
-        auth_io = IO::Memory.new
-        auth_response = HTTP::Server::Response.new(auth_io)
-        auth_context = HTTP::Server::Context.new(auth_request, auth_response)
-        AuthorizationHandler.handle(auth_context)
-
-        auth_response.close
-        auth_io.rewind
+        auth = AuthorizationSecuritySpec.approve("client_id=test_client&request_uri=#{URI.encode_www_form(request_uri)}")
 
         # Should fail due to expiration
-        auth_response.status_code.should eq(400)
+        auth.status.should eq(400)
 
-        # Restore original store
-        Authly.config.par_store = original_store
+        Authly.config.par_ttl = original_ttl
       end
 
       it "supports PKCE parameters via PAR" do
@@ -202,7 +139,7 @@ module Authly
           "POST",
           "/oauth/par",
           headers: HTTP::Headers{"Content-Type" => "application/x-www-form-urlencoded"},
-          body: "response_type=code&client_id=test_client&client_secret=test_secret&redirect_uri=https://example.com/callback&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256&state=pkce123"
+          body: "response_type=code&client_id=test_client&client_secret=test_secret&redirect_uri=https://example.com/callback&code_challenge=E9Melhoa2OwvFrEMTJguCHaoeK1t8URWbuGJSstw-cM&code_challenge_method=S256&scope=openid&state=pkce123"
         )
 
         par_io = IO::Memory.new
@@ -219,26 +156,12 @@ module Authly
         par_result = JSON.parse(par_body)
         request_uri = par_result["request_uri"].as_s
 
-        # Pre-store the state
-        Authly.config.state_store.store("pkce123")
-
         # Step 2: Authorize with request_uri
-        auth_request = HTTP::Request.new(
-          "GET",
-          "/oauth/authorize?client_id=test_client&request_uri=#{URI.encode_www_form(request_uri)}&user_id=user123&consent=approved"
-        )
-
-        auth_io = IO::Memory.new
-        auth_response = HTTP::Server::Response.new(auth_io)
-        auth_context = HTTP::Server::Context.new(auth_request, auth_response)
-        AuthorizationHandler.handle(auth_context)
-
-        auth_response.close
-        auth_io.rewind
+        auth = AuthorizationSecuritySpec.approve("client_id=test_client&request_uri=#{URI.encode_www_form(request_uri)}")
 
         # Should succeed with PKCE parameters
-        auth_response.status_code.should eq(302)
-        location = auth_response.headers["Location"]
+        auth.status.should eq(302)
+        location = auth.location.not_nil!
         location.should contain("code=")
       end
 
@@ -248,23 +171,11 @@ module Authly
         Authly.config.require_par = true
 
         # Try authorization without PAR
-        auth_request = HTTP::Request.new(
-          "GET",
-          "/oauth/authorize?client_id=test_client&redirect_uri=https://example.com/callback&response_type=code&user_id=user123&consent=approved&state=xyz"
-        )
-
-        auth_io = IO::Memory.new
-        auth_response = HTTP::Server::Response.new(auth_io)
-        auth_context = HTTP::Server::Context.new(auth_request, auth_response)
-        AuthorizationHandler.handle(auth_context)
-
-        auth_response.close
-        auth_io.rewind
-        auth_result_str = auth_io.gets_to_end
+        auth = AuthorizationSecuritySpec.approve("client_id=test_client&redirect_uri=https://example.com/callback&response_type=code&state=xyz")
 
         # Should fail because PAR is required
-        auth_response.status_code.should eq(400)
-        auth_body = auth_result_str.split("\r\n\r\n")[1]
+        auth.status.should eq(400)
+        auth_body = auth.body
         auth_result = JSON.parse(auth_body)
         auth_result["error"].as_s.should eq("invalid_request")
 
@@ -294,25 +205,11 @@ module Authly
         par_result = JSON.parse(par_body)
         request_uri = par_result["request_uri"].as_s
 
-        # Pre-store the state
-        Authly.config.state_store.store("xyz")
-
         # Step 2: Authorization with request_uri and additional parameters
-        auth_request = HTTP::Request.new(
-          "GET",
-          "/oauth/authorize?client_id=test_client&request_uri=#{URI.encode_www_form(request_uri)}&user_id=user123&consent=approved"
-        )
+        auth = AuthorizationSecuritySpec.approve("client_id=test_client&request_uri=#{URI.encode_www_form(request_uri)}")
 
-        auth_io = IO::Memory.new
-        auth_response = HTTP::Server::Response.new(auth_io)
-        auth_context = HTTP::Server::Context.new(auth_request, auth_response)
-        AuthorizationHandler.handle(auth_context)
-
-        auth_response.close
-        auth_io.rewind
-
-        # Should succeed - user_id and consent from query params
-        auth_response.status_code.should eq(302)
+        # Should succeed: the pushed parameters are used, the signed-in owner approves
+        auth.status.should eq(302)
       end
     end
   end

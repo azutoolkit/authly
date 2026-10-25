@@ -30,7 +30,7 @@ module Authly
     def self.generate_user_code : String
       # Generate a user-friendly code (e.g., "ABCD-EFGH")
       chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" # Avoid ambiguous characters
-      code = 8.times.map { chars[Random.rand(chars.size)] }.join
+      code = 8.times.map { chars[Random::Secure.rand(chars.size)] }.join
       "#{code[0..3]}-#{code[4..7]}"
     end
 

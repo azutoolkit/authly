@@ -9,6 +9,9 @@ module Authly
   # JarmBuilder constructs JWT-secured authorization responses per RFC 9101
   # Supports JWS signing and optional JWE encryption
   class JarmBuilder
+    # The only script of the form_post.jwt page; the page's CSP allows exactly this text by its hash
+    FORM_POST_SCRIPT = "document.forms[0].submit()"
+
     getter issuer : String
     getter audience : String
     getter lifetime : Time::Span
@@ -264,7 +267,7 @@ module Authly
           <head>
             <title>Submit Authorization Response</title>
           </head>
-          <body onload="javascript:document.forms[0].submit()">
+          <body>
             <form method="post" action="#{escape_html(redirect_uri)}">
               <input type="hidden" name="response" value="#{escape_html(jwt)}" />
               <noscript>
@@ -272,6 +275,7 @@ module Authly
                 <button type="submit">Continue</button>
               </noscript>
             </form>
+            <script>#{FORM_POST_SCRIPT}</script>
           </body>
         </html>
         HTML
