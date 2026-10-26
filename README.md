@@ -98,7 +98,7 @@ shards install
 
 **Requirements:**
 
-- Crystal 1.0 or higher
+- Crystal 1.22.0 or higher (CI runs 1.22.1)
 - A supported operating system (Linux, macOS, or Windows)
 
 ## Quick Start

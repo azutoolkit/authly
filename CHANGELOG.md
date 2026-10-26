@@ -2,6 +2,11 @@
 
 ## [Unreleased]
 
+### Changed
+
+- CI and `.tool-versions` pin Crystal 1.22.1 (the workflows used the floating `crystallang/crystal` image). The README
+  states the real minimum, Crystal 1.22.0, which `shard.yml` already required.
+
 ## [1.3.3] - 2026-10-26
 
 Follow-ups from the review of #24.

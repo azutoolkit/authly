@@ -7,7 +7,7 @@ jobs:
     runs-on: ubuntu-latest
 
     container:
-      image: crystallang/crystal
+      image: crystallang/crystal:1.22.1
 
     steps:
       - uses: actions/checkout@v1
