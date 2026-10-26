@@ -23,6 +23,12 @@ module Authly
       revoke(token_id)
     end
 
+    # `consume` for a credential that only lives `ttl`: the record can be forgotten afterwards. The default ignores
+    # the TTL; a store that expires keys (Redis `SET key 1 NX EX ttl`) should override it.
+    def consume(token_id : String, ttl : Time::Span) : Bool
+      consume(token_id)
+    end
+
     # Revoke `token_id` and report whether this call was the one that revoked it, so a
     # one-time credential can be redeemed by exactly one of several concurrent requests.
     # The default is check-then-revoke; a shared store should override it with an atomic

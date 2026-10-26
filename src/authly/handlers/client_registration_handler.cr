@@ -9,6 +9,10 @@ module Authly
   # What may be registered is bounded by `RegistrationPolicy`. Only failed authentications are counted per source
   # (`registration_rate_limit` per `registration_rate_window`): they are what guesses the initial access token. A source
   # that used up its failures is refused even with the right token until the window passes, so the limit caps the guesses.
+  # The exact boundary: the first `registration_rate_limit` failures are answered 401, the next one 429; once that many
+  # failures are counted a request with the right token is refused (429) too. A source that is not known (`attempt_source`
+  # answers nil) shares one key, and so does everything behind one proxy address: one failing client there locks out the
+  # others for the window.
   # Behind a reverse proxy see `Configuration#attempt_source`: the source is only as trustworthy as that hook.
   class ClientRegistrationHandler
     def self.handle(context)
@@ -75,12 +79,12 @@ module Authly
     # limit and 401 until then.
     private def self.refused(context)
       config = Authly.config
-      count = config.attempt_limiter.increment(attempt_key(context), config.registration_rate_window)
+      count = config.registration_limiter.increment(attempt_key(context), config.registration_rate_window)
       count > config.registration_rate_limit ? too_many_requests(context) : unauthorized(context)
     end
 
     private def self.locked_out?(context) : Bool
-      Authly.config.attempt_limiter.exceeded?(attempt_key(context), Authly.config.registration_rate_limit)
+      Authly.config.registration_limiter.exceeded?(attempt_key(context), Authly.config.registration_rate_limit)
     end
 
     private def self.attempt_key(context) : String

@@ -46,11 +46,15 @@ module Authly
     property state_store : StateStore = InMemoryStateStore.new
     property device_code_store : DeviceCodeStore = InMemoryDeviceCodeStore.new
 
-    # Throttles guessing at the device verification page and abuse of the registration endpoint. Share it
-    # between nodes, and make its `increment` atomic (see `AttemptLimiter`).
+    # Throttles guessing at the device verification page. Share it between nodes, and make its `increment` atomic
+    # (see `AttemptLimiter`).
     property attempt_limiter : AttemptLimiter = InMemoryAttemptLimiter.new
 
-    # Who a request counts as for `attempt_limiter`: the client address by default. Behind a reverse proxy that is
+    # Throttles failed authentications at the registration endpoint. A limiter of its own, so that a flood of failed
+    # registrations from many sources cannot fill the device limiter (a full limiter refuses every new key).
+    property registration_limiter : AttemptLimiter = InMemoryAttemptLimiter.new
+
+    # Who a request counts as for `attempt_limiter` and `registration_limiter`: the client address by default. Behind a reverse proxy that is
     # the proxy, so return the address your proxy vouches for (or nil to count by account only).
     property attempt_source : AttemptSource = ->(context : HTTP::Server::Context) { context.request.remote_address.try(&.as?(Socket::IPAddress).try(&.address)) }
 
