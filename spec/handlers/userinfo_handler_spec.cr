@@ -111,3 +111,24 @@ describe Authly::UserInfoHandler do
     user_info["sub"]?.should_not be_nil
   end
 end
+
+describe "UserInfoHandler errors" do
+  it "does not echo the exception message of an internal error" do
+    token = Authly.jwt_encode({
+      "sub" => 5_i64, "iss" => Authly.config.issuer, "token_type" => "access_token", "cid" => "test_client",
+      "scope" => "openid", "jti" => Random::Secure.hex(8), "exp" => 1.hour.from_now.to_unix,
+    })
+    io = IO::Memory.new
+    response = HTTP::Server::Response.new(io)
+    headers = HTTP::Headers{"Authorization" => "Bearer #{token}"}
+    Authly::UserInfoHandler.handle(HTTP::Server::Context.new(HTTP::Request.new("GET", "/oauth/userinfo", headers), response))
+    response.close
+    io.rewind
+    text = io.gets_to_end
+
+    text.should start_with("HTTP/1.1 500")
+    text.should contain("server_error")
+    text.should_not contain("Cast")
+    text.should_not contain("Int64")
+  end
+end

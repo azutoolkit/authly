@@ -44,9 +44,10 @@ module Authly
         error_description: e.message,
       }.to_json)
     rescue e : Exception
+      Log.error(exception: e) { "UserInfo failed" }
       ResponseHelper.write(context, 500, "application/json", {
         error:             "server_error",
-        error_description: e.message,
+        error_description: "The userinfo request could not be processed",
       }.to_json)
     end
 

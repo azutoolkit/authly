@@ -31,6 +31,8 @@
   approved device code is redeemed once (it used to mint a token on every poll until it expired) and the token is
   about the owner who approved it (it was anonymous). `InMemoryDeviceCodeStore` is mutex-protected, sweeps expired
   authorizations and keeps at most 50,000. A denied code is deleted, so the device's next poll is `invalid_grant`
+- `/oauth/userinfo` no longer answers `500` with the exception text (it leaked standard library source paths); the
+  error is logged and the body is fixed
 - **Breaking: dynamic client registration is no longer anonymous (P1-14).** `POST /oauth/register` (opt-in through
   `allow_dynamic_registration`) registered anyone, with `password`/`implicit`, any scope, any `scheme://host` redirect URI
   (`javascript://x/%0aalert(1)` passed) and an unbounded body. It now needs `Authly.config.registration_access_token`
