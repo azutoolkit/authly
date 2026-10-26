@@ -484,10 +484,12 @@ counter every time **unless your reverse proxy overwrites it** (`proxy_set_heade
 rather than passing the client's value on) and the app is reachable only through that proxy. Without such a proxy keep
 the default (the socket address) or return nil to count by account only.
 
-**Shared addresses:** the source is one key. Everything behind one proxy address (when `attempt_source` returns the
-proxy's address) counts as one source, and so do all requests when it returns nil (they share the key `unknown`): one
-client that fails often enough locks out all the others behind that address for the whole window. Return an address your
-proxy vouches for, per client.
+**Shared addresses:** the source is one key. At registration everything behind one proxy address (when
+`attempt_source` returns the proxy's address) counts as one source, and so do all requests when it returns nil (they
+share the key `unknown`): one client that fails often enough locks out all the others behind that key for the window.
+On the device page nil means no source key: lookups are counted by account only. There every lookup counts, successful
+ones too, so with the proxy's address as the source 10 lookups per 15 minutes from everyone behind it lock all of them
+out. Return an address your proxy vouches for, per client.
 
 **Boundaries:** at the device page the first `device_attempt_limit` lookups of an owner (or of a source) in a window are
 answered normally and the next one is `429`. At registration the first `registration_rate_limit` failed authentications of
