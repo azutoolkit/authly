@@ -4,6 +4,8 @@ module Authly
     abstract def revoked?(token : String) : Bool
     abstract def valid?(token : String) : Bool
     abstract def introspect(token : String)
+    # Whether the token was issued to the client `client_id` (its `cid`).
+    abstract def issued_to?(token : String, client_id : String) : Bool
   end
 
   class TokenStrategyFactory
@@ -40,6 +42,13 @@ module Authly
       return unless claims["token_type"]?.try(&.as_s?) == REFRESH_TOKEN
 
       claims["fid"]?.try(&.as_s?).try { |family| RefreshToken.revoke_family(family) }
+    end
+
+    def issued_to?(token : String, client_id : String) : Bool
+      claims, _header = Authly.jwt_decode(token)
+      claims["cid"]?.try(&.as_s?) == client_id
+    rescue JWT::DecodeError
+      false
     end
 
     def revoked?(token : String) : Bool
@@ -115,6 +124,12 @@ module Authly
       token_store.revoked?(token)
     end
 
+    def issued_to?(token : String, client_id : String) : Bool
+      token_store.fetch(token).try { |payload| payload["cid"]?.to_s == client_id } || false
+    rescue KeyError
+      false
+    end
+
     def valid?(token) : Bool
       return false if token_store.revoked?(token)
 
@@ -183,6 +198,10 @@ module Authly
 
     def introspect(token : String)
       @token_manager.introspect(token)
+    end
+
+    def issued_to?(token : String, client_id : String) : Bool
+      @token_manager.issued_to?(token, client_id)
     end
   end
 end

@@ -3,6 +3,9 @@ require "../spec_helper"
 require "http/server"
 
 module Authly
+  # The credentials of client "1", which introspection and revocation require
+  CLIENT_AUTH = {"client_id" => "1", "client_secret" => "secret"}
+
   # Helper to create a test HTTP context with response capture
   class TestContext
     getter io : IO::Memory
@@ -107,7 +110,7 @@ module Authly
         grant_type: "authorization_code", client_id: "1", client_secret: "secret",
         redirect_uri: "https://www.example.com/callback", code: code).token
 
-      form_data = {"token" => token.access_token}
+      form_data = CLIENT_AUTH.merge({"token" => token.access_token})
       test_ctx = create_test_context("POST", "/introspect", form_data: form_data)
       IntrospectHandler.handle(test_ctx.context)
 
@@ -123,7 +126,7 @@ module Authly
     end
 
     it "returns 400 for missing token parameter" do
-      form_data = {} of String => String
+      form_data = CLIENT_AUTH.dup
       test_ctx = create_test_context("POST", "/introspect", form_data: form_data)
       IntrospectHandler.handle(test_ctx.context)
 
@@ -135,7 +138,7 @@ module Authly
   describe "RevokeHandler" do
     it "returns success message for valid token revocation" do
       access_token = Authly::AccessToken.new("1", "read").access_token
-      form_data = {"token" => access_token}
+      form_data = CLIENT_AUTH.merge({"token" => access_token})
       test_ctx = create_test_context("POST", "/revoke", form_data: form_data)
       RevokeHandler.handle(test_ctx.context)
 
@@ -144,7 +147,7 @@ module Authly
     end
 
     it "returns 400 for missing token parameter" do
-      form_data = {} of String => String
+      form_data = CLIENT_AUTH.dup
       test_ctx = create_test_context("POST", "/revoke", form_data: form_data)
       RevokeHandler.handle(test_ctx.context)
 
@@ -158,7 +161,7 @@ module Authly
       # Verify token is valid before revocation
       Authly.valid?(access_token).should be_true
 
-      form_data = {"token" => access_token}
+      form_data = CLIENT_AUTH.merge({"token" => access_token})
       test_ctx = create_test_context("POST", "/revoke", form_data: form_data)
       RevokeHandler.handle(test_ctx.context)
 
@@ -442,7 +445,7 @@ module Authly
       # Restore original TTL
       Authly.config.access_ttl = original_ttl
 
-      form_data = {"token" => token.access_token}
+      form_data = CLIENT_AUTH.merge({"token" => token.access_token})
       test_ctx = create_test_context("POST", "/introspect", form_data: form_data)
       IntrospectHandler.handle(test_ctx.context)
 
@@ -463,7 +466,7 @@ module Authly
       Authly.revoked?(access_token_str).should be_true
 
       # Now introspect should return active=false
-      form_data = {"token" => access_token_str}
+      form_data = CLIENT_AUTH.merge({"token" => access_token_str})
       test_ctx = create_test_context("POST", "/introspect", form_data: form_data)
       IntrospectHandler.handle(test_ctx.context)
 
@@ -473,7 +476,7 @@ module Authly
     end
 
     it "returns active=false for invalid token format" do
-      form_data = {"token" => "invalid_token_format"}
+      form_data = CLIENT_AUTH.merge({"token" => "invalid_token_format"})
       test_ctx = create_test_context("POST", "/introspect", form_data: form_data)
       IntrospectHandler.handle(test_ctx.context)
 

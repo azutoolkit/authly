@@ -1,12 +1,10 @@
-require "base64"
-
 module Authly
   class PARHandler
     IGNORED_PARAMS = ["user_id", "consent", "client_secret"]
 
     def self.handle(context)
       # Extract and authenticate client
-      client_id, client_secret = extract_client_credentials(context)
+      client_id, client_secret = ClientAuthentication.credentials(context)
 
       unless client_id && client_secret
         ResponseHelper.write(context, 400, "application/json", {
@@ -104,29 +102,6 @@ module Authly
         error:             "server_error",
         error_description: e.message,
       }.to_json)
-    end
-
-    # Extract client credentials from Authorization header or request body
-    private def self.extract_client_credentials(context) : Tuple(String?, String?)
-      # Try Authorization header (Basic auth)
-      auth_header = context.request.headers["Authorization"]?
-      if auth_header
-        if match = auth_header.match(/^Basic\s+(.+)$/i)
-          decoded = String.new(Base64.decode(match[1]))
-          if parts = decoded.split(':', 2)
-            return {parts[0], parts[1]}
-          end
-        end
-      end
-
-      # Try request body (client_secret_post)
-      params = context.request.form_params
-      client_id = params["client_id"]?
-      client_secret = params["client_secret"]?
-
-      {client_id, client_secret}
-    rescue
-      {nil, nil}
     end
 
     # Generate a unique request_uri following RFC 9126 format

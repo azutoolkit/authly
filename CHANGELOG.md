@@ -2,6 +2,17 @@
 
 ## [Unreleased]
 
+### Security
+
+- `/introspect` and `/revoke` require client authentication (HTTP Basic or `client_id`/`client_secret` in the form,
+  RFC 7662 and RFC 7009); without it they answer `401 invalid_client`. A client revokes only its own tokens: another
+  client's token is left alone behind the same `200`. **Callers that did not authenticate must now send credentials.**
+
+### Fixed
+
+- `/oauth/introspect` and `/oauth/revoke`, the paths the discovery document advertises, are served (only `/introspect`
+  and `/revoke` were)
+
 ### Fixed
 
 - Specs: the per-example configuration restore now also copies the client list, so `Authly.config.clients << ...` no
