@@ -263,15 +263,37 @@ describe "Dynamic client registration security" do
       end
     end
 
-    it "limits registrations per source" do
+    it "does not limit requests that carry the right token" do
       RegistrationSpec.configured do
         Authly.config.registration_rate_limit = 3
         Authly.config.attempt_source = ->(_context : HTTP::Server::Context) { "203.0.113.5".as(String?) }
-        statuses = Array.new(5) { RegistrationSpec.register({redirect_uris: ["https://example.com/cb"]}).status }
-        statuses.should eq [201, 201, 201, 429, 429]
+        statuses = Array.new(6) { RegistrationSpec.register({redirect_uris: ["https://example.com/cb"]}).status }
+        statuses.should eq [201] * 6
+      end
+    end
+
+    it "limits failed attempts per source" do
+      RegistrationSpec.configured do
+        Authly.config.registration_rate_limit = 3
+        Authly.config.attempt_source = ->(_context : HTTP::Server::Context) { "203.0.113.5".as(String?) }
+        statuses = Array.new(5) { RegistrationSpec.register({redirect_uris: ["https://example.com/cb"]}, token: "guess").status }
+        statuses.should eq [401, 401, 401, 429, 429]
 
         Authly.config.attempt_source = ->(_context : HTTP::Server::Context) { "198.51.100.1".as(String?) }
         RegistrationSpec.register({redirect_uris: ["https://example.com/cb"]}).status.should eq 201
+      end
+    end
+
+    it "counts a failed attempt with one atomic increment and leaves the successful ones out" do
+      RegistrationSpec.configured do
+        limiter = IncrementOnlyLimiter.new
+        Authly.config.attempt_limiter = limiter
+        Authly.config.attempt_source = ->(_context : HTTP::Server::Context) { "203.0.113.5".as(String?) }
+
+        RegistrationSpec.register({redirect_uris: ["https://example.com/cb"]}).status.should eq 201
+        limiter.incremented.should be_empty
+        RegistrationSpec.register({redirect_uris: ["https://example.com/cb"]}, token: "guess").status.should eq 401
+        limiter.incremented.should eq ["register:source:203.0.113.5"]
       end
     end
 

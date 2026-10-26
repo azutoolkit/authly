@@ -70,7 +70,7 @@ describe Authly do
     end
 
     it "returns access_token for Refresh Token grant" do
-      a_token = Authly::AccessToken.new(client_id, scope)
+      a_token = Authly::AccessToken.new(client_id, "read")
       token = Authly.access_token(
         grant_type: "refresh_token",
         client_id: client_id,

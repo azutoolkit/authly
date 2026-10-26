@@ -33,6 +33,9 @@ module Authly
     # public half of an asymmetric pair.
     setter public_key : String?
     property refresh_ttl : Time::Span = 1.day
+    # How long a refresh token family (the chain of tokens one sign-in yields through rotation) may be renewed
+    # in all, counted from the sign-in: no refresh token outlives it, however often it is rotated.
+    property refresh_absolute_ttl : Time::Span = 30.days
     property code_ttl : Time::Span = 5.minutes
     property access_ttl : Time::Span = 1.hour
     property owners : AuthorizableOwner = Owners.new
@@ -44,14 +47,14 @@ module Authly
     property device_code_store : DeviceCodeStore = InMemoryDeviceCodeStore.new
 
     # Throttles guessing at the device verification page and abuse of the registration endpoint. Share it
-    # between nodes (see `AttemptLimiter`).
+    # between nodes, and make its `increment` atomic (see `AttemptLimiter`).
     property attempt_limiter : AttemptLimiter = InMemoryAttemptLimiter.new
 
     # Who a request counts as for `attempt_limiter`: the client address by default. Behind a reverse proxy that is
     # the proxy, so return the address your proxy vouches for (or nil to count by account only).
     property attempt_source : AttemptSource = ->(context : HTTP::Server::Context) { context.request.remote_address.try(&.as?(Socket::IPAddress).try(&.address)) }
 
-    # Wrong user codes one signed-in owner, and one source, may enter at the device page per window.
+    # User code lookups one signed-in owner, and one source, may make at the device page per window (an approval is two).
     property device_attempt_limit : Int32 = 10
     property device_attempt_window : Time::Span = 15.minutes
 
@@ -83,6 +86,7 @@ module Authly
     property registration_response_types : Array(String) = ["code"]
     property registration_scopes : Array(String) = [] of String
     property registration_max_body : Int32 = 16 * 1024
+    # Failed authentications per source per window; requests with valid credentials are not counted.
     property registration_rate_limit : Int32 = 10
     property registration_rate_window : Time::Span = 1.hour
     property client_store : ClientStore = InMemoryClientStore.new

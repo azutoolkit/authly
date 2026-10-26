@@ -35,7 +35,7 @@ module Authly
       pending = nil
       if user_code
         return if too_many_attempts?(context, subject)
-        pending = find_pending(context, subject, user_code)
+        pending = find_pending(user_code)
       end
       page = render_verification_page(context.request.path, user_code, pending, form_token(subject))
       ResponseHelper.write_page(context, 200, page)
@@ -49,18 +49,23 @@ module Authly
       return if too_many_attempts?(context, subject)
 
       params = context.request.form_params
-      device_data = find_pending(context, subject, params.fetch("user_code", ""))
+      device_data = find_pending(params.fetch("user_code", ""))
 
       unless device_data
         ResponseHelper.write_page(context, 400, render_error_page("Invalid or expired user code"))
         return
       end
 
-      case params.fetch("action", "")
-      when "approve" then approve(context, device_data, subject)
-      when "deny"    then deny(context, device_data)
-      else                ResponseHelper.write(context, 400, "text/plain", "Invalid action")
+      decide(context, device_data, params.fetch("action", ""), subject)
+    end
+
+    private def self.decide(context, device_data, action : String, subject : String)
+      unless action == "approve" || action == "deny"
+        return ResponseHelper.write(context, 400, "text/plain", "Invalid action")
       end
+      return already_decided(context) unless decidable?(device_data)
+
+      action == "approve" ? approve(context, device_data, subject) : deny(context, device_data)
     end
 
     private def self.approve(context, device_data, subject : String)
@@ -71,10 +76,25 @@ module Authly
       ResponseHelper.write_page(context, 200, render_success_page)
     end
 
+    # The device is told `access_denied` (RFC 8628 3.5) for as long as the code lives, so the flag is kept, not the record dropped.
     private def self.deny(context, device_data)
-      Authly.config.device_code_store.delete(device_data.device_code)
+      device_data.denied = true
+      Authly.config.device_code_store.update(device_data.device_code, device_data)
 
       ResponseHelper.write_page(context, 200, render_denied_page)
+    end
+
+    # A code is decided once, by one owner: a second approval (another owner taking over a code that was
+    # approved), a denial of an approved code or an approval of a denied one is refused. The token store arbitrates
+    # when two requests decide at once.
+    private def self.decidable?(device_data : DeviceCodeData) : Bool
+      return false if device_data.verified? || device_data.denied?
+
+      Authly.config.token_store.consume("device-decision:#{device_data.device_code}")
+    end
+
+    private def self.already_decided(context)
+      ResponseHelper.write_page(context, 400, render_error_page("This code has already been used"))
     end
 
     # The token must be genuine, issued to this very owner and not used before.
@@ -119,29 +139,24 @@ module Authly
     end
 
     # The device authorization behind a user code, so the owner sees what they are approving (RFC 8628 5.4).
-    # A well-formed, known, unexpired user code; every miss counts against the owner and the source.
-    private def self.find_pending(context, subject : String, input : String) : DeviceCodeData?
+    # A well-formed, known, unexpired user code; nil for anything else.
+    private def self.find_pending(input : String) : DeviceCodeData?
       code = DeviceCode.normalize_user_code(input)
       data = code && Authly.config.device_code_store.fetch_by_user_code(code)
-      return data if data && !data.expired?
-
-      record_failure(context, subject)
-      nil
+      data if data && !data.expired?
     end
 
-    # Guessing is throttled per signed-in owner and per source (`Authly.config.attempt_source`): over the limit
-    # even a right code is refused until the window passes.
+    # Every lookup of a user code is counted, per signed-in owner and per source (`Authly.config.attempt_source`),
+    # with one atomic `increment` each (see `AttemptLimiter`). Past the limit even a right code is refused until the
+    # window passes. A legitimate approval is two lookups: the page and the form.
     private def self.too_many_attempts?(context, subject : String) : Bool
       config = Authly.config
-      return false unless attempt_keys(context, subject).any? { |key| config.attempt_limiter.exceeded?(key, config.device_attempt_limit) }
+      counts = attempt_keys(context, subject).map { |key| config.attempt_limiter.increment(key, config.device_attempt_window) }
+      return false unless counts.any? { |count| count > config.device_attempt_limit }
 
       context.response.headers["Retry-After"] = config.device_attempt_window.total_seconds.to_i.to_s
       ResponseHelper.write_page(context, 429, render_error_page("Too many attempts. Try again later."))
       true
-    end
-
-    private def self.record_failure(context, subject : String)
-      attempt_keys(context, subject).each { |key| Authly.config.attempt_limiter.record(key, Authly.config.device_attempt_window) }
     end
 
     private def self.attempt_keys(context, subject : String) : Array(String)

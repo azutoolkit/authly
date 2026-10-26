@@ -12,6 +12,8 @@ module Authly
     property user_id : String?
     # When the device last asked for a token; polling faster than `interval` is answered `slow_down`.
     property last_polled_at : Time?
+    # The owner denied the device; kept until the code expires so the device is answered `access_denied` (RFC 8628 3.5).
+    property? denied : Bool = false
 
     def initialize(
       @device_code,
@@ -23,6 +25,7 @@ module Authly
       @verified = false,
       @user_id = nil,
       @last_polled_at = nil,
+      @denied = false,
     )
     end
 

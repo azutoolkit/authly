@@ -65,6 +65,10 @@ module Authly
       raise Error(400).new(:invalid_response_type)
     end
 
+    def self.access_denied
+      raise Error(400).new(:access_denied)
+    end
+
     def self.authorization_pending
       raise Error(400).new(:authorization_pending)
     end

@@ -13,6 +13,20 @@ module RefreshSpec
     expect_raises(Authly::Error, Authly::ERROR_MSG[code]) { yield }
   end
 
+  # Records the TTL a family revocation is stored with
+  class TtlStore < Authly::InMemoryStore
+    getter ttls = {} of String => Time::Span
+
+    def revoke(token_id : String, ttl : Time::Span)
+      @ttls[token_id] = ttl
+      revoke(token_id)
+    end
+  end
+
+  def self.claims(token : String) : Hash(String, JSON::Any)
+    Authly.jwt_decode(token).first.as_h
+  end
+
   def self.forged(claims : Hash(String, String | Int64)) : String
     Authly.jwt_encode({"iss" => Authly.config.issuer, "exp" => 1.hour.from_now.to_unix, "jti" => Random::Secure.hex(8)}.merge(claims))
   end
@@ -130,6 +144,111 @@ describe "Refresh token hardening" do
       first = Authly::AccessToken.new("1", "read", subject: "john")
       RefreshSpec.rejected(:invalid_scope) { RefreshSpec.refresh(first.refresh_token, scope: "admin") }
       RefreshSpec.refresh(first.refresh_token).scope.should eq "read"
+    end
+  end
+
+  describe "absolute lifetime" do
+    it "stamps a new family with its end and never lets a token outlive it" do
+      first = Authly::AccessToken.new("1", "read", subject: "john")
+      claims = RefreshSpec.claims(first.refresh_token)
+      claims["fexp"].as_i64.should be_close((Time.utc + Authly.config.refresh_absolute_ttl).to_unix, 5)
+      claims["exp"].as_i64.should be <= claims["fexp"].as_i64
+    end
+
+    it "carries the end of the family through every rotation" do
+      first = Authly::AccessToken.new("1", "read", subject: "john")
+      second = RefreshSpec.refresh(first.refresh_token)
+      RefreshSpec.claims(second.refresh_token)["fexp"].should eq RefreshSpec.claims(first.refresh_token)["fexp"]
+    end
+
+    it "caps the lifetime of a token at the end of its family" do
+      previous = Authly.config.refresh_absolute_ttl
+      Authly.config.refresh_absolute_ttl = 30.minutes
+      begin
+        claims = RefreshSpec.claims(Authly::AccessToken.new("1", "read", subject: "john").refresh_token)
+        claims["exp"].as_i64.should eq claims["fexp"].as_i64
+      ensure
+        Authly.config.refresh_absolute_ttl = previous
+      end
+    end
+
+    it "refuses a token whose family has ended, however fresh the token is" do
+      token = RefreshSpec.forged({"token_type" => "refresh_token", "sub" => "john", "cid" => "1", "scope" => "read", "fid" => "ended",
+                                  "iat" => Time.utc.to_unix, "fexp" => 1.minute.ago.to_unix})
+      RefreshSpec.rejected { RefreshSpec.refresh(token) }
+    end
+
+    it "counts a token without fexp from its own issue time" do
+      stale = RefreshSpec.forged({"token_type" => "refresh_token", "sub" => "john", "cid" => "1", "scope" => "read", "fid" => "old",
+                                  "iat" => (Time.utc - Authly.config.refresh_absolute_ttl - 1.day).to_unix})
+      RefreshSpec.rejected { RefreshSpec.refresh(stale) }
+
+      recent = RefreshSpec.forged({"token_type" => "refresh_token", "sub" => "john", "cid" => "1", "scope" => "read", "fid" => "recent",
+                                   "iat" => Time.utc.to_unix})
+      RefreshSpec.claims(RefreshSpec.refresh(recent).refresh_token)["fexp"]?.should_not be_nil
+    end
+  end
+
+  describe "revoking a refresh token" do
+    it "revokes its whole family" do
+      first = Authly::AccessToken.new("1", "read", subject: "john")
+      second = RefreshSpec.refresh(first.refresh_token)
+
+      Authly.revoke(first.refresh_token)
+      RefreshSpec.rejected { RefreshSpec.refresh(second.refresh_token) }
+    end
+
+    it "keeps other families alone" do
+      mine = Authly::AccessToken.new("1", "read", subject: "john")
+      other = Authly::AccessToken.new("1", "read", subject: "john")
+      Authly.revoke(mine.refresh_token)
+      RefreshSpec.refresh(other.refresh_token).access_token.should_not be_empty
+    end
+
+    it "does not touch a family when an access token is revoked" do
+      issued = Authly::AccessToken.new("1", "read", subject: "john")
+      Authly.revoke(issued.access_token)
+      RefreshSpec.refresh(issued.refresh_token).access_token.should_not be_empty
+    end
+
+    it "stores the family revocation for refresh_ttl in a store that takes a TTL" do
+      previous = Authly.config.token_store
+      store = RefreshSpec::TtlStore.new
+      Authly.config.token_store = store
+      begin
+        issued = Authly::AccessToken.new("1", "read", subject: "john")
+        family = RefreshSpec.claims(issued.refresh_token)["fid"].as_s
+        Authly.revoke(issued.refresh_token)
+        store.ttls["refresh-family:#{family}"].should eq Authly.config.refresh_ttl
+      ensure
+        Authly.config.token_store = previous
+      end
+    end
+
+    it "gives the family revocation of a replayed token the same TTL" do
+      previous = Authly.config.token_store
+      store = RefreshSpec::TtlStore.new
+      Authly.config.token_store = store
+      begin
+        first = Authly::AccessToken.new("1", "read", subject: "john")
+        RefreshSpec.refresh(first.refresh_token)
+        RefreshSpec.rejected { RefreshSpec.refresh(first.refresh_token) }
+        store.ttls.values.should eq [Authly.config.refresh_ttl]
+      ensure
+        Authly.config.token_store = previous
+      end
+    end
+  end
+
+  describe "the scopes the client may have now" do
+    it "refuses a refresh whose scope the client no longer holds, without consuming the token" do
+      Authly.clients << Authly::Client.new("shrunk", "secret", "https://www.example.com/callback", "shrunk", "read", "authorization_code refresh_token")
+      token = RefreshSpec.forged({"token_type" => "refresh_token", "sub" => "john", "cid" => "shrunk", "scope" => "read write", "fid" => "shrunk-family",
+                                  "iat" => Time.utc.to_unix, "fexp" => 1.day.from_now.to_unix, "jti" => "shrunk-jti"})
+
+      RefreshSpec.rejected(:invalid_scope) { RefreshSpec.refresh(token, client: "shrunk") }
+      Authly.config.token_store.revoked?("shrunk-jti").should be_false
+      RefreshSpec.refresh(token, client: "shrunk", scope: "read").scope.should eq "read"
     end
   end
 

@@ -15,6 +15,14 @@ module Authly
     abstract def revoked?(token_id : String) : Bool
     abstract def valid?(token_id : String) : Bool
 
+    # Revoke `token_id` for `ttl` only: the revocation can be forgotten afterwards, because everything it covers has
+    # expired by then (the family of a refresh token is revoked for `refresh_ttl`). A store that can expire keys
+    # (Redis `SET key 1 EX ttl`) should override this so the revocation set does not grow forever; the default
+    # keeps the revocation until the store drops it.
+    def revoke(token_id : String, ttl : Time::Span)
+      revoke(token_id)
+    end
+
     # Revoke `token_id` and report whether this call was the one that revoked it, so a
     # one-time credential can be redeemed by exactly one of several concurrent requests.
     # The default is check-then-revoke; a shared store should override it with an atomic

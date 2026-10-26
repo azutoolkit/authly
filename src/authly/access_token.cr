@@ -32,9 +32,10 @@ module Authly
 
     # `family` is the rotation family of the refresh token this one replaces (a new one when nil);
     # `refresh_scope` is the scope the refresh token keeps granting (`scope` when nil), which stays
-    # the original one when an access token was narrowed on refresh.
+    # the original one when an access token was narrowed on refresh. `family_expires_at` is the end of that family
+    # (a new family ends `refresh_absolute_ttl` from now).
     def initialize(@client_id : String, @scope : String, @id_token : String? = nil, cert_thumbprint : String? = nil, subject : String? = nil,
-                   family : String? = nil, refresh_scope : String? = nil)
+                   family : String? = nil, refresh_scope : String? = nil, family_expires_at : Time? = nil)
       @sub = subject || Random::Secure.hex(32)
       @jti = Random::Secure.hex(32)
       generator = TokenGeneratorFactory.create
@@ -42,7 +43,8 @@ module Authly
 
       refresh_jti = Random::Secure.hex(32)
       @refresh_token = generator.generate_refresh_token(
-        @client_id, refresh_jti, subject || @client_id, refresh_scope || @scope, family || Random::Secure.hex(16))
+        @client_id, refresh_jti, subject || @client_id, refresh_scope || @scope, family || Random::Secure.hex(16),
+        family_expires_at || Authly.config.refresh_absolute_ttl.from_now)
 
       # Store metadata for opaque tokens (use access_token as key)
       expires_at = ACCESS_TTL.from_now

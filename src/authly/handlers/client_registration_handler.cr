@@ -6,15 +6,18 @@ module Authly
   # RFC 7591 registration. It is never anonymous: the caller presents the initial access token
   # (`Authly.config.registration_access_token`, as `Authorization: Bearer`) or satisfies
   # `Authly.config.authenticate_registration`; while neither is configured the endpoint refuses everything.
-  # What may be registered is bounded by `RegistrationPolicy`, requests per source by `registration_rate_limit`.
+  # What may be registered is bounded by `RegistrationPolicy`. Only failed authentications are counted per source
+  # (`registration_rate_limit` per `registration_rate_window`): they are what guesses the initial access token. A source
+  # that used up its failures is refused even with the right token until the window passes, so the limit caps the guesses.
+  # Behind a reverse proxy see `Configuration#attempt_source`: the source is only as trustworthy as that hook.
   class ClientRegistrationHandler
     def self.handle(context)
       unless Authly.config.allow_dynamic_registration?
         return error(context, 403, "access_denied", "Dynamic client registration is not enabled")
       end
       return not_configured(context) unless configured?
-      return error(context, 429, "access_denied", "Too many registration requests") if rate_limited?(context)
-      return unauthorized(context) unless authorized?(context)
+      return refused(context) unless authorized?(context)
+      return too_many_requests(context) if locked_out?(context)
 
       body = read_body(context)
       return error(context, 413, "invalid_request", "Request body is too large") unless body
@@ -68,14 +71,25 @@ module Authly
       Crypto::Subtle.constant_time_compare(Digest::SHA256.digest(expected), Digest::SHA256.digest(presented))
     end
 
-    # Every request counts, rejected ones too, so the initial access token cannot be guessed freely.
-    private def self.rate_limited?(context) : Bool
+    # A failed authentication is counted with one atomic `increment`; the answer is 429 once the source is over the
+    # limit and 401 until then.
+    private def self.refused(context)
       config = Authly.config
-      key = "register:source:#{config.attempt_source.call(context) || "unknown"}"
-      exceeded = config.attempt_limiter.exceeded?(key, config.registration_rate_limit)
-      config.attempt_limiter.record(key, config.registration_rate_window)
-      context.response.headers["Retry-After"] = config.registration_rate_window.total_seconds.to_i.to_s if exceeded
-      exceeded
+      count = config.attempt_limiter.increment(attempt_key(context), config.registration_rate_window)
+      count > config.registration_rate_limit ? too_many_requests(context) : unauthorized(context)
+    end
+
+    private def self.locked_out?(context) : Bool
+      Authly.config.attempt_limiter.exceeded?(attempt_key(context), Authly.config.registration_rate_limit)
+    end
+
+    private def self.attempt_key(context) : String
+      "register:source:#{Authly.config.attempt_source.call(context) || "unknown"}"
+    end
+
+    private def self.too_many_requests(context)
+      context.response.headers["Retry-After"] = Authly.config.registration_rate_window.total_seconds.to_i.to_s
+      error(context, 429, "access_denied", "Too many registration requests")
     end
 
     # nil when the body is over `registration_max_body`; never more than one byte past it is read.

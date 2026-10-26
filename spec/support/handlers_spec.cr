@@ -281,7 +281,7 @@ module Authly
 
       result.status.should eq 200
       result.body.should contain("Access Denied")
-      Authly.config.device_code_store.fetch(device_data.device_code).should be_nil
+      Authly.config.device_code_store.fetch(device_data.device_code).not_nil!.denied?.should be_true
     end
 
     it "returns error for invalid user_code" do
