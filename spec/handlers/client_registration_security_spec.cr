@@ -33,12 +33,12 @@ module RegistrationSpec
   def self.configured(token : String? = TOKEN, &)
     config = Authly.config
     saved = {config.allow_dynamic_registration?, config.registration_access_token, config.authenticate_registration,
-             config.client_store, config.attempt_limiter, config.attempt_source}
+             config.client_store, config.registration_limiter, config.attempt_source}
     config.allow_dynamic_registration = true
     config.registration_access_token = token
     config.authenticate_registration = nil
     config.client_store = Authly::InMemoryClientStore.new
-    config.attempt_limiter = Authly::InMemoryAttemptLimiter.new
+    config.registration_limiter = Authly::InMemoryAttemptLimiter.new
     config.registration_rate_limit = 1000
     begin
       yield
@@ -49,7 +49,7 @@ module RegistrationSpec
 
   def self.restore(saved)
     config = Authly.config
-    config.allow_dynamic_registration, config.registration_access_token, config.authenticate_registration, config.client_store, config.attempt_limiter, config.attempt_source = saved
+    config.allow_dynamic_registration, config.registration_access_token, config.authenticate_registration, config.client_store, config.registration_limiter, config.attempt_source = saved
     config.registration_grant_types = ["authorization_code", "refresh_token"]
     config.registration_response_types = ["code"]
     config.registration_scopes = [] of String
@@ -284,10 +284,40 @@ describe "Dynamic client registration security" do
       end
     end
 
+    it "pins the boundary: the limit-th failure is a 401, the next a 429, and the right token is refused from the limit-th on" do
+      RegistrationSpec.configured do
+        Authly.config.registration_rate_limit = 3
+        Authly.config.attempt_source = ->(_context : HTTP::Server::Context) { "203.0.113.5".as(String?) }
+        valid = {redirect_uris: ["https://example.com/cb"]}
+
+        2.times { RegistrationSpec.register(valid, token: "guess").status.should eq 401 }
+        RegistrationSpec.register(valid).status.should eq 201
+        RegistrationSpec.register(valid, token: "guess").status.should eq 401
+        RegistrationSpec.register(valid).status.should eq 429
+        RegistrationSpec.register(valid, token: "guess").status.should eq 429
+      end
+    end
+
+    it "keeps a flood of failed registrations out of the device limiter" do
+      RegistrationSpec.configured do
+        Authly.config.registration_rate_limit = 3
+        device_limiter = Authly::InMemoryAttemptLimiter.new
+        Authly.config.attempt_limiter = device_limiter
+        Authly::InMemoryAttemptLimiter::MAX_ENTRIES.times do |i|
+          source = "198.51.#{i // 256}.#{i % 256}"
+          Authly.config.attempt_source = ->(_context : HTTP::Server::Context) { source.as(String?) }
+          RegistrationSpec.register({redirect_uris: ["https://example.com/cb"]}, token: "guess")
+        end
+
+        device_limiter.size.should eq 0
+        device_limiter.increment("device:subject:alice", 1.minute).should eq 1
+      end
+    end
+
     it "counts a failed attempt with one atomic increment and leaves the successful ones out" do
       RegistrationSpec.configured do
         limiter = IncrementOnlyLimiter.new
-        Authly.config.attempt_limiter = limiter
+        Authly.config.registration_limiter = limiter
         Authly.config.attempt_source = ->(_context : HTTP::Server::Context) { "203.0.113.5".as(String?) }
 
         RegistrationSpec.register({redirect_uris: ["https://example.com/cb"]}).status.should eq 201

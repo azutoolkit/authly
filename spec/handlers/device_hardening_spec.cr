@@ -13,6 +13,16 @@ module DeviceSpec
     Authly.config.attempt_source = source.not_nil!
   end
 
+  # Records the TTL a claim is stored with
+  class ClaimStore < Authly::InMemoryStore
+    getter claims = {} of String => Time::Span
+
+    def consume(token_id : String, ttl : Time::Span) : Bool
+      @claims[token_id] = ttl
+      consume(token_id)
+    end
+  end
+
   def self.poll(data : Authly::DeviceCodeData, client = "1") : Authly::AccessToken
     Authly.access_token("urn:ietf:params:oauth:grant-type:device_code", client_id: client, client_secret: "", device_code: data.device_code)
   end
@@ -103,6 +113,18 @@ describe "Device flow brute force" do
   end
 end
 
+describe "Device flow limit boundary" do
+  it "allows device_attempt_limit lookups and refuses the next one" do
+    DeviceSpec.fresh do
+      data = Authly::DeviceCode.create_device_authorization("1", "read")
+      limit = Authly.config.device_attempt_limit
+      (limit - 1).times { AuthorizationSecuritySpec.device_get("/device?user_code=#{DeviceSpec::WRONG}", "mallory").status.should eq 200 }
+      AuthorizationSecuritySpec.device_get("/device?user_code=#{data.user_code}", "mallory").status.should eq 200
+      AuthorizationSecuritySpec.device_get("/device?user_code=#{data.user_code}", "mallory").status.should eq 429
+    end
+  end
+end
+
 describe "Device flow polling" do
   it "answers slow_down to a client polling inside the interval and widens it" do
     DeviceSpec.fresh do
@@ -170,6 +192,39 @@ describe "Device flow approval" do
 
       DeviceSpec.approve(data, "mallory").status.should eq 400
       Authly.config.device_code_store.fetch(data.device_code).not_nil!.user_id.should eq "john"
+    end
+  end
+
+  it "claims the decision once in the token store, under a key that does not hold the device code" do
+    DeviceSpec.fresh do
+      data = Authly::DeviceCode.create_device_authorization("1", "read")
+      key = Authly::DeviceVerificationHandler.decision_key(data.device_code)
+      key.should_not contain(data.device_code)
+
+      Authly.config.token_store.consume(key) # another request decided first
+      DeviceSpec.approve(data, "mallory").status.should eq 400
+      Authly.config.device_code_store.fetch(data.device_code).not_nil!.verified?.should be_false
+    end
+  end
+
+  it "does not claim the decision for an action it does not know" do
+    DeviceSpec.fresh do
+      data = Authly::DeviceCode.create_device_authorization("1", "read")
+      AuthorizationSecuritySpec.device_submit(data.user_code, "bogus", "john").status.should eq 400
+      DeviceSpec.approve(data, "john").status.should eq 200
+    end
+  end
+
+  it "gives the claim a TTL of the remaining life of the code" do
+    DeviceSpec.fresh do
+      store = DeviceSpec::ClaimStore.new
+      Authly.config.token_store = store
+      data = Authly::DeviceCode.create_device_authorization("1", "read")
+      DeviceSpec.approve(data, "john").status.should eq 200
+
+      ttl = store.claims[Authly::DeviceVerificationHandler.decision_key(data.device_code)]
+      ttl.should be <= 15.minutes
+      ttl.should be > 14.minutes
     end
   end
 

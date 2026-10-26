@@ -1,4 +1,5 @@
 require "html"
+require "digest/sha256"
 
 module Authly
   # The page where a signed-in resource owner approves or denies a device. The owner is the one
@@ -66,6 +67,11 @@ module Authly
       return already_decided(context) unless decidable?(device_data)
 
       action == "approve" ? approve(context, device_data, subject) : deny(context, device_data)
+    rescue e : StoreUnavailable | IO::Error
+      # The decision was claimed but could not be saved: the code stays undecided and unclaimable until it expires
+      # (the claim has its TTL), so the device has to ask for a new one.
+      Log.error { "Device decision could not be saved (#{e.class})" }
+      ResponseHelper.write_page(context, 503, render_error_page("Try again with a new code"))
     end
 
     private def self.approve(context, device_data, subject : String)
@@ -90,7 +96,13 @@ module Authly
     private def self.decidable?(device_data : DeviceCodeData) : Bool
       return false if device_data.verified? || device_data.denied?
 
-      Authly.config.token_store.consume("device-decision:#{device_data.device_code}")
+      remaining = {device_data.expires_at - Time.utc, 1.second}.max
+      Authly.config.token_store.consume(decision_key(device_data.device_code), remaining)
+    end
+
+    # The device code is a credential: the token store only sees its digest.
+    def self.decision_key(device_code : String) : String
+      "device-decision:#{Digest::SHA256.hexdigest(device_code)}"
     end
 
     private def self.already_decided(context)

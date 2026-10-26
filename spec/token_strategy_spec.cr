@@ -183,6 +183,25 @@ module Authly
       end
     end
 
+    it "are refused by an opaque strategy on their type alone" do
+      store = Authly.config.token_store
+      {"opaque-refresh" => "refresh_token", "opaque-access" => "access_token"}.each do |id, type|
+        payload = {} of String => (String | Int64 | Bool | Float64)
+        payload["cid"] = "1"
+        payload["scope"] = "read"
+        payload["sub"] = "john"
+        payload["exp"] = 1.hour.from_now.to_unix
+        payload["token_type"] = type
+        store.store(id, payload)
+      end
+      strategy = OpaqueToken.new
+
+      strategy.valid?("opaque-refresh").should be_false
+      strategy.introspect("opaque-refresh").should eq({"active" => false})
+      strategy.valid?("opaque-access").should be_true
+      strategy.introspect("opaque-access")["active"].should be_true
+    end
+
     it "are not valid through Authly.valid? and Authly.introspect" do
       issued = AccessToken.new("1", "read", subject: "john")
       Authly.valid?(issued.refresh_token).should be_false

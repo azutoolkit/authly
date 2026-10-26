@@ -474,7 +474,8 @@ Authly.configure do |config|
   # Behind a reverse proxy the socket address is the proxy: return the client address it vouches for
   config.attempt_source = ->(context : HTTP::Server::Context) { context.request.headers["X-Real-IP"]? }
   # With several nodes, count in a shared store: implement Authly::AttemptLimiter (exceeded?, increment) over Redis
-  # config.attempt_limiter = RedisAttemptLimiter.new
+  # config.attempt_limiter = RedisAttemptLimiter.new       # the device page
+  # config.registration_limiter = RedisAttemptLimiter.new  # registration has its own, so one cannot fill the other
 end
 ```
 
@@ -482,6 +483,15 @@ end
 counter every time **unless your reverse proxy overwrites it** (`proxy_set_header X-Real-IP $remote_addr;` in nginx,
 rather than passing the client's value on) and the app is reachable only through that proxy. Without such a proxy keep
 the default (the socket address) or return nil to count by account only.
+
+**Shared addresses:** the source is one key. Everything behind one proxy address (when `attempt_source` returns the
+proxy's address) counts as one source, and so do all requests when it returns nil (they share the key `unknown`): one
+client that fails often enough locks out all the others behind that address for the whole window. Return an address your
+proxy vouches for, per client.
+
+**Boundaries:** at the device page the first `device_attempt_limit` lookups of an owner (or of a source) in a window are
+answered normally and the next one is `429`. At registration the first `registration_rate_limit` failed authentications of
+a source are `401`, the next one `429`, and once that many failures are counted even a request with the right token is `429`.
 
 **Shared limiters:** the handlers count with `increment(key, window) : Int32`, which has to count and answer in one atomic
 step, otherwise parallel requests all pass the check before any is counted. For Redis that is `INCR key`, then

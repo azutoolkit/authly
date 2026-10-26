@@ -161,6 +161,22 @@ describe "Refresh token hardening" do
       RefreshSpec.claims(second.refresh_token)["fexp"].should eq RefreshSpec.claims(first.refresh_token)["fexp"]
     end
 
+    it "keeps the end of the family when the setting changes in between" do
+      previous = Authly.config.refresh_absolute_ttl
+      Authly.config.refresh_absolute_ttl = 10.days
+      first = Authly::AccessToken.new("1", "read", subject: "john")
+      Authly.config.refresh_absolute_ttl = 20.days
+      begin
+        second = RefreshSpec.refresh(first.refresh_token)
+        third = RefreshSpec.refresh(second.refresh_token)
+        fexp = RefreshSpec.claims(first.refresh_token)["fexp"]
+        RefreshSpec.claims(second.refresh_token)["fexp"].should eq fexp
+        RefreshSpec.claims(third.refresh_token)["fexp"].should eq fexp
+      ensure
+        Authly.config.refresh_absolute_ttl = previous
+      end
+    end
+
     it "caps the lifetime of a token at the end of its family" do
       previous = Authly.config.refresh_absolute_ttl
       Authly.config.refresh_absolute_ttl = 30.minutes

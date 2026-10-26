@@ -5,7 +5,7 @@ describe Authly::ClientRegistrationHandler do
   # (the access-control examples are in client_registration_security_spec.cr).
   before_each do
     Authly.config.authenticate_registration = ->(_context : HTTP::Server::Context) { true }
-    Authly.config.attempt_limiter = Authly::InMemoryAttemptLimiter.new
+    Authly.config.registration_limiter = Authly::InMemoryAttemptLimiter.new
   end
   after_each { Authly.config.authenticate_registration = nil }
 
