@@ -23,6 +23,16 @@ module DeviceSpec
     end
   end
 
+  # A device code store that is down for writes while `down` is set
+  class FlakyStore < Authly::InMemoryDeviceCodeStore
+    property? down = false
+
+    def update(device_code : String, data : Authly::DeviceCodeData)
+      raise Authly::StoreUnavailable.new("device code store is down") if down?
+      super
+    end
+  end
+
   def self.poll(data : Authly::DeviceCodeData, client = "1") : Authly::AccessToken
     Authly.access_token("urn:ietf:params:oauth:grant-type:device_code", client_id: client, client_secret: "", device_code: data.device_code)
   end
@@ -225,6 +235,36 @@ describe "Device flow approval" do
       ttl = store.claims[Authly::DeviceVerificationHandler.decision_key(data.device_code)]
       ttl.should be <= 15.minutes
       ttl.should be > 14.minutes
+    end
+  end
+
+  it "answers 503 when the decision cannot be saved and leaves the code undecided until it expires" do
+    DeviceSpec.fresh do
+      store = DeviceSpec::FlakyStore.new
+      Authly.config.device_code_store = store
+      data = Authly::DeviceCode.create_device_authorization("1", "read")
+
+      store.down = true
+      failed = DeviceSpec.approve(data, "john")
+      failed.status.should eq 503
+      failed.body.should contain "Try again with a new code"
+      store.down = false
+
+      stored = store.fetch(data.device_code).not_nil!
+      stored.verified?.should be_false
+      stored.denied?.should be_false
+
+      # The claim is spent: a retry is told the code was used, and the device keeps waiting
+      retry = DeviceSpec.approve(data, "john")
+      retry.status.should eq 400
+      retry.body.should contain "This code has already been used"
+      DeviceSpec.rewind_poll_clock(data)
+      expect_raises(Authly::Error, Authly::ERROR_MSG[:authorization_pending]) { DeviceSpec.poll(data) }
+
+      stored = store.fetch(data.device_code).not_nil!
+      stored.expires_at = 1.minute.ago
+      store.update(data.device_code, stored)
+      expect_raises(Authly::Error, Authly::ERROR_MSG[:invalid_grant]) { DeviceSpec.poll(data) }
     end
   end
 

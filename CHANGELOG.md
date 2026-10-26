@@ -2,6 +2,15 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- Specs: the per-example configuration restore now also copies the client list, so `Authly.config.clients << ...` no
+  longer leaks into later examples. The contents of the stores and limiters are still shared between examples; assign a
+  fresh one first (`DeviceSpec.fresh`). A new spec covers the 503 the device page answers when a decision cannot be saved
+- README: the paragraph on shared source addresses is split into registration (nil source: one key, `unknown`) and the
+  device page (nil source: counted by account only; every lookup counts, so a shared proxy address locks everyone out
+  after `device_attempt_limit` lookups)
+
 ### Changed
 
 - CI and `.tool-versions` pin Crystal 1.22.1 (the workflows used the floating `crystallang/crystal` image). The README
@@ -18,7 +27,8 @@ Follow-ups from the review of #24.
   otherwise registration falls back to an in-memory limiter per node.
 
 **Upgrade checklist:** set `registration_limiter` where you set `attempt_limiter`; optionally override
-`TokenStore#consume(token_id, ttl)` to expire device decision claims; read the README note on shared source addresses.
+`TokenStore#consume(token_id, ttl)` to expire device decision claims; read the README note on shared source addresses. `device-decision:` claims written by 1.3.2 stay in a persistent token
+store under the raw device code; delete those keys if the code must not remain there.
 
 ### Security
 
@@ -28,8 +38,9 @@ Follow-ups from the review of #24.
   source are answered 401, the next one 429, and once that many failures are counted a request with the right token is
   refused (429) too. Device page: the first `device_attempt_limit` lookups of an owner (or source) are answered
   normally, the next one 429
-- One failing source locks out everyone behind it for the window: a proxy address, or the single `unknown` key used when
-  `attempt_source` answers nil. Documented in the README
+- One failing source locks out everyone behind it for the window: a proxy address (registration and device page), or
+  the single `unknown` key registration uses when `attempt_source` answers nil. On the device page nil means no source
+  key at all (counted by account only), and every lookup counts, successful ones too. Documented in the README
 - The device decision claim is stored under the SHA-256 of the device code (the store never sees the code) with the
   remaining life of the code as TTL (`TokenStore#consume(token_id, ttl)`; the default ignores the TTL). If saving the
   decision fails after the claim, the code stays undecided until it expires and the page answers 503: the device asks
@@ -37,9 +48,10 @@ Follow-ups from the review of #24.
 
 ### Fixed
 
-- Specs: the configuration is snapshotted and restored around every example, and `response_type_spec.cr` no longer
-  drops the shared client list; the suite passes in random order. New specs cover the `fexp` carried through rotation,
-  the device decision claim and opaque introspection of a refresh token on its type alone
+- Specs: the configuration is snapshotted and restored around every example, and the suite passes in random order. New
+  specs cover the `fexp` carried through rotation, the device decision claim and opaque introspection of a refresh
+  token on its type alone. (The `response_type_spec.cr` client-list restore shipped in 1.3.2, not here.) The snapshot
+  copies Array settings only: see Unreleased for what is and is not isolated
 
 ## [1.3.2] - 2026-10-26
 
