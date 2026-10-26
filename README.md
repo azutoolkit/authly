@@ -278,9 +278,21 @@ Allows obtaining a new access token without requiring user interaction.
   "grant_type": "refresh_token",
   "refresh_token": "REFRESH_TOKEN",
   "client_id": "CLIENT_ID",
-  "client_secret": "CLIENT_SECRET"
+  "client_secret": "CLIENT_SECRET",
+  "scope": "read" // optional; may only narrow the scope of the original grant
 }
 ```
+
+A refresh token is **single use**. The answer carries a new refresh token (same family) and the old one stops working.
+Presenting an already used refresh token revokes the whole family, so a leaked token is detected the first time
+either party uses it: the client must sign in again. A refresh token must be a `refresh_token`-typed token issued to
+the authenticating client, unexpired and not revoked; the access token it yields keeps the original scope.
+
+**Upgrading:** refresh tokens issued by earlier versions (without `cid`, `fid` and `scope`) are refused: users sign in
+again. A custom `Authly::TokenGenerator` must override `generate_refresh_token(client_id, jti, sub, scope, family)`
+and put `cid`, `scope`, `fid` and `token_type: "refresh_token"` in the token, otherwise its refresh tokens cannot be
+redeemed. A custom `TokenStore` needs an atomic `consume` (see "Custom Token Store"); the family is revoked through
+`revoke("refresh-family:<fid>")`.
 
 ### Device Authorization Grant
 
@@ -442,6 +454,25 @@ Invalidates an access or refresh token.
 
 User visits this endpoint to enter the user code and authorize the device.
 
+The page needs `Authly.config.authenticate_user`. Wrong codes are counted per signed-in owner and per source and, after
+`device_attempt_limit` (10) of them within `device_attempt_window` (15 minutes), the page answers `429` with
+`Retry-After` until the window passes. A device that polls the token endpoint faster than `interval` is answered
+`slow_down` and its interval grows by 5 seconds. An approved device code yields one token, about the owner who approved it.
+
+```crystal
+Authly.configure do |config|
+  config.device_attempt_limit = 10
+  config.device_attempt_window = 15.minutes
+  # Behind a reverse proxy the socket address is the proxy: return the client address it vouches for
+  config.attempt_source = ->(context : HTTP::Server::Context) { context.request.headers["X-Real-IP"]? }
+  # With several nodes, count in a shared store: implement Authly::AttemptLimiter (exceeded?, record) over Redis INCR + EXPIRE
+  # config.attempt_limiter = RedisAttemptLimiter.new
+end
+```
+
+**Upgrading:** a custom `DeviceCodeStore` must persist the new `DeviceCodeData#last_polled_at` (it is part of the
+record, and `JSON::Serializable` stores it by default); without it `slow_down` never triggers.
+
 ### UserInfo Endpoint
 
 **Path:** `GET /oauth/userinfo`
@@ -510,8 +541,33 @@ Allows clients to dynamically register with the authorization server (RFC 7591).
 Authly.configure do |config|
   config.allow_dynamic_registration = true
   config.client_store = CustomClientStore.new
+
+  # Registration is never anonymous. Give callers an initial access token (RFC 7591), a hook, or both;
+  # with neither the endpoint answers 500 and registers nothing.
+  config.registration_access_token = ENV["REGISTRATION_ACCESS_TOKEN"]            # Authorization: Bearer <token>
+  config.authenticate_registration = ->(context : HTTP::Server::Context) { admin?(context) } # Bool
+
+  # What a client may ask for (the defaults are shown); anything else is `invalid_client_metadata`
+  config.registration_grant_types = ["authorization_code", "refresh_token"]
+  config.registration_response_types = ["code"]
+  config.registration_scopes = ["read"] # none by default: a request with a `scope` is refused
+
+  config.registration_max_body = 16 * 1024                 # bytes, else 413
+  config.registration_rate_limit = 10                       # requests per source ...
+  config.registration_rate_window = 1.hour                  # ... per window, else 429 (rejected requests count too)
 end
 ```
+
+`redirect_uris` (1 to 10) must be exact URIs of one of three kinds: `https`, `http` on a loopback host (`localhost`,
+`127.0.0.1`, `[::1]`, RFC 8252), or a private-use scheme named after a domain (`com.example.app:/callback`). A fragment,
+user info, wildcard (`*`), blank or control character is refused, so a registered URI can only match itself (the
+authorization endpoint compares redirect URIs exactly). `client_uri`, `logo_uri`, `tos_uri`, `policy_uri` and `jwks_uri` must be `https`.
+Secrets are 256 random bits (`Random::Secure`).
+
+**Upgrading:** the endpoint used to accept anyone, and `password`, `implicit`, any scope and any `scheme://host` URI.
+Set `registration_access_token` or `authenticate_registration`, and widen the allow-lists your clients need.
+Registered clients are stored as given to `ClientStore`; Authly's own `Clients` list does not read that store, and the
+secret is stored as issued (a store that must not hold it in the clear can hash it before saving).
 
 **Request:**
 

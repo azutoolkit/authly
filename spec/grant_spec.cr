@@ -8,14 +8,6 @@ module Authly
     username = "username"
     password = "password"
     redirect_uri = "https://www.example.com/callback"
-    refresh_token = Authly.jwt_encode({
-      "jti"  => Random::Secure.hex(32),
-      "sub"  => client_id,
-      "name" => "refresh token",
-      "iat"  => Time.utc.to_unix,
-      "iss"  => Authly.config.issuer,
-      "exp"  => Authly.config.refresh_ttl.from_now.to_unix,
-    })
     # A code is single use, so every example needs its own.
     authorization_code = -> { Authly::Code.new(client_id, "read", redirect_uri, "", "", username).to_s }
 
@@ -101,11 +93,11 @@ module Authly
     end
 
     it "creates an access token with valid refresh token grant" do
+      # A refresh token is single use, so the example issues its own, for the scope it expects back.
       grant = Grant.new("refresh_token",
         client_id: client_id,
         client_secret: client_secret,
-        refresh_token: refresh_token,
-        code: authorization_code.call)
+        refresh_token: AccessToken.new(client_id, "read").refresh_token)
 
       token = grant.token
 

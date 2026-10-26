@@ -2,6 +2,53 @@
 
 ## [Unreleased]
 
+### Security
+
+- **Breaking for custom token generators and old refresh tokens: refresh tokens are validated and rotated (P1-12).**
+  A refresh token used to be accepted if it merely decoded: any Authly JWT (an access token, an authorization code),
+  a revoked token, and another client's token all passed, and rotation did not exist. Now the token must have
+  `token_type: refresh_token`, `cid` equal to the authenticating client, must not be expired or revoked, and is single
+  use: it is consumed with `TokenStore#consume` and the answer carries a replacement from the same family (`fid`).
+  Presenting a token that was already consumed revokes the whole family (OAuth 2.1 / RFC 6819), so the thief and the
+  client both have to sign in again. The refresh token carries the scope of the grant, so a refreshed access token
+  keeps it (it used to lose it); the optional `scope` parameter may only narrow it (`invalid_scope` otherwise), and the
+  replacement refresh token keeps the original scope. Refresh tokens issued by earlier versions have no `cid`/`fid`/`scope`
+  and are refused once: clients sign in again. A custom `TokenGenerator` must override
+  `generate_refresh_token(client_id, jti, sub, scope, family)` to emit `cid`, `scope`, `fid` and `token_type`; the default
+  keeps compiling but its refresh tokens cannot be redeemed. Access tokens already issued from a revoked family live until
+  they expire (`access_ttl`). Opaque-strategy refresh tokens still cannot be redeemed (unchanged)
+- `/oauth/userinfo` refuses anything but an access token (`token_type: access_token`): a refresh token or an authorization
+  code signed with the same key no longer reads user info
+- `Grant#refresh_token_grant` (it could not compile when called) is removed
+- **Device flow: guessing and polling are limited (P1-13).** Wrong user codes at `/device` (and wrong `user_code` lookups
+  through `GET /device?user_code=`) are counted per signed-in owner and per source; at `Authly.config.device_attempt_limit`
+  (10) failures in `device_attempt_window` (15 minutes) the page answers `429` with `Retry-After`, even for a right
+  code. The counters live in the new pluggable `Authly.config.attempt_limiter` (`AttemptLimiter`, in-memory and bounded by
+  default; share one between nodes); the source is `Authly.config.attempt_source` (the socket address by default: behind a
+  reverse proxy return the address your proxy vouches for, or nil to count by account only). User codes are validated
+  (`XXXX-XXXX` of the 32-character alphabet; lower case and a missing dash are accepted) before any lookup. Polling faster than `interval`
+  is answered `slow_down` and widens the interval by 5 seconds (RFC 8628 3.5; `DeviceCodeData#last_polled_at`); an
+  approved device code is redeemed once (it used to mint a token on every poll until it expired) and the token is
+  about the owner who approved it (it was anonymous). `InMemoryDeviceCodeStore` is mutex-protected, sweeps expired
+  authorizations and keeps at most 50,000. A denied code is deleted, so the device's next poll is `invalid_grant`
+- `/oauth/userinfo` no longer answers `500` with the exception text (it leaked standard library source paths); the
+  error is logged and the body is fixed
+- **Breaking: dynamic client registration is no longer anonymous (P1-14).** `POST /oauth/register` (opt-in through
+  `allow_dynamic_registration`) registered anyone, with `password`/`implicit`, any scope, any `scheme://host` redirect URI
+  (`javascript://x/%0aalert(1)` passed) and an unbounded body. It now needs `Authly.config.registration_access_token`
+  (`Authorization: Bearer`, compared in constant time) or `Authly.config.authenticate_registration` (a `Bool` hook), else
+  it answers `401` (`500` when neither is configured: nothing is registered). New `RegistrationPolicy` allow-lists:
+  `registration_grant_types` (`authorization_code`, `refresh_token`), `registration_response_types` (`code`),
+  `registration_scopes` (none, so a `scope` is refused until listed); redirect URIs must be https, loopback http or a
+  domain-named private-use scheme, with no fragment, user info or wildcard, at most 10 of at most 2048 characters; the
+  other metadata URIs must be https. The body is capped (`registration_max_body`, 16 KiB, `413`) and requests are
+  limited per source (`registration_rate_limit` per `registration_rate_window`, `429`; rejected requests count) through
+  the new `attempt_limiter`. Malformed metadata answers a fixed message instead of the exception text.
+  `DynamicClient#valid?` applies the same URI rules. Secrets were already `Random::Secure`; Authly never reads the
+  client store, so no hashing was added
+- **Breaking for custom stores:** `DeviceCodeData` has a new `last_polled_at : Time?` (nil when absent from stored JSON);
+  a custom `DeviceCodeStore` must keep it when it saves the record, otherwise `slow_down` never triggers
+
 ## [1.3.0] - 2026-10-25
 
 Includes the P0 fixes and the consent/authorization hardening (#21). Several changes are breaking for hosts and custom

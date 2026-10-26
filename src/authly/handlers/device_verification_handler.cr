@@ -32,7 +32,12 @@ module Authly
       return unless subject
 
       user_code = context.request.query_params["user_code"]?
-      page = render_verification_page(context.request.path, user_code, pending_request(user_code), form_token(subject))
+      pending = nil
+      if user_code
+        return if too_many_attempts?(context, subject)
+        pending = find_pending(context, subject, user_code)
+      end
+      page = render_verification_page(context.request.path, user_code, pending, form_token(subject))
       ResponseHelper.write_page(context, 200, page)
     end
 
@@ -41,9 +46,10 @@ module Authly
       return unless subject
       return unless valid_form?(context, subject)
 
+      return if too_many_attempts?(context, subject)
+
       params = context.request.form_params
-      user_code = params.fetch("user_code", "").upcase.gsub(/[^A-Z0-9\-]/, "")
-      device_data = Authly.config.device_code_store.fetch_by_user_code(user_code)
+      device_data = find_pending(context, subject, params.fetch("user_code", ""))
 
       unless device_data
         ResponseHelper.write_page(context, 400, render_error_page("Invalid or expired user code"))
@@ -112,11 +118,36 @@ module Authly
       nil
     end
 
-    # The device authorization behind a user code, so the owner sees what they are approving (RFC 8628 5.4)
-    private def self.pending_request(user_code : String?) : DeviceCodeData?
-      return unless user_code
-      data = Authly.config.device_code_store.fetch_by_user_code(user_code.upcase.gsub(/[^A-Z0-9\-]/, ""))
-      data unless data.nil? || data.expired?
+    # The device authorization behind a user code, so the owner sees what they are approving (RFC 8628 5.4).
+    # A well-formed, known, unexpired user code; every miss counts against the owner and the source.
+    private def self.find_pending(context, subject : String, input : String) : DeviceCodeData?
+      code = DeviceCode.normalize_user_code(input)
+      data = code && Authly.config.device_code_store.fetch_by_user_code(code)
+      return data if data && !data.expired?
+
+      record_failure(context, subject)
+      nil
+    end
+
+    # Guessing is throttled per signed-in owner and per source (`Authly.config.attempt_source`): over the limit
+    # even a right code is refused until the window passes.
+    private def self.too_many_attempts?(context, subject : String) : Bool
+      config = Authly.config
+      return false unless attempt_keys(context, subject).any? { |key| config.attempt_limiter.exceeded?(key, config.device_attempt_limit) }
+
+      context.response.headers["Retry-After"] = config.device_attempt_window.total_seconds.to_i.to_s
+      ResponseHelper.write_page(context, 429, render_error_page("Too many attempts. Try again later."))
+      true
+    end
+
+    private def self.record_failure(context, subject : String)
+      attempt_keys(context, subject).each { |key| Authly.config.attempt_limiter.record(key, Authly.config.device_attempt_window) }
+    end
+
+    private def self.attempt_keys(context, subject : String) : Array(String)
+      keys = ["device:subject:#{subject}"]
+      Authly.config.attempt_source.call(context).try { |source| keys << "device:source:#{source}" }
+      keys
     end
 
     private def self.request_details(data : DeviceCodeData?) : String
