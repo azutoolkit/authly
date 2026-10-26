@@ -19,6 +19,8 @@ module Authly
     end
   end
 
+  REFRESH_TOKEN = "refresh_token"
+
   class JWTToken
     include TokenStrategy
 
@@ -30,6 +32,14 @@ module Authly
       decoded_token, _header = Authly.jwt_decode(token)
       jti = decoded_token["jti"].to_s
       @config.token_store.revoke(jti)
+      revoke_family(decoded_token)
+    end
+
+    # Revoking a refresh token ends everything it was rotated into, not only itself.
+    private def revoke_family(claims)
+      return unless claims["token_type"]?.try(&.as_s?) == REFRESH_TOKEN
+
+      claims["fid"]?.try(&.as_s?).try { |family| RefreshToken.revoke_family(family) }
     end
 
     def revoked?(token : String) : Bool
@@ -40,6 +50,7 @@ module Authly
 
     def valid?(token) : Bool
       decoded_token, _header = Authly.jwt_decode(token)
+      return false if decoded_token["token_type"]?.try(&.as_s?) == REFRESH_TOKEN
       return false if revoked?(token)
 
       exp = decoded_token["exp"].to_s.to_i64
@@ -52,6 +63,9 @@ module Authly
     def introspect(token : String)
       # Decode the JWT, verify the signature and expiration
       payload, _header = Authly.jwt_decode(token)
+
+      # A refresh token is not an access token (it is redeemed at the token endpoint only)
+      return {"active" => false} if payload["token_type"]?.try(&.as_s?) == REFRESH_TOKEN
 
       # Check if the token is revoked
       if revoked?(token)
@@ -93,6 +107,10 @@ module Authly
       token_store.revoke(token)
     end
 
+    private def refresh_token?(payload) : Bool
+      payload["token_type"]?.to_s == REFRESH_TOKEN
+    end
+
     def revoked?(token) : Bool
       token_store.revoked?(token)
     end
@@ -101,7 +119,7 @@ module Authly
       return false if token_store.revoked?(token)
 
       payload = token_store.fetch(token)
-      return false if payload.nil?
+      return false if payload.nil? || refresh_token?(payload)
 
       exp_value = payload["exp"]
       exp = exp_value.is_a?(Int64) ? exp_value : exp_value.to_s.to_i64
@@ -112,7 +130,7 @@ module Authly
 
     def introspect(token : String)
       payload = token_store.fetch(token)
-      return {"active" => false} if payload.nil?
+      return {"active" => false} if payload.nil? || refresh_token?(payload)
 
       # Check if token is expired
       exp_value = payload["exp"]

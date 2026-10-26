@@ -187,6 +187,7 @@ end
 | `public_key`     | String             | Public key for asymmetric algorithms | `nil`       |
 | `access_ttl`     | Time::Span         | Access token lifetime                | `1.hour`    |
 | `refresh_ttl`    | Time::Span         | Refresh token lifetime               | `1.day`     |
+| `refresh_absolute_ttl` | Time::Span   | Longest a sign-in can be renewed by rotating refresh tokens | `30.days` |
 | `code_ttl`       | Time::Span         | Authorization code lifetime          | `5.minutes` |
 | `token_strategy` | Symbol             | Token type (`:jwt` or `:opaque`)     | `:jwt`      |
 | `algorithm`      | JWT::Algorithm     | JWT signing algorithm                | `HS256`     |
@@ -286,13 +287,19 @@ Allows obtaining a new access token without requiring user interaction.
 A refresh token is **single use**. The answer carries a new refresh token (same family) and the old one stops working.
 Presenting an already used refresh token revokes the whole family, so a leaked token is detected the first time
 either party uses it: the client must sign in again. A refresh token must be a `refresh_token`-typed token issued to
-the authenticating client, unexpired and not revoked; the access token it yields keeps the original scope.
+the authenticating client, unexpired and not revoked; the access token it yields keeps the original scope, and the
+client must still be allowed that scope (`invalid_scope` otherwise, the token is not consumed). Rotation cannot renew a
+sign-in for ever: the family ends `refresh_absolute_ttl` (30 days) after the sign-in (`fexp` claim, which no token
+outlives), then the user signs in again. Revoking a refresh token revokes its whole family. Refresh tokens are not
+access tokens: `Authly.valid?`, introspection and the bearer handler refuse them.
 
 **Upgrading:** refresh tokens issued by earlier versions (without `cid`, `fid` and `scope`) are refused: users sign in
 again. A custom `Authly::TokenGenerator` must override `generate_refresh_token(client_id, jti, sub, scope, family)`
 and put `cid`, `scope`, `fid` and `token_type: "refresh_token"` in the token, otherwise its refresh tokens cannot be
 redeemed. A custom `TokenStore` needs an atomic `consume` (see "Custom Token Store"); the family is revoked through
-`revoke("refresh-family:<fid>")`.
+`revoke("refresh-family:<fid>")`; override `revoke(token_id, ttl)` too to expire that key after `refresh_ttl`
+(the default ignores the TTL). A custom generator should also override the six-argument
+`generate_refresh_token(..., family, family_expires_at)` and emit `fexp`; without it the absolute lifetime is not enforced.
 
 ### Device Authorization Grant
 
@@ -454,9 +461,10 @@ Invalidates an access or refresh token.
 
 User visits this endpoint to enter the user code and authorize the device.
 
-The page needs `Authly.config.authenticate_user`. Wrong codes are counted per signed-in owner and per source and, after
-`device_attempt_limit` (10) of them within `device_attempt_window` (15 minutes), the page answers `429` with
-`Retry-After` until the window passes. A device that polls the token endpoint faster than `interval` is answered
+The page needs `Authly.config.authenticate_user`. Every lookup of a user code is counted per signed-in owner and per source (approving takes two: the page and the
+form) and, past `device_attempt_limit` (10) of them within `device_attempt_window` (15 minutes), the page answers `429`
+with `Retry-After` until the window passes. A code is decided once: approving an approved or denied code, or denying an
+approved one, is refused. When the owner denies, the device is answered `access_denied` (RFC 8628 3.5) until the code expires. A device that polls the token endpoint faster than `interval` is answered
 `slow_down` and its interval grows by 5 seconds. An approved device code yields one token, about the owner who approved it.
 
 ```crystal
@@ -465,10 +473,22 @@ Authly.configure do |config|
   config.device_attempt_window = 15.minutes
   # Behind a reverse proxy the socket address is the proxy: return the client address it vouches for
   config.attempt_source = ->(context : HTTP::Server::Context) { context.request.headers["X-Real-IP"]? }
-  # With several nodes, count in a shared store: implement Authly::AttemptLimiter (exceeded?, record) over Redis INCR + EXPIRE
+  # With several nodes, count in a shared store: implement Authly::AttemptLimiter (exceeded?, increment) over Redis
   # config.attempt_limiter = RedisAttemptLimiter.new
 end
 ```
+
+`X-Real-IP` in the example is a request header: a client can send any value, so an attacker rotates it to get a fresh
+counter every time **unless your reverse proxy overwrites it** (`proxy_set_header X-Real-IP $remote_addr;` in nginx,
+rather than passing the client's value on) and the app is reachable only through that proxy. Without such a proxy keep
+the default (the socket address) or return nil to count by account only.
+
+**Shared limiters:** the handlers count with `increment(key, window) : Int32`, which has to count and answer in one atomic
+step, otherwise parallel requests all pass the check before any is counted. For Redis that is `INCR key`, then
+`EXPIRE key window` when the answer is `1` (or one Lua script); `exceeded?(key, limit)` is a plain read of the same
+counter and `record` is `increment` whose answer is ignored. `InMemoryAttemptLimiter` keeps at most 10,000 keys: when
+full it drops expired keys first and, if all are live, counts no new key and answers a count no limit reaches, so
+the handler refuses (fail closed) instead of forgetting a live counter. A custom limiter written for 1.3.1 must add `increment`.
 
 **Upgrading:** a custom `DeviceCodeStore` must persist the new `DeviceCodeData#last_polled_at` (it is part of the
 record, and `JSON::Serializable` stores it by default); without it `slow_down` never triggers.
@@ -553,10 +573,15 @@ Authly.configure do |config|
   config.registration_scopes = ["read"] # none by default: a request with a `scope` is refused
 
   config.registration_max_body = 16 * 1024                 # bytes, else 413
-  config.registration_rate_limit = 10                       # requests per source ...
-  config.registration_rate_window = 1.hour                  # ... per window, else 429 (rejected requests count too)
+  config.registration_rate_limit = 10                       # failed authentications per source ...
+  config.registration_rate_window = 1.hour                  # ... per window, else 429 (requests with the right credentials are not counted)
 end
 ```
+
+Only failed authentications count against a source, since they are what guesses the initial access token; a source
+that used up its failures is refused even with the right token until the window passes, so the limit caps the guesses.
+The source is `Authly.config.attempt_source`: behind a proxy it is only as trustworthy as that hook (see the note on
+`X-Real-IP` under the device flow).
 
 `redirect_uris` (1 to 10) must be exact URIs of one of three kinds: `https`, `http` on a loopback host (`localhost`,
 `127.0.0.1`, `[::1]`, RFC 8252), or a private-use scheme named after a domain (`com.example.app:/callback`). A fragment,

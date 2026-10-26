@@ -155,4 +155,38 @@ module Authly
       end
     end
   end
+
+  describe "refresh tokens are not access tokens" do
+    it "are not valid for a JWT strategy, and introspect as inactive" do
+      issued = AccessToken.new("1", "read", subject: "john")
+      strategy = JWTToken.new
+
+      strategy.valid?(issued.access_token).should be_true
+      strategy.valid?(issued.refresh_token).should be_false
+      strategy.introspect(issued.refresh_token).should eq({"active" => false})
+      strategy.introspect(issued.access_token)["active"].should be_true
+    end
+
+    it "are not valid for an opaque strategy, and introspect as inactive" do
+      original = Authly.config.token_strategy
+      Authly.config.token_strategy = :opaque
+      begin
+        issued = AccessToken.new("1", "read", subject: "john")
+        strategy = OpaqueToken.new
+
+        strategy.valid?(issued.access_token).should be_true
+        strategy.valid?(issued.refresh_token).should be_false
+        strategy.introspect(issued.refresh_token).should eq({"active" => false})
+        strategy.introspect(issued.access_token)["active"].should be_true
+      ensure
+        Authly.config.token_strategy = original
+      end
+    end
+
+    it "are not valid through Authly.valid? and Authly.introspect" do
+      issued = AccessToken.new("1", "read", subject: "john")
+      Authly.valid?(issued.refresh_token).should be_false
+      Authly.introspect(issued.refresh_token).should eq({"active" => false})
+    end
+  end
 end

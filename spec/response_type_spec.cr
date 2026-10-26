@@ -2,6 +2,11 @@ require "./spec_helper"
 
 module Authly
   describe ResponseType do
+    original_clients = Authly.config.clients
+
+    # The shared client list is put back, so the examples that run after these still find their clients
+    after_each { Authly.config.clients = original_clients }
+
     before_each do
       # Setup test client
       Authly.config.clients = Clients.new

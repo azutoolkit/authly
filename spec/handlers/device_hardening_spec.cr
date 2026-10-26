@@ -29,6 +29,17 @@ module DeviceSpec
 end
 
 describe "Device flow brute force" do
+  it "counts a lookup with one atomic increment per key" do
+    DeviceSpec.fresh do
+      limiter = IncrementOnlyLimiter.new
+      Authly.config.attempt_limiter = limiter
+      Authly.config.attempt_source = ->(_ctx : HTTP::Server::Context) { "203.0.113.9".as(String?) }
+
+      AuthorizationSecuritySpec.device_get("/device?user_code=#{DeviceSpec::WRONG}", "mallory").status.should eq 200
+      limiter.incremented.should eq ["device:subject:mallory", "device:source:203.0.113.9"]
+    end
+  end
+
   it "refuses further attempts of a user who guessed wrong too often, even with the right code" do
     DeviceSpec.fresh do
       data = Authly::DeviceCode.create_device_authorization("1", "read")
@@ -140,11 +151,46 @@ describe "Device flow approval" do
     end
   end
 
-  it "ends the flow when the owner denies" do
+  it "answers access_denied to a device whose owner denied (RFC 8628 3.5), until the code expires" do
     DeviceSpec.fresh do
       data = Authly::DeviceCode.create_device_authorization("1", "read")
       AuthorizationSecuritySpec.device_submit(data.user_code, "deny", "john").status.should eq 200
-      expect_raises(Authly::Error) { DeviceSpec.poll(data) }
+      expect_raises(Authly::Error, Authly::ERROR_MSG[:access_denied]) { DeviceSpec.poll(data) }
+
+      DeviceSpec.rewind_poll_clock(data)
+      expect_raises(Authly::Error, Authly::ERROR_MSG[:access_denied]) { DeviceSpec.poll(data) }
+      Authly.config.device_code_store.fetch(data.device_code).not_nil!.denied?.should be_true
+    end
+  end
+
+  it "does not let a second owner approve a code that is already approved" do
+    DeviceSpec.fresh do
+      data = Authly::DeviceCode.create_device_authorization("1", "read")
+      DeviceSpec.approve(data, "john").status.should eq 200
+
+      DeviceSpec.approve(data, "mallory").status.should eq 400
+      Authly.config.device_code_store.fetch(data.device_code).not_nil!.user_id.should eq "john"
+    end
+  end
+
+  it "does not let an approved code be denied" do
+    DeviceSpec.fresh do
+      data = Authly::DeviceCode.create_device_authorization("1", "read")
+      DeviceSpec.approve(data, "john")
+
+      AuthorizationSecuritySpec.device_submit(data.user_code, "deny", "john").status.should eq 400
+      Authly.config.device_code_store.fetch(data.device_code).not_nil!.verified?.should be_true
+      Authly.config.device_code_store.fetch(data.device_code).not_nil!.denied?.should be_false
+    end
+  end
+
+  it "does not let a denied code be approved" do
+    DeviceSpec.fresh do
+      data = Authly::DeviceCode.create_device_authorization("1", "read")
+      AuthorizationSecuritySpec.device_submit(data.user_code, "deny", "john")
+
+      DeviceSpec.approve(data, "john").status.should eq 400
+      Authly.config.device_code_store.fetch(data.device_code).not_nil!.verified?.should be_false
     end
   end
 

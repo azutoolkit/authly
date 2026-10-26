@@ -30,6 +30,8 @@ module Authly
       raise Error.invalid_grant if device_data.expired?
       raise Error.invalid_grant unless device_data.client_id == @client_id
 
+      raise Error.access_denied if device_data.denied?
+
       enforce_interval!(device_data)
       raise Error.authorization_pending unless device_data.verified?
 

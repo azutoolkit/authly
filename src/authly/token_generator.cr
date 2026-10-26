@@ -17,6 +17,13 @@ module Authly
       generate_refresh_token(client_id, jti, sub)
     end
 
+    # The same, ending with the family: `family_expires_at` is when the sign-in that began the family stops being
+    # renewable (`fexp`, from `Configuration#refresh_absolute_ttl`), and no token of the family may outlive it. A
+    # generator that does not override this method loses that limit.
+    def generate_refresh_token(client_id : String, jti : String, sub : String, scope : String, family : String, family_expires_at : Time) : String
+      generate_refresh_token(client_id, jti, sub, scope, family)
+    end
+
     abstract def store_token_metadata(jti : String, client_id : String, scope : String, sub : String, expires_at : Time, cert_thumbprint : String? = nil)
   end
 
@@ -57,6 +64,10 @@ module Authly
     end
 
     def generate_refresh_token(client_id : String, jti : String, sub : String, scope : String, family : String) : String
+      generate_refresh_token(client_id, jti, sub, scope, family, @config.refresh_absolute_ttl.from_now)
+    end
+
+    def generate_refresh_token(client_id : String, jti : String, sub : String, scope : String, family : String, family_expires_at : Time) : String
       Authly.jwt_encode({
         "jti"        => jti,
         "sub"        => sub,
@@ -67,7 +78,8 @@ module Authly
         "token_type" => "refresh_token",
         "iat"        => Time.utc.to_unix,
         "iss"        => @config.issuer,
-        "exp"        => @config.refresh_ttl.from_now.to_unix,
+        "exp"        => {@config.refresh_ttl.from_now, family_expires_at}.min.to_unix,
+        "fexp"       => family_expires_at.to_unix,
       })
     end
 

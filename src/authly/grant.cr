@@ -25,6 +25,12 @@ module Authly
       nil
     end
 
+    # When the family of the refresh token this grant redeemed stops being renewable; nil when it redeemed none
+    # (a new family then gets a fresh deadline).
+    def refresh_family_expires_at : Time?
+      nil
+    end
+
     # The identifier an owner carries in its ID token, which is what the `sub` of its access
     # tokens must match; the username when the owner store cannot say.
     private def owner_subject(username : String) : String
@@ -102,7 +108,7 @@ module Authly
     private def access_token
       AccessToken.new(
         @grant_strategy.client_id, scope, generate_id_token, @cert_thumbprint, @grant_strategy.subject,
-        @grant_strategy.refresh_family, @grant_strategy.refresh_scope)
+        @grant_strategy.refresh_family, @grant_strategy.refresh_scope, @grant_strategy.refresh_family_expires_at)
     end
 
     private def generate_id_token
