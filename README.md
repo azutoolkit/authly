@@ -454,6 +454,25 @@ Invalidates an access or refresh token.
 
 User visits this endpoint to enter the user code and authorize the device.
 
+The page needs `Authly.config.authenticate_user`. Wrong codes are counted per signed-in owner and per source and, after
+`device_attempt_limit` (10) of them within `device_attempt_window` (15 minutes), the page answers `429` with
+`Retry-After` until the window passes. A device that polls the token endpoint faster than `interval` is answered
+`slow_down` and its interval grows by 5 seconds. An approved device code yields one token, about the owner who approved it.
+
+```crystal
+Authly.configure do |config|
+  config.device_attempt_limit = 10
+  config.device_attempt_window = 15.minutes
+  # Behind a reverse proxy the socket address is the proxy: return the client address it vouches for
+  config.attempt_source = ->(context : HTTP::Server::Context) { context.request.headers["X-Real-IP"]? }
+  # With several nodes, count in a shared store: implement Authly::AttemptLimiter (exceeded?, record) over Redis INCR + EXPIRE
+  # config.attempt_limiter = RedisAttemptLimiter.new
+end
+```
+
+**Upgrading:** a custom `DeviceCodeStore` must persist the new `DeviceCodeData#last_polled_at` (it is part of the
+record, and `JSON::Serializable` stores it by default); without it `slow_down` never triggers.
+
 ### UserInfo Endpoint
 
 **Path:** `GET /oauth/userinfo`

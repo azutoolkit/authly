@@ -7,6 +7,9 @@ module Authly
   # Where to send a request that has no signed-in resource owner, e.g. the host's login page.
   alias LoginRedirect = Proc(HTTP::Server::Context, String)
 
+  # The address (or other identity) a request counts as for rate limits; nil when unknown.
+  alias AttemptSource = Proc(HTTP::Server::Context, String?)
+
   class Configuration
     # The authorization endpoint (`/oauth/authorize`) and the device verification page (`/device`) act on
     # behalf of a resource owner, and Authly does not own the login. The host application supplies the
@@ -37,6 +40,18 @@ module Authly
     property token_strategy : Symbol = :jwt
     property state_store : StateStore = InMemoryStateStore.new
     property device_code_store : DeviceCodeStore = InMemoryDeviceCodeStore.new
+
+    # Throttles guessing at the device verification page and abuse of the registration endpoint. Share it
+    # between nodes (see `AttemptLimiter`).
+    property attempt_limiter : AttemptLimiter = InMemoryAttemptLimiter.new
+
+    # Who a request counts as for `attempt_limiter`: the client address by default. Behind a reverse proxy that is
+    # the proxy, so return the address your proxy vouches for (or nil to count by account only).
+    property attempt_source : AttemptSource = ->(context : HTTP::Server::Context) { context.request.remote_address.try(&.as?(Socket::IPAddress).try(&.address)) }
+
+    # Wrong user codes one signed-in owner, and one source, may enter at the device page per window.
+    property device_attempt_limit : Int32 = 10
+    property device_attempt_window : Time::Span = 15.minutes
 
     # The `aud` of the access tokens issued, i.e. which API they are for. Defaults to `base_url`.
     # A resource server that sets the same `audience` on its verifier refuses tokens meant for others.

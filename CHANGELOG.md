@@ -20,6 +20,19 @@
 - `/oauth/userinfo` refuses anything but an access token (`token_type: access_token`): a refresh token or an authorization
   code signed with the same key no longer reads user info
 - `Grant#refresh_token_grant` (it could not compile when called) is removed
+- **Device flow: guessing and polling are limited (P1-13).** Wrong user codes at `/device` (and wrong `user_code` lookups
+  through `GET /device?user_code=`) are counted per signed-in owner and per source; at `Authly.config.device_attempt_limit`
+  (10) failures in `device_attempt_window` (15 minutes) the page answers `429` with `Retry-After`, even for a right
+  code. The counters live in the new pluggable `Authly.config.attempt_limiter` (`AttemptLimiter`, in-memory and bounded by
+  default; share one between nodes); the source is `Authly.config.attempt_source` (the socket address by default: behind a
+  reverse proxy return the address your proxy vouches for, or nil to count by account only). User codes are validated
+  (`XXXX-XXXX` of the 32-character alphabet; lower case and a missing dash are accepted) before any lookup. Polling faster than `interval`
+  is answered `slow_down` and widens the interval by 5 seconds (RFC 8628 3.5; `DeviceCodeData#last_polled_at`); an
+  approved device code is redeemed once (it used to mint a token on every poll until it expired) and the token is
+  about the owner who approved it (it was anonymous). `InMemoryDeviceCodeStore` is mutex-protected, sweeps expired
+  authorizations and keeps at most 50,000. A denied code is deleted, so the device's next poll is `invalid_grant`
+- **Breaking for custom stores:** `DeviceCodeData` has a new `last_polled_at : Time?` (nil when absent from stored JSON);
+  a custom `DeviceCodeStore` must keep it when it saves the record, otherwise `slow_down` never triggers
 
 ## [1.3.0] - 2026-10-25
 
