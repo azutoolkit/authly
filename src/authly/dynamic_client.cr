@@ -163,26 +163,8 @@ module Authly
       return false if grant_types.empty?
       return false if response_types.empty?
 
-      # Validate URIs if present
-      redirect_uris.each do |uri|
-        return false unless valid_uri?(uri)
-      end
-
-      if uri = client_uri
-        return false unless valid_uri?(uri)
-      end
-      if uri = logo_uri
-        return false unless valid_uri?(uri)
-      end
-      if uri = tos_uri
-        return false unless valid_uri?(uri)
-      end
-      if uri = policy_uri
-        return false unless valid_uri?(uri)
-      end
-      if uri = jwks_uri
-        return false unless valid_uri?(uri)
-      end
+      return false unless redirect_uris.all? { |uri| RegistrationPolicy.redirect_uri?(uri) }
+      return false unless [client_uri, logo_uri, tos_uri, policy_uri, jwks_uri].compact.all? { |uri| RegistrationPolicy.https_uri?(uri) }
 
       # Validate grant types are supported
       supported_grants = [
@@ -233,13 +215,6 @@ module Authly
       end
 
       true
-    end
-
-    private def valid_uri?(uri : String) : Bool
-      parsed = URI.parse(uri)
-      !parsed.scheme.nil? && !parsed.host.nil?
-    rescue
-      false
     end
   end
 end

@@ -541,8 +541,33 @@ Allows clients to dynamically register with the authorization server (RFC 7591).
 Authly.configure do |config|
   config.allow_dynamic_registration = true
   config.client_store = CustomClientStore.new
+
+  # Registration is never anonymous. Give callers an initial access token (RFC 7591), a hook, or both;
+  # with neither the endpoint answers 500 and registers nothing.
+  config.registration_access_token = ENV["REGISTRATION_ACCESS_TOKEN"]            # Authorization: Bearer <token>
+  config.authenticate_registration = ->(context : HTTP::Server::Context) { admin?(context) } # Bool
+
+  # What a client may ask for (the defaults are shown); anything else is `invalid_client_metadata`
+  config.registration_grant_types = ["authorization_code", "refresh_token"]
+  config.registration_response_types = ["code"]
+  config.registration_scopes = ["read"] # none by default: a request with a `scope` is refused
+
+  config.registration_max_body = 16 * 1024                 # bytes, else 413
+  config.registration_rate_limit = 10                       # requests per source ...
+  config.registration_rate_window = 1.hour                  # ... per window, else 429 (rejected requests count too)
 end
 ```
+
+`redirect_uris` (1 to 10) must be exact URIs of one of three kinds: `https`, `http` on a loopback host (`localhost`,
+`127.0.0.1`, `[::1]`, RFC 8252), or a private-use scheme named after a domain (`com.example.app:/callback`). A fragment,
+user info, wildcard (`*`), blank or control character is refused, so a registered URI can only match itself (the
+authorization endpoint compares redirect URIs exactly). `client_uri`, `logo_uri`, `tos_uri`, `policy_uri` and `jwks_uri` must be `https`.
+Secrets are 256 random bits (`Random::Secure`).
+
+**Upgrading:** the endpoint used to accept anyone, and `password`, `implicit`, any scope and any `scheme://host` URI.
+Set `registration_access_token` or `authenticate_registration`, and widen the allow-lists your clients need.
+Registered clients are stored as given to `ClientStore`; Authly's own `Clients` list does not read that store, and the
+secret is stored as issued (a store that must not hold it in the clear can hash it before saving).
 
 **Request:**
 

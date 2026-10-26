@@ -1,6 +1,14 @@
 require "../spec_helper"
 
 describe Authly::ClientRegistrationHandler do
+  # Registration is never anonymous: these examples exercise the request handling, so the host's hook admits them
+  # (the access-control examples are in client_registration_security_spec.cr).
+  before_each do
+    Authly.config.authenticate_registration = ->(_context : HTTP::Server::Context) { true }
+    Authly.config.attempt_limiter = Authly::InMemoryAttemptLimiter.new
+  end
+  after_each { Authly.config.authenticate_registration = nil }
+
   it "returns error when dynamic registration is disabled" do
     Authly.config.allow_dynamic_registration = false
 

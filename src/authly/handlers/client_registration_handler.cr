@@ -1,82 +1,98 @@
 require "json"
+require "crypto/subtle"
+require "digest/sha256"
 
 module Authly
+  # RFC 7591 registration. It is never anonymous: the caller presents the initial access token
+  # (`Authly.config.registration_access_token`, as `Authorization: Bearer`) or satisfies
+  # `Authly.config.authenticate_registration`; while neither is configured the endpoint refuses everything.
+  # What may be registered is bounded by `RegistrationPolicy`, requests per source by `registration_rate_limit`.
   class ClientRegistrationHandler
     def self.handle(context)
-      # Check if dynamic registration is enabled
       unless Authly.config.allow_dynamic_registration?
-        ResponseHelper.write(context, 403, "application/json", {
-          error:             "access_denied",
-          error_description: "Dynamic client registration is not enabled",
-        }.to_json)
-        return
+        return error(context, 403, "access_denied", "Dynamic client registration is not enabled")
       end
+      return not_configured(context) unless configured?
+      return error(context, 429, "access_denied", "Too many registration requests") if rate_limited?(context)
+      return unauthorized(context) unless authorized?(context)
 
-      # Parse the registration request
-      body = context.request.body.try(&.gets_to_end) || ""
+      body = read_body(context)
+      return error(context, 413, "invalid_request", "Request body is too large") unless body
+      return error(context, 400, "invalid_request", "Request body is required") if body.empty?
 
-      if body.empty?
-        ResponseHelper.write(context, 400, "application/json", {
-          error:             "invalid_request",
-          error_description: "Request body is required",
-        }.to_json)
-        return
-      end
+      register(context, body)
+    end
 
-      begin
-        params = JSON.parse(body).as_h
-      rescue JSON::ParseException
-        ResponseHelper.write(context, 400, "application/json", {
-          error:             "invalid_request",
-          error_description: "Invalid JSON in request body",
-        }.to_json)
-        return
-      end
-
-      # Validate required fields
+    private def self.register(context, body : String)
+      params = JSON.parse(body).as_h
       unless params["redirect_uris"]?
-        ResponseHelper.write(context, 400, "application/json", {
-          error:             "invalid_request",
-          error_description: "redirect_uris is required",
-        }.to_json)
-        return
+        return error(context, 400, "invalid_request", "redirect_uris is required")
       end
 
-      # Create the dynamic client
-      begin
-        client = DynamicClient.from_registration_request(params)
+      client = DynamicClient.from_registration_request(params)
+      violation = RegistrationPolicy.new.violation(client)
+      return error(context, 400, violation.error, violation.description) if violation
+      return error(context, 400, "invalid_client_metadata", "Client metadata validation failed") unless client.valid?
+      return error(context, 500, "server_error", "Failed to store client registration") unless Authly.config.client_store.store(client)
 
-        unless client.valid?
-          ResponseHelper.write(context, 400, "application/json", {
-            error:             "invalid_client_metadata",
-            error_description: "Client metadata validation failed",
-          }.to_json)
-          return
-        end
+      ResponseHelper.write(context, 201, "application/json", client.to_json)
+    rescue JSON::ParseException
+      error(context, 400, "invalid_request", "Invalid JSON in request body")
+    rescue e : Error
+      error(context, e.code, e.type.to_s, e.message.to_s)
+    rescue Exception
+      error(context, 400, "invalid_client_metadata", "Client metadata is malformed")
+    end
 
-        # Store the client
-        client_store = Authly.config.client_store
-        unless client_store.store(client)
-          ResponseHelper.write(context, 500, "application/json", {
-            error:             "server_error",
-            error_description: "Failed to store client registration",
-          }.to_json)
-          return
-        end
+    private def self.configured? : Bool
+      !Authly.config.authenticate_registration.nil? || !Authly.config.registration_access_token.presence.nil?
+    end
 
-        # Return the registered client information
-        ResponseHelper.write(context, 201, "application/json", client.to_json)
-      rescue e : Error
-        ResponseHelper.write(context, e.code, "application/json", {
-          error:             e.type.to_s,
-          error_description: e.message,
-        }.to_json)
-      rescue e : Exception
-        ResponseHelper.write(context, 400, "application/json", {
-          error:             "invalid_client_metadata",
-          error_description: e.message,
-        }.to_json)
-      end
+    private def self.not_configured(context)
+      Log.error { "Dynamic registration is on but neither registration_access_token nor authenticate_registration is set: every request is refused" }
+      error(context, 500, "server_error",
+        "Dynamic registration is not configured: set Authly.config.registration_access_token or authenticate_registration")
+    end
+
+    private def self.authorized?(context) : Bool
+      hook = Authly.config.authenticate_registration
+      return true if hook && hook.call(context)
+
+      expected = Authly.config.registration_access_token.presence
+      presented = context.request.headers["Authorization"]?.try(&.match(/\ABearer (.+)\z/i)).try(&.[1])
+      !expected.nil? && !presented.nil? && same_secret?(expected, presented)
+    end
+
+    # Compared as digests, so neither the value nor its length leaks through timing.
+    private def self.same_secret?(expected : String, presented : String) : Bool
+      Crypto::Subtle.constant_time_compare(Digest::SHA256.digest(expected), Digest::SHA256.digest(presented))
+    end
+
+    # Every request counts, rejected ones too, so the initial access token cannot be guessed freely.
+    private def self.rate_limited?(context) : Bool
+      config = Authly.config
+      key = "register:source:#{config.attempt_source.call(context) || "unknown"}"
+      exceeded = config.attempt_limiter.exceeded?(key, config.registration_rate_limit)
+      config.attempt_limiter.record(key, config.registration_rate_window)
+      context.response.headers["Retry-After"] = config.registration_rate_window.total_seconds.to_i.to_s if exceeded
+      exceeded
+    end
+
+    # nil when the body is over `registration_max_body`; never more than one byte past it is read.
+    private def self.read_body(context) : String?
+      limit = Authly.config.registration_max_body
+      buffer = IO::Memory.new
+      context.request.body.try { |body| IO.copy(body, buffer, limit + 1) }
+      buffer.to_s if buffer.size <= limit
+    end
+
+    private def self.unauthorized(context)
+      context.response.headers["WWW-Authenticate"] = "Bearer"
+      error(context, 401, "invalid_token", "A valid initial access token is required")
+    end
+
+    private def self.error(context, status : Int32, error : String, description : String)
+      ResponseHelper.write(context, status, "application/json", {error: error, error_description: description}.to_json)
     end
   end
 end

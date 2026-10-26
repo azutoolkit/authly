@@ -31,6 +31,19 @@
   approved device code is redeemed once (it used to mint a token on every poll until it expired) and the token is
   about the owner who approved it (it was anonymous). `InMemoryDeviceCodeStore` is mutex-protected, sweeps expired
   authorizations and keeps at most 50,000. A denied code is deleted, so the device's next poll is `invalid_grant`
+- **Breaking: dynamic client registration is no longer anonymous (P1-14).** `POST /oauth/register` (opt-in through
+  `allow_dynamic_registration`) registered anyone, with `password`/`implicit`, any scope, any `scheme://host` redirect URI
+  (`javascript://x/%0aalert(1)` passed) and an unbounded body. It now needs `Authly.config.registration_access_token`
+  (`Authorization: Bearer`, compared in constant time) or `Authly.config.authenticate_registration` (a `Bool` hook), else
+  it answers `401` (`500` when neither is configured: nothing is registered). New `RegistrationPolicy` allow-lists:
+  `registration_grant_types` (`authorization_code`, `refresh_token`), `registration_response_types` (`code`),
+  `registration_scopes` (none, so a `scope` is refused until listed); redirect URIs must be https, loopback http or a
+  domain-named private-use scheme, with no fragment, user info or wildcard, at most 10 of at most 2048 characters; the
+  other metadata URIs must be https. The body is capped (`registration_max_body`, 16 KiB, `413`) and requests are
+  limited per source (`registration_rate_limit` per `registration_rate_window`, `429`; rejected requests count) through
+  the new `attempt_limiter`. Malformed metadata answers a fixed message instead of the exception text.
+  `DynamicClient#valid?` applies the same URI rules. Secrets were already `Random::Secure`; Authly never reads the
+  client store, so no hashing was added
 - **Breaking for custom stores:** `DeviceCodeData` has a new `last_polled_at : Time?` (nil when absent from stored JSON);
   a custom `DeviceCodeStore` must keep it when it saves the record, otherwise `slow_down` never triggers
 

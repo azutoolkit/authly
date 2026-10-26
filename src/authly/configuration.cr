@@ -10,6 +10,8 @@ module Authly
   # The address (or other identity) a request counts as for rate limits; nil when unknown.
   alias AttemptSource = Proc(HTTP::Server::Context, String?)
 
+  alias RegistrationAuthenticator = Proc(HTTP::Server::Context, Bool)
+
   class Configuration
     # The authorization endpoint (`/oauth/authorize`) and the device verification page (`/device`) act on
     # behalf of a resource owner, and Authly does not own the login. The host application supplies the
@@ -75,6 +77,14 @@ module Authly
 
     # Dynamic Client Registration
     property? allow_dynamic_registration : Bool = false
+    property registration_access_token : String? = nil
+    property authenticate_registration : RegistrationAuthenticator? = nil
+    property registration_grant_types : Array(String) = ["authorization_code", "refresh_token"]
+    property registration_response_types : Array(String) = ["code"]
+    property registration_scopes : Array(String) = [] of String
+    property registration_max_body : Int32 = 16 * 1024
+    property registration_rate_limit : Int32 = 10
+    property registration_rate_window : Time::Span = 1.hour
     property client_store : ClientStore = InMemoryClientStore.new
 
     # Certificate-Bound Tokens (mTLS)
