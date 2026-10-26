@@ -54,6 +54,14 @@ module Authly
       # Check if token is valid
       return unless Authly.valid?(token)
 
+      claims = token_claims(token)
+      # Refresh tokens and authorization codes are signed with the same key but are not access tokens
+      claims if claims && claims["token_type"]?.try(&.as_s?) == "access_token"
+    rescue
+      nil
+    end
+
+    private def self.token_claims(token : String)
       # For JWT tokens, decode them
       if Authly.config.token_strategy == :jwt
         payload, _ = Authly.jwt_decode(token)

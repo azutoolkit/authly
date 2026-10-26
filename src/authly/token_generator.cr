@@ -10,6 +10,13 @@ module Authly
       generate_refresh_token(client_id, jti)
     end
 
+    # A refresh token bound to the client it was issued to (`cid`), carrying the scope of the grant
+    # (`scope`) and the id of the rotation family it belongs to (`fid`). Refreshing requires all three, so
+    # a generator that does not override this method issues refresh tokens that cannot be redeemed.
+    def generate_refresh_token(client_id : String, jti : String, sub : String, scope : String, family : String) : String
+      generate_refresh_token(client_id, jti, sub)
+    end
+
     abstract def store_token_metadata(jti : String, client_id : String, scope : String, sub : String, expires_at : Time, cert_thumbprint : String? = nil)
   end
 
@@ -46,9 +53,16 @@ module Authly
     end
 
     def generate_refresh_token(client_id : String, jti : String, sub : String) : String
+      generate_refresh_token(client_id, jti, sub, "", jti)
+    end
+
+    def generate_refresh_token(client_id : String, jti : String, sub : String, scope : String, family : String) : String
       Authly.jwt_encode({
         "jti"        => jti,
         "sub"        => sub,
+        "cid"        => client_id,
+        "scope"      => scope,
+        "fid"        => family,
         "name"       => "refresh token",
         "token_type" => "refresh_token",
         "iat"        => Time.utc.to_unix,

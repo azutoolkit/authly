@@ -278,9 +278,21 @@ Allows obtaining a new access token without requiring user interaction.
   "grant_type": "refresh_token",
   "refresh_token": "REFRESH_TOKEN",
   "client_id": "CLIENT_ID",
-  "client_secret": "CLIENT_SECRET"
+  "client_secret": "CLIENT_SECRET",
+  "scope": "read" // optional; may only narrow the scope of the original grant
 }
 ```
+
+A refresh token is **single use**. The answer carries a new refresh token (same family) and the old one stops working.
+Presenting an already used refresh token revokes the whole family, so a leaked token is detected the first time
+either party uses it: the client must sign in again. A refresh token must be a `refresh_token`-typed token issued to
+the authenticating client, unexpired and not revoked; the access token it yields keeps the original scope.
+
+**Upgrading:** refresh tokens issued by earlier versions (without `cid`, `fid` and `scope`) are refused: users sign in
+again. A custom `Authly::TokenGenerator` must override `generate_refresh_token(client_id, jti, sub, scope, family)`
+and put `cid`, `scope`, `fid` and `token_type: "refresh_token"` in the token, otherwise its refresh tokens cannot be
+redeemed. A custom `TokenStore` needs an atomic `consume` (see "Custom Token Store"); the family is revoked through
+`revoke("refresh-family:<fid>")`.
 
 ### Device Authorization Grant
 

@@ -9,6 +9,22 @@ module Authly
       nil
     end
 
+    # The scope the strategy resolved itself (the refresh token grant); nil when the grant
+    # does not know it and `Grant` reads it from the authorization code.
+    def granted_scope : String?
+      nil
+    end
+
+    # The scope a refresh token issued by this grant keeps granting, when it differs from the access token's.
+    def refresh_scope : String?
+      nil
+    end
+
+    # The rotation family of the refresh token this grant redeemed, nil when it redeemed none.
+    def refresh_family : String?
+      nil
+    end
+
     # The identifier an owner carries in its ID token, which is what the `sub` of its access
     # tokens must match; the username when the owner store cannot say.
     private def owner_subject(username : String) : String
@@ -45,7 +61,8 @@ module Authly
         RefreshToken.new(
           client_id: args[:client_id].to_s,
           client_secret: args[:client_secret].to_s,
-          refresh_token: args.fetch(:refresh_token, "").to_s
+          refresh_token: args.fetch(:refresh_token, "").to_s,
+          requested_scope: args.fetch(:scope, nil).try(&.to_s)
         )
       when "urn:ietf:params:oauth:grant-type:device_code"
         DeviceCode.new(
@@ -62,13 +79,10 @@ module Authly
     @grant_strategy : GrantStrategy
     property code : String
     @client_id : String
-    @token_manager : TokenManager = TokenManager.instance
-    @refresh_token : String
     @cert_thumbprint : String?
 
     def initialize(grant_type : String, **args)
       @grant_strategy = GrantFactory.create(grant_type, **args)
-      @refresh_token = args.fetch(:refresh_token, "").to_s
       @client_id = args.fetch(:client_id, "").to_s
       @code = args.fetch(:code, "").to_s
       @cert_thumbprint = args[:cert_thumbprint]?.try(&.to_s)
@@ -78,25 +92,21 @@ module Authly
       validate_scope!
       authorized?
 
-      token = access_token
-      revoke_old_refresh_token(token.access_token)
-      token
+      access_token
     end
 
     def authorized?
       @grant_strategy.authorized?
     end
 
-    def refresh_token_grant
-      RefreshToken.new(client_id, client_secret, refresh_token)
-    end
-
     private def access_token
-      AccessToken.new(@grant_strategy.client_id, scope, generate_id_token, @cert_thumbprint, @grant_strategy.subject)
+      AccessToken.new(
+        @grant_strategy.client_id, scope, generate_id_token, @cert_thumbprint, @grant_strategy.subject,
+        @grant_strategy.refresh_family, @grant_strategy.refresh_scope)
     end
 
     private def generate_id_token
-      if scope.includes? "openid"
+      if !@code.empty? && scope.includes? "openid"
         user_id = auth_code["user_id"].as_s
         payload = Authly.owners.id_token(user_id)
         payload["iss"] = Authly.config.issuer
@@ -110,6 +120,10 @@ module Authly
     end
 
     private def scope : String
+      @grant_strategy.granted_scope || code_scope
+    end
+
+    private def code_scope : String
       return "" if @code.empty?
       auth_code["scope"].as_s
     end
@@ -118,12 +132,6 @@ module Authly
       return if scope.empty?
       unless Authly.clients.allowed_scopes?(@client_id, scope)
         raise Error.invalid_scope
-      end
-    end
-
-    private def revoke_old_refresh_token(token : String)
-      if @grant_strategy.is_a?(RefreshToken)
-        @token_manager.revoke(@refresh_token)
       end
     end
   end

@@ -2,6 +2,25 @@
 
 ## [Unreleased]
 
+### Security
+
+- **Breaking for custom token generators and old refresh tokens: refresh tokens are validated and rotated (P1-12).**
+  A refresh token used to be accepted if it merely decoded: any Authly JWT (an access token, an authorization code),
+  a revoked token, and another client's token all passed, and rotation did not exist. Now the token must have
+  `token_type: refresh_token`, `cid` equal to the authenticating client, must not be expired or revoked, and is single
+  use: it is consumed with `TokenStore#consume` and the answer carries a replacement from the same family (`fid`).
+  Presenting a token that was already consumed revokes the whole family (OAuth 2.1 / RFC 6819), so the thief and the
+  client both have to sign in again. The refresh token carries the scope of the grant, so a refreshed access token
+  keeps it (it used to lose it); the optional `scope` parameter may only narrow it (`invalid_scope` otherwise), and the
+  replacement refresh token keeps the original scope. Refresh tokens issued by earlier versions have no `cid`/`fid`/`scope`
+  and are refused once: clients sign in again. A custom `TokenGenerator` must override
+  `generate_refresh_token(client_id, jti, sub, scope, family)` to emit `cid`, `scope`, `fid` and `token_type`; the default
+  keeps compiling but its refresh tokens cannot be redeemed. Access tokens already issued from a revoked family live until
+  they expire (`access_ttl`). Opaque-strategy refresh tokens still cannot be redeemed (unchanged)
+- `/oauth/userinfo` refuses anything but an access token (`token_type: access_token`): a refresh token or an authorization
+  code signed with the same key no longer reads user info
+- `Grant#refresh_token_grant` (it could not compile when called) is removed
+
 ## [1.3.0] - 2026-10-25
 
 Includes the P0 fixes and the consent/authorization hardening (#21). Several changes are breaking for hosts and custom

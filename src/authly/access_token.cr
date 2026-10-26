@@ -30,14 +30,19 @@ module Authly
       new(client_id, scope, id_token).to_json
     end
 
-    def initialize(@client_id : String, @scope : String, @id_token : String? = nil, cert_thumbprint : String? = nil, subject : String? = nil)
+    # `family` is the rotation family of the refresh token this one replaces (a new one when nil);
+    # `refresh_scope` is the scope the refresh token keeps granting (`scope` when nil), which stays
+    # the original one when an access token was narrowed on refresh.
+    def initialize(@client_id : String, @scope : String, @id_token : String? = nil, cert_thumbprint : String? = nil, subject : String? = nil,
+                   family : String? = nil, refresh_scope : String? = nil)
       @sub = subject || Random::Secure.hex(32)
       @jti = Random::Secure.hex(32)
       generator = TokenGeneratorFactory.create
       @access_token = generator.generate_access_token(@client_id, @scope, sub, @jti, cert_thumbprint)
 
       refresh_jti = Random::Secure.hex(32)
-      @refresh_token = generator.generate_refresh_token(@client_id, refresh_jti, subject || @client_id)
+      @refresh_token = generator.generate_refresh_token(
+        @client_id, refresh_jti, subject || @client_id, refresh_scope || @scope, family || Random::Secure.hex(16))
 
       # Store metadata for opaque tokens (use access_token as key)
       expires_at = ACCESS_TTL.from_now

@@ -1,17 +1,28 @@
 module Authly
+  # Redeems a refresh token (RFC 6749 section 6) with the hardening of OAuth 2.0 Security BCP /
+  # OAuth 2.1: the token must be a refresh token issued to the authenticating client, unexpired and
+  # not revoked; it is single use (the answer carries a replacement from the same family); presenting
+  # one that was already used revokes the whole family; the scope may only narrow.
   class RefreshToken
     include GrantStrategy
     getter client_id : String, client_secret : String, refresh_token : String
 
-    @subject : String? = nil
+    FAMILY_PREFIX = "refresh-family:"
 
-    def initialize(@client_id, @client_secret, @refresh_token)
+    @subject : String? = nil
+    @original_scope = ""
+    @scope = ""
+    @family = ""
+
+    def initialize(@client_id, @client_secret, @refresh_token, @requested_scope : String? = nil)
     end
 
     def authorized? : Bool
       raise Error.unauthorized_client unless client_authorized?
       raise Error.unauthorized_client unless grant_type_authorized?
-      validate_code!
+      claims = decode_claims
+      validate!(claims)
+      redeem!(claims["jti"].as_s)
       true
     end
 
@@ -22,10 +33,55 @@ module Authly
       sub unless sub == client_id
     end
 
-    private def validate_code!
-      @subject = Authly.jwt_decode(refresh_token).first["sub"]?.try(&.as_s)
+    # The scope of the access token this redemption yields: the original one, or the narrower one asked for.
+    def granted_scope : String?
+      @scope
+    end
+
+    # The scope the replacement refresh token keeps granting, whatever this access token was narrowed to.
+    def refresh_scope : String?
+      @original_scope
+    end
+
+    def refresh_family : String?
+      @family
+    end
+
+    private def decode_claims : Hash(String, JSON::Any)
+      Authly.jwt_decode(refresh_token).first.as_h
     rescue
       raise Error.invalid_grant
+    end
+
+    private def validate!(claims : Hash(String, JSON::Any))
+      raise Error.invalid_grant unless claims["token_type"]?.try(&.as_s?) == "refresh_token"
+      raise Error.invalid_grant unless claims["cid"]?.try(&.as_s?) == client_id
+      @family = claims["fid"]?.try(&.as_s?) || raise Error.invalid_grant
+      @original_scope = claims["scope"]?.try(&.as_s?) || raise Error.invalid_grant
+      @subject = claims["sub"]?.try(&.as_s?)
+      raise Error.invalid_grant if token_store.revoked?(FAMILY_PREFIX + @family)
+      @scope = narrowed_scope
+    end
+
+    # Exactly one of several presentations of a token redeems it. A second one means the token leaked
+    # (or the client lost the answer): the family is revoked, so neither party keeps a working token.
+    private def redeem!(jti : String)
+      return if token_store.consume(jti)
+      token_store.revoke(FAMILY_PREFIX + @family)
+      raise Error.invalid_grant
+    end
+
+    private def narrowed_scope : String
+      requested = @requested_scope.presence
+      return @original_scope unless requested
+
+      granted = @original_scope.split(' ', remove_empty: true)
+      raise Error.invalid_scope unless requested.split(' ', remove_empty: true).all? { |scope| granted.includes?(scope) }
+      requested
+    end
+
+    private def token_store : TokenStore
+      Authly.config.token_store
     end
 
     private def client_authorized?
