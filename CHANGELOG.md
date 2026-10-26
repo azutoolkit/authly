@@ -2,6 +2,39 @@
 
 ## [Unreleased]
 
+## [1.3.1] - 2026-10-26
+
+### Breaking changes in this patch release
+
+**1.3.1 is a patch release by version number only: it contains breaking changes.** Read this list before upgrading
+from 1.3.0 or earlier.
+
+- Refresh tokens issued by earlier versions are refused (they lack `cid`, `fid` and `scope`): every user holding one signs in again.
+- A custom `TokenGenerator` must emit `cid`, `scope`, `fid` and `token_type: "refresh_token"` (override
+  `generate_refresh_token(client_id, jti, sub, scope, family)`), and should emit `fexp` too (override the six-argument
+  form); otherwise its refresh tokens cannot be redeemed, or have no absolute lifetime.
+- A custom `DeviceCodeStore` must persist `DeviceCodeData#last_polled_at` and `DeviceCodeData#denied?`; without them
+  `slow_down` never triggers and a denial is not remembered.
+- Dynamic client registration needs `registration_access_token` or `authenticate_registration`; without either the
+  endpoint answers 500 and registers nothing, and callers without the credential get 401.
+- A custom `AttemptLimiter` must implement the new atomic `increment(key, window) : Int32`.
+- `Grant#refresh_token_grant` is removed.
+- A device whose owner denied the request is now answered `access_denied` (it was `invalid_grant`), and a refresh whose
+  scope the client may no longer have is answered `invalid_scope`.
+
+**Upgrade checklist**
+
+1. Tell users holding refresh tokens from before 1.3.1 that they will sign in again.
+2. Custom `TokenGenerator`: add the refresh token claims above (`cid`, `scope`, `fid`, `token_type`, `fexp`).
+3. Custom `DeviceCodeStore`: keep `last_polled_at` and `denied` when saving a record.
+4. Custom `AttemptLimiter`: add an atomic `increment` (Redis: `INCR`, then `EXPIRE` on the first count).
+5. Custom `TokenStore`: make `consume` atomic; optionally override `revoke(token_id, ttl)` to expire family revocations.
+6. Dynamic registration: set `registration_access_token` or `authenticate_registration`, and widen the registration
+   allow-lists your clients need.
+7. Device flow and registration limits: set `attempt_source` to an address your proxy vouches for, and make the proxy
+   overwrite `X-Real-IP` (a client-supplied header is spoofable).
+8. Clients that must deal with device denial handle `access_denied` from the token endpoint.
+
 ### Security
 
 - **Breaking for custom token generators and old refresh tokens: refresh tokens are validated and rotated (P1-12).**
@@ -30,7 +63,9 @@
   is answered `slow_down` and widens the interval by 5 seconds (RFC 8628 3.5; `DeviceCodeData#last_polled_at`); an
   approved device code is redeemed once (it used to mint a token on every poll until it expired) and the token is
   about the owner who approved it (it was anonymous). `InMemoryDeviceCodeStore` is mutex-protected, sweeps expired
-  authorizations and keeps at most 50,000. A denied code is deleted, so the device's next poll is `invalid_grant`
+  authorizations and keeps at most 50,000. When the owner denies, the code keeps a `denied` flag until it expires and the
+  device's next polls are answered `access_denied` (RFC 8628 3.5); before this release a denied code was deleted and the
+  device got `invalid_grant`, and the spec that pinned that answer now expects `access_denied`
 - `/oauth/userinfo` no longer answers `500` with the exception text (it leaked standard library source paths); the
   error is logged and the body is fixed
 - **Breaking: dynamic client registration is no longer anonymous (P1-14).** `POST /oauth/register` (opt-in through
@@ -42,12 +77,32 @@
   `registration_scopes` (none, so a `scope` is refused until listed); redirect URIs must be https, loopback http or a
   domain-named private-use scheme, with no fragment, user info or wildcard, at most 10 of at most 2048 characters; the
   other metadata URIs must be https. The body is capped (`registration_max_body`, 16 KiB, `413`) and requests are
-  limited per source (`registration_rate_limit` per `registration_rate_window`, `429`; rejected requests count) through
-  the new `attempt_limiter`. Malformed metadata answers a fixed message instead of the exception text.
+  limited per source (`registration_rate_limit` per `registration_rate_window`, `429`) through the new
+  `attempt_limiter`: only failed authentications count, and a source that used up its failures is refused even with the
+  right token until the window passes. Malformed metadata answers a fixed message instead of the exception text.
   `DynamicClient#valid?` applies the same URI rules. Secrets were already `Random::Secure`; Authly never reads the
   client store, so no hashing was added
 - **Breaking for custom stores:** `DeviceCodeData` has a new `last_polled_at : Time?` (nil when absent from stored JSON);
   a custom `DeviceCodeStore` must keep it when it saves the record, otherwise `slow_down` never triggers
+- **Follow-ups from the independent review of #23:**
+  - `AttemptLimiter` has an atomic `increment(key, window) : Int32`; the device verification page and the registration
+    endpoint count with it instead of check-then-record (parallel requests could all pass the check). `exceeded?` and
+    `record` stay (`record` calls `increment`). A device lookup counts whether or not the code was right (an approval is
+    two lookups). A shared limiter must make `increment` atomic (documented in the README)
+  - `InMemoryAttemptLimiter`, when full, drops expired keys first and otherwise counts no new key and answers
+    `InMemoryAttemptLimiter::FULL`, so the handler refuses (fail closed); it no longer drops the oldest key, which let
+    an attacker reset a live counter by flooding the limiter
+  - Registration counts only failed authentications; requests with the right credentials are not limited. The README
+    notes that `X-Real-IP` in the example is spoofable unless the proxy overwrites it
+  - Refresh tokens have an absolute lifetime: `refresh_absolute_ttl` (30 days) from the sign-in, carried as `fexp` through
+    rotation; no refresh token outlives it. A token without `fexp` (from before this change) counts from its own `iat`
+  - Revoking a refresh token revokes its whole family (`refresh-family:<fid>`); the family key is stored with
+    `refresh_ttl` through the new `TokenStore#revoke(token_id, ttl)` (the default ignores the TTL; override it in a store
+    that expires keys)
+  - A device code is decided once: approving an approved or denied code, and denying an approved one, is refused (400)
+  - A refresh re-checks the client's allowed scopes (`invalid_scope`, before the token is consumed)
+  - `Authly.valid?` and `Authly.introspect` (JWT and opaque) refuse refresh tokens: `valid?` is false and introspection
+    answers `active: false`; the bearer handler already did
 
 ## [1.3.0] - 2026-10-25
 
