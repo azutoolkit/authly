@@ -1112,8 +1112,8 @@ end
 ### Redis Support
 
 The in-memory stores are per process. With more than one node (or to survive a restart) keep Authly's state in Redis,
-which Authly supports out of the box. The `redis` shard comes with Authly, but nothing of it is compiled into your app
-until you require it:
+which Authly supports out of the box. The `redis` shard is installed with Authly (shards has no optional
+dependencies), but nothing of it is compiled into your app until you require it:
 
 ```crystal
 require "authly"
@@ -1149,8 +1149,13 @@ supported.
   class). A bearer check answers `503`, and no grant, consent or code is accepted while the store is down.
 - **Server settings:** run Redis with `maxmemory-policy noeviction`. An evicting policy could drop a revocation or a
   counter, which would let a revoked token or a throttled client back in; with `noeviction` a full server refuses
-  writes, and Authly refuses with it. `RedisClientStore` keeps clients without a TTL, so it needs persistence (AOF or
-  RDB); keep registered clients in your database if Redis is only a cache for you.
+  writes, and Authly refuses with it. Revocations and used codes live only in Redis too: a restart without persistence
+  (AOF `everysec` or RDB), or a failover to a replica that lagged, forgets them, and a revoked token or a used code is
+  accepted again until it expires. `RedisClientStore` keeps clients without a TTL, so it needs persistence as well;
+  keep registered clients in your database if Redis is only a cache for you.
+- **Lifetimes you lower:** a revocation is kept for the longest lifetime configured when it is written. If you lower
+  `refresh_absolute_ttl` (or the others), tokens issued before still live longer: wait that long, or pass
+  `revocation_ttl:`, before relying on the shorter value.
 
 ### Stores: Interfaces and Adapters
 

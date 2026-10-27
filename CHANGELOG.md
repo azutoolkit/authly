@@ -7,8 +7,8 @@
 - Redis support: `require "authly/redis"` gives `RedisTokenStore`, `RedisStateStore`, `RedisDeviceCodeStore`,
   `RedisPARStore`, `RedisAttemptLimiter` and `RedisClientStore` over one pooled `RedisConnection`. Keys are hashed and
   prefixed, everything but a client expires, single-use operations are atomic across nodes, and an unreachable server
-  raises `StoreUnavailable` (fail closed). The `redis` shard (`~> 2.9.0`) is now a dependency; an app that does not
-  require `authly/redis` compiles none of it. See "Redis Support" in the README.
+  raises `StoreUnavailable` (fail closed). The `redis` shard (`~> 2.9.0`, as azu) is now a dependency: it is installed
+  with Authly, but an app that does not require `authly/redis` compiles none of it. See "Redis Support" in the README.
 - `require "authly/conformance"`: `Authly::Stores::Conformance` runs the shared examples of every store interface
   against your own adapter (a database store, say). Authly's in-memory and Redis stores run them in its suite.
 
