@@ -28,6 +28,11 @@ module Authly
       "#{@prefix}#{kind}:#{Digest::SHA256.hexdigest(id)}"
     end
 
+    # A TTL in whole milliseconds for `PX`, at least 1 (Redis refuses 0).
+    def self.milliseconds(span : Time::Span) : Int64
+      {span.total_milliseconds.ceil.to_i64, 1_i64}.max
+    end
+
     def run(& : ::Redis::PooledClient -> T) : T forall T
       yield @client
     rescue e : ::Redis::Error | IO::Error | OpenSSL::Error
