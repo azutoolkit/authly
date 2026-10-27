@@ -8,12 +8,22 @@ module Authly
 
     alias Payload = Hash(String, InMemoryStore::TokenPayload)
 
+    # Sets the revocation unless it already lives longer (or forever): a revocation is never shortened.
+    REVOKE = <<-LUA
+      local ttl = redis.call('PTTL', KEYS[1])
+      if ttl ~= -1 and ttl < tonumber(ARGV[1]) then
+        redis.call('SET', KEYS[1], '1', 'PX', ARGV[1])
+      end
+      return 1
+      LUA
+
     def initialize(@redis : RedisConnection, @revocation_ttl : Time::Span? = nil, @token_ttl : Time::Span? = nil)
     end
 
     def store(token_id : String, payload)
       key = @redis.key("token", token_id)
-      @redis.run(&.set(key, payload.to_json, px: payload_ttl(payload)))
+      ttl = payload_ttl(payload)
+      @redis.run { |redis| ttl ? redis.set(key, payload.to_json, px: ttl) : redis.del(key) }
     end
 
     def fetch(token_id : String)
@@ -27,7 +37,7 @@ module Authly
     end
 
     def revoke(token_id : String, ttl : Time::Span)
-      @redis.run(&.set(@redis.key("revoked", token_id), "1", px: RedisConnection.milliseconds(ttl)))
+      @redis.run(&.eval(REVOKE, [@redis.key("revoked", token_id)], [RedisConnection.milliseconds(ttl)]))
     end
 
     def revoked?(token_id : String) : Bool
@@ -47,10 +57,12 @@ module Authly
       @redis.run(&.set(key, "1", px: RedisConnection.milliseconds(ttl), nx: true)) == "OK"
     end
 
-    # Milliseconds until the payload's `exp`.
-    private def payload_ttl(payload) : Int64
+    # Milliseconds until the payload's `exp`, nil once it has passed.
+    private def payload_ttl(payload) : Int64?
       exp = payload["exp"]?
-      RedisConnection.milliseconds(exp.is_a?(Int64) ? Time.unix(exp) - Time.utc : token_ttl)
+      return RedisConnection.milliseconds(token_ttl) unless exp.is_a?(Int64)
+      left = Time.unix(exp) - Time.utc
+      RedisConnection.milliseconds(left) if left.positive?
     end
 
     private def decode(raw : String) : Payload
