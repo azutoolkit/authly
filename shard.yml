@@ -10,6 +10,10 @@ targets:
 dependencies:
   jwt:
     github: crystal-community/jwt
+  # Loaded only by `require "authly/redis"`: an app that does not require it compiles none of it.
+  redis:
+    github: stefanwille/crystal-redis
+    version: ~> 2.9.0
 development_dependencies:
   faker:
     github: askn/faker
