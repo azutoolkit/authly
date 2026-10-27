@@ -20,7 +20,8 @@ Authly is a production-ready Crystal library that provides secure, standards-com
 - [Customization](#customization)
   - [Custom Authorizable Client](#custom-authorizable-client)
   - [Custom Authorizable Owner](#custom-authorizable-owner)
-  - [Custom Token Store](#custom-token-store)
+  - [Redis Support](#redis-support)
+  - [Stores: Interfaces and Adapters](#stores-interfaces-and-adapters)
 - [Token Strategies](#token-strategies)
 - [Protecting Your API](#protecting-your-api)
   - [Bearer Handler](#bearer-handler)
@@ -296,7 +297,7 @@ access tokens: `Authly.valid?`, introspection and the bearer handler refuse them
 **Upgrading:** refresh tokens issued by earlier versions (without `cid`, `fid` and `scope`) are refused: users sign in
 again. A custom `Authly::TokenGenerator` must override `generate_refresh_token(client_id, jti, sub, scope, family)`
 and put `cid`, `scope`, `fid` and `token_type: "refresh_token"` in the token, otherwise its refresh tokens cannot be
-redeemed. A custom `TokenStore` needs an atomic `consume` (see "Custom Token Store"); the family is revoked through
+redeemed. A custom `TokenStore` needs an atomic `consume` (see "Stores: Interfaces and Adapters"); the family is revoked through
 `revoke("refresh-family:<fid>")`; override `revoke(token_id, ttl)` too to expire that key after `refresh_ttl`
 (the default ignores the TTL). A custom generator should also override the six-argument
 `generate_refresh_token(..., family, family_expires_at)` and emit `fexp`; without it the absolute lifetime is not enforced.
@@ -476,9 +477,9 @@ Authly.configure do |config|
   config.device_attempt_window = 15.minutes
   # Behind a reverse proxy the socket address is the proxy: return the client address it vouches for
   config.attempt_source = ->(context : HTTP::Server::Context) { context.request.headers["X-Real-IP"]? }
-  # With several nodes, count in a shared store: implement Authly::AttemptLimiter (exceeded?, increment) over Redis
-  # config.attempt_limiter = RedisAttemptLimiter.new       # the device page
-  # config.registration_limiter = RedisAttemptLimiter.new  # registration has its own, so one cannot fill the other
+  # With several nodes, count in a shared store (see "Redis Support"):
+  # config.attempt_limiter = Authly::RedisAttemptLimiter.new(redis)       # the device page
+  # config.registration_limiter = Authly::RedisAttemptLimiter.new(redis)  # registration has its own, so one cannot fill the other
 end
 ```
 
@@ -1108,60 +1109,79 @@ class CustomAuthorizableOwner
 end
 ```
 
-### Custom Token Store
+### Redis Support
 
-For production deployments, implement a persistent token store using your preferred database:
+The in-memory stores are per process. With more than one node (or to survive a restart) keep Authly's state in Redis,
+which Authly supports out of the box. The `redis` shard comes with Authly, but nothing of it is compiled into your app
+until you require it:
 
 ```crystal
-class CustomTokenStore
-  include Authly::TokenStore
+require "authly"
+require "authly/redis"
 
-  def store(token : String, data : Hash(String, String))
-    # Store token in database with expiration
-    Token.create(
-      token: token,
-      data: data.to_json,
-      expires_at: Time.utc + data["ttl"].to_i.seconds
-    )
-  end
+redis = Authly::RedisConnection.new(url: ENV["REDIS_URL"], prefix: "myapp:authly:")
 
-  def fetch(token : String) : Hash(String, String)?
-    # Fetch non-expired token from database
-    token_record = Token.find_by_token(token)
-    return nil unless token_record && !token_record.expired?
-
-    JSON.parse(token_record.data).as(Hash(String, String))
-  rescue
-    nil
-  end
-
-  def revoke(token : String)
-    # Mark token as revoked
-    Token.where(token: token).update_all(revoked: true)
-  end
-
-  def revoked?(token : String) : Bool
-    # Check if token has been revoked
-    token_record = Token.find_by_token(token)
-    token_record.nil? ? false : token_record.revoked?
-  end
-
-  def valid?(token : String) : Bool
-    # Verify token is not revoked and not expired
-    token_record = Token.find_by_token(token)
-    return false unless token_record
-
-    !token_record.revoked? && !token_record.expired?
-  end
+Authly.configure do |config|
+  config.token_store = Authly::RedisTokenStore.new(redis)
+  config.state_store = Authly::RedisStateStore.new(redis)
+  config.device_code_store = Authly::RedisDeviceCodeStore.new(redis)
+  config.par_store = Authly::RedisPARStore.new(redis)
+  config.attempt_limiter = Authly::RedisAttemptLimiter.new(redis)
+  config.registration_limiter = Authly::RedisAttemptLimiter.new(redis)
+  config.client_store = Authly::RedisClientStore.new(redis) # durable records, see below
 end
 ```
 
-**Benefits of Custom Token Store:**
+Use one `RedisConnection` for every store: it is a connection pool (`pool_size: 5`, `pool_timeout: 5.0` seconds,
+`connect_timeout` and `command_timeout` of 2 seconds by default; connections open on first use). `url` defaults to
+`REDIS_URL`, then `redis://127.0.0.1:6379`; `rediss://` uses TLS.
 
-- Persistence across server restarts
-- Scalability for distributed systems
-- Token audit trail and analytics
-- Advanced token management features
+- **Keys:** `<prefix><kind>:<SHA-256 of the id>`. No token, code or nonce appears in a key (nor in `MONITOR`, `SLOWLOG`
+  or a key listing); values hold what the in-memory stores hold.
+- **Lifetimes:** every key except a registered client has a TTL: a token's payload until its `exp`, a nonce, PAR request
+  or device code for its own lifetime, a counter for its window, a revocation for the TTL Authly gives it (otherwise
+  the longest lifetime the configuration gives a token, see `RedisTokenStore.new(redis, revocation_ttl:)`). A
+  revocation is never shortened.
+- **Single use:** `consume` is one atomic command (`SET NX` for tokens and codes, `DEL` for nonces and PAR requests),
+  and `AttemptLimiter#increment` one script, so of concurrent requests on any number of nodes exactly one wins.
+- **Fails closed:** when Redis cannot be reached every store raises `Authly::StoreUnavailable` (naming only the error
+  class). A bearer check answers `503`, and no grant, consent or code is accepted while the store is down.
+- **Server settings:** run Redis with `maxmemory-policy noeviction`. An evicting policy could drop a revocation or a
+  counter, which would let a revoked token or a throttled client back in; with `noeviction` a full server refuses
+  writes, and Authly refuses with it. `RedisClientStore` keeps clients without a TTL, so it needs persistence (AOF or
+  RDB); keep registered clients in your database if Redis is only a cache for you.
+
+### Stores: Interfaces and Adapters
+
+Every store Authly uses is an interface, and Authly ships an in-memory and a Redis implementation of each. For a
+database, write an adapter: a class that includes the module and implements its methods.
+
+| Setting | Interface | Contract highlights |
+| ------- | --------- | ------------------- |
+| `token_store` | `Authly::TokenStore` | `fetch` raises `Authly::Error` for an unknown token; `consume(id, ttl)` answers `true` to exactly one caller |
+| `state_store` | `Authly::StateStore` | `consume(state)` is one atomic delete-and-report |
+| `par_store` | `Authly::PARStore` | `consume(request_uri)` is one atomic delete-and-report |
+| `device_code_store` | `Authly::DeviceCodeStore` | finds a `DeviceCodeData` by device code and by user code until it expires |
+| `attempt_limiter`, `registration_limiter` | `Authly::AttemptLimiter` | `increment` counts and answers in one atomic step |
+| `client_store` | `Authly::ClientStore` | `update` writes only a client that exists |
+
+Raise `Authly::StoreUnavailable` when the backing service cannot be reached, and make single-use operations one
+statement (`DELETE ... WHERE` and the affected row count, or `INSERT` into a unique column), never a read followed by a
+write. Then prove the adapter with the examples Authly's own stores pass:
+
+```crystal
+# spec/token_store_spec.cr
+require "spec"
+require "authly"
+require "authly/conformance"
+
+Authly::Stores::Conformance.token_store("PgTokenStore") { PgTokenStore.new(DB.open(ENV["DATABASE_URL"])) }
+Authly::Stores::Conformance.state_store("PgStateStore") { PgStateStore.new(DB.open(ENV["DATABASE_URL"])) }
+```
+
+There is one method per interface (`token_store`, `state_store`, `par_store`, `device_code_store`, `attempt_limiter`,
+`client_store`). The block builds the store for each example; the examples use random ids, so they can share a
+database, and include concurrent `consume` and `increment` calls and short TTLs.
 
 ## Token Strategies
 
@@ -1404,7 +1424,7 @@ Authly specs run the same handler chain over a real `HTTP::Server`.
 
 - [ ] Rate limiting and throttling for authentication endpoints
 - [ ] Session management capabilities
-- [ ] Additional token storage backends (Redis, Memcached)
+- [x] Redis stores (`require "authly/redis"`), and shared examples for your own adapters
 - [x] JWKS endpoint and RFC 8414 metadata (asymmetric algorithms only)
 - [ ] JWKS key rotation (several published keys)
 - [ ] Comprehensive integration examples
