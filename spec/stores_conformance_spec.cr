@@ -6,3 +6,4 @@ Authly::Stores::Conformance.token_store("InMemoryStore") { Authly::InMemoryStore
 Authly::Stores::Conformance.state_store("InMemoryStateStore") { Authly::InMemoryStateStore.new }
 Authly::Stores::Conformance.par_store("InMemoryPARStore") { Authly::InMemoryPARStore.new }
 Authly::Stores::Conformance.device_code_store("InMemoryDeviceCodeStore") { Authly::InMemoryDeviceCodeStore.new }
+Authly::Stores::Conformance.attempt_limiter("InMemoryAttemptLimiter") { Authly::InMemoryAttemptLimiter.new }
