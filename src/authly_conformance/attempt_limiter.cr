@@ -22,8 +22,8 @@ module Authly::Stores
 
         it "forgets the count once the window has passed" do
           limiter, key = factory.call, random_id
-          2.times { limiter.increment(key, 50.milliseconds) }
-          sleep 120.milliseconds
+          2.times { limiter.increment(key, 100.milliseconds) }
+          sleep 300.milliseconds
 
           limiter.exceeded?(key, 2).should be_false
           limiter.increment(key, 50.milliseconds).should eq 1

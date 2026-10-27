@@ -32,8 +32,8 @@ module Authly::Stores
 
         it "forgets a request once its TTL has passed" do
           store, uri = factory.call, random_id
-          store.store(uri, {"scope" => "read"}, "client", 50.milliseconds)
-          sleep 120.milliseconds
+          store.store(uri, {"scope" => "read"}, "client", 100.milliseconds)
+          sleep 300.milliseconds
 
           store.fetch(uri).should be_nil
           store.valid?(uri).should be_false

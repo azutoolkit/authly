@@ -5,6 +5,28 @@ module Authly
   class RedisDeviceCodeStore
     include DeviceCodeStore
 
+    # `DeviceCodeData` serializes times in whole seconds; its times are kept here to the millisecond, since `slow_down`
+    # compares `last_polled_at` with the poll interval.
+    private struct Record
+      include JSON::Serializable
+
+      getter data : DeviceCodeData
+      getter expires_at_ms : Int64
+      getter last_polled_at_ms : Int64?
+
+      def initialize(@data : DeviceCodeData)
+        @expires_at_ms = data.expires_at.to_unix_ms
+        @last_polled_at_ms = data.last_polled_at.try(&.to_unix_ms)
+      end
+
+      def restore : DeviceCodeData
+        restored = @data
+        restored.expires_at = Time.unix_ms(@expires_at_ms)
+        restored.last_polled_at = @last_polled_at_ms.try { |millis| Time.unix_ms(millis) }
+        restored
+      end
+    end
+
     # Writes the authorization and its user code index together, with the same TTL.
     STORE = <<-LUA
       redis.call('SET', KEYS[1], ARGV[1], 'PX', ARGV[2])
@@ -18,7 +40,7 @@ module Authly
     def store(device_code : String, data : DeviceCodeData)
       return unless ttl = ttl(data)
       keys = [device_key(device_code), user_key(data.user_code)]
-      @redis.run(&.eval(STORE, keys, [data.to_json, ttl]))
+      @redis.run(&.eval(STORE, keys, [Record.new(data).to_json, ttl]))
     end
 
     def fetch(device_code : String) : DeviceCodeData?
@@ -32,7 +54,7 @@ module Authly
 
     def update(device_code : String, data : DeviceCodeData)
       return delete(device_code) unless ttl = ttl(data)
-      @redis.run(&.set(device_key(device_code), data.to_json, px: ttl, xx: true))
+      @redis.run(&.set(device_key(device_code), Record.new(data).to_json, px: ttl, xx: true))
     end
 
     def delete(device_code : String)
@@ -44,7 +66,7 @@ module Authly
 
     private def read(key : String) : DeviceCodeData?
       raw = @redis.run(&.get(key))
-      data = DeviceCodeData.from_json(raw) if raw
+      data = Record.from_json(raw).restore if raw
       data unless data.nil? || data.expired?
     end
 

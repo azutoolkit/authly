@@ -19,8 +19,8 @@ module Authly::Stores
 
         it "forgets a state once its TTL has passed" do
           store, state = factory.call, random_id
-          store.store(state, 50.milliseconds)
-          sleep 120.milliseconds
+          store.store(state, 100.milliseconds)
+          sleep 300.milliseconds
 
           store.valid?(state).should be_false
           store.consume(state).should be_false

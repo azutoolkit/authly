@@ -22,7 +22,7 @@ module Authly::Stores
           store.store(data.device_code, data)
           data.verified = true
           data.user_id = "owner"
-          data.last_polled_at = Time.utc(2030, 1, 1)
+          data.last_polled_at = Time.unix_ms(Time.utc.to_unix_ms) # to the millisecond: `slow_down` compares it
           store.update(data.device_code, data)
 
           store.fetch(data.device_code).should eq data
@@ -39,9 +39,9 @@ module Authly::Stores
         end
 
         it "does not return an expired authorization" do
-          store, data = factory.call, device_data(1.second)
+          store, data = factory.call, device_data(100.milliseconds)
           store.store(data.device_code, data)
-          sleep 1100.milliseconds
+          sleep 300.milliseconds
 
           store.fetch(data.device_code).should be_nil
           store.fetch_by_user_code(data.user_code).should be_nil
@@ -50,8 +50,8 @@ module Authly::Stores
     end
 
     private def self.device_data(lifetime : Time::Span = 10.minutes) : DeviceCodeData
-      # Whole seconds, as `DeviceCodeData` serializes times: at most *lifetime* from now.
-      DeviceCodeData.new(random_id, random_id[0, 8].upcase, "client", "read", Time.unix((Time.utc + lifetime).to_unix))
+      # Milliseconds are what a store has to keep: finer than that, no store is asked to be exact.
+      DeviceCodeData.new(random_id, random_id[0, 8].upcase, "client", "read", Time.unix_ms((Time.utc + lifetime).to_unix_ms))
     end
   end
 end
