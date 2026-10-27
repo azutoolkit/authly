@@ -68,6 +68,7 @@ module Authly
 
         # Store refresh token metadata for opaque tokens
         refresh_payload = {} of String => (String | Int64 | Bool | Float64)
+        refresh_payload["cid"] = @client_id
         refresh_payload["sub"] = @client_id
         refresh_payload["iat"] = Time.utc.to_unix
         refresh_payload["exp"] = REFRESH_TTL.from_now.to_unix

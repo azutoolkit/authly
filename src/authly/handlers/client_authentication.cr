@@ -8,6 +8,8 @@ module Authly
   module ClientAuthentication
     extend self
 
+    NO_CREDENTIALS = {nil, nil}
+
     # The id and secret the request presents, `nil` for each one it does not.
     def credentials(context : HTTP::Server::Context) : Tuple(String?, String?)
       basic_credentials(context.request.headers["Authorization"]?) || begin
@@ -27,14 +29,17 @@ module Authly
       nil
     end
 
+    # `nil` without a Basic header. A Basic header that cannot be read presents no credentials at all:
+    # the request has chosen its method (RFC 6749 2.3), so the form is not consulted.
     private def basic_credentials(header : String?) : Tuple(String?, String?)?
-      return unless header && (match = header.match(/\ABasic\s+(\S+)\z/i))
+      return unless header && header.matches?(/\ABasic(\s|\z)/i)
+      return NO_CREDENTIALS unless match = header.match(/\ABasic\s+(\S+)\z/i)
 
       id, separator, secret = Base64.decode_string(match[1]).partition(':')
-      return if separator.empty?
+      return NO_CREDENTIALS if separator.empty?
       {URI.decode_www_form(id), URI.decode_www_form(secret)}
     rescue Base64::Error | ArgumentError
-      nil
+      NO_CREDENTIALS
     end
   end
 end

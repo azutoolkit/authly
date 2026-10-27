@@ -7,14 +7,16 @@
 - `/introspect` and `/revoke` require client authentication (HTTP Basic or `client_id`/`client_secret` in the form,
   RFC 7662 and RFC 7009); without it they answer `401 invalid_client`. A client revokes only its own tokens: another
   client's token is left alone behind the same `200`. **Callers that did not authenticate must now send credentials.**
+  This holds for access and refresh tokens with both strategies: an opaque refresh token's stored payload now carries
+  `cid` (one stored without it is matched by its `sub`, which is the client id).
+- A request whose `Authorization` header is a Basic one that cannot be read (bad base64, no `:`) presents no
+  credentials: `/introspect` and `/revoke` answer `401 invalid_client`, PAR `400 invalid_client`, and `client_id` /
+  `client_secret` in the form are not used instead (RFC 6749 2.3: one authentication method per request).
 
 ### Fixed
 
 - `/oauth/introspect` and `/oauth/revoke`, the paths the discovery document advertises, are served (only `/introspect`
   and `/revoke` were)
-
-### Fixed
-
 - Specs: the per-example configuration restore now also copies the client list, so `Authly.config.clients << ...` no
   longer leaks into later examples. The contents of the stores and limiters are still shared between examples; assign a
   fresh one first (`DeviceSpec.fresh`). A new spec covers the 503 the device page answers when a decision cannot be saved
