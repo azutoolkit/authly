@@ -507,7 +507,9 @@ full it drops expired keys first and, if all are live, counts no new key and ans
 the handler refuses (fail closed) instead of forgetting a live counter. A custom limiter written for 1.3.1 must add `increment`.
 
 **Upgrading:** a custom `DeviceCodeStore` must persist the new `DeviceCodeData#last_polled_at` (it is part of the
-record, and `JSON::Serializable` stores it by default); without it `slow_down` never triggers.
+record, and `JSON::Serializable` stores it by default); without it `slow_down` never triggers. Keep `last_polled_at`
+and `expires_at` to the millisecond: `DeviceCodeData#to_json` writes whole seconds, which lets a device poll up to a
+second early (the conformance examples check this).
 
 ### UserInfo Endpoint
 
@@ -1167,7 +1169,7 @@ database, write an adapter: a class that includes the module and implements its 
 | `token_store` | `Authly::TokenStore` | `fetch` raises `Authly::Error` for an unknown token; `consume(id, ttl)` answers `true` to exactly one caller |
 | `state_store` | `Authly::StateStore` | `consume(state)` is one atomic delete-and-report |
 | `par_store` | `Authly::PARStore` | `consume(request_uri)` is one atomic delete-and-report |
-| `device_code_store` | `Authly::DeviceCodeStore` | finds a `DeviceCodeData` by device code and by user code until it expires |
+| `device_code_store` | `Authly::DeviceCodeStore` | finds a `DeviceCodeData` by device code and by user code until it expires; keeps its times to the millisecond |
 | `attempt_limiter`, `registration_limiter` | `Authly::AttemptLimiter` | `increment` counts and answers in one atomic step |
 | `client_store` | `Authly::ClientStore` | `update` writes only a client that exists |
 
