@@ -23,9 +23,9 @@ module Authly
         handle_if_method(context, "POST") { DeviceAuthorizationHandler.handle(context) }
       when "/device"
         handle_if_methods(context, ["GET", "POST"]) { DeviceVerificationHandler.handle(context) }
-      when "/introspect"
+      when "/oauth/introspect", "/introspect"
         handle_if_method(context, "POST") { IntrospectHandler.handle(context) }
-      when "/revoke"
+      when "/oauth/revoke", "/revoke"
         handle_if_method(context, "POST") { RevokeHandler.handle(context) }
       when "/oauth/userinfo"
         handle_if_method(context, "GET") { UserInfoHandler.handle(context) }

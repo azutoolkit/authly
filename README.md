@@ -406,9 +406,11 @@ Exchanges authorization grants for access tokens.
 
 ### Introspection Endpoint
 
-**Path:** `POST /oauth/introspect`
+**Path:** `POST /oauth/introspect` (also `/introspect`)
 
-Validates and retrieves metadata about a token.
+Validates and retrieves metadata about a token. The caller authenticates as a registered client, with HTTP Basic
+(`client_id:client_secret`) or `client_id` and `client_secret` in the form; otherwise `401 invalid_client`. Use one
+of the two: a Basic header that cannot be read is a failed authentication, the form is not tried instead.
 
 ```crystal
 # Request
@@ -430,9 +432,10 @@ Validates and retrieves metadata about a token.
 
 ### Revocation Endpoint
 
-**Path:** `POST /oauth/revoke`
+**Path:** `POST /oauth/revoke` (also `/revoke`)
 
-Invalidates an access or refresh token.
+Invalidates an access or refresh token, with either token strategy. The client authenticates as for introspection and
+can revoke only tokens issued to it; for any other token the answer is the same `200` and nothing is revoked (RFC 7009).
 
 ```crystal
 # Request

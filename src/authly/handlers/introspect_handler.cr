@@ -1,14 +1,11 @@
 module Authly
+  # Token introspection (RFC 7662). Only an authenticated client may ask.
   class IntrospectHandler
     def self.handle(context)
-      if context.request.method == "POST"
-        # Extracting request parameters
-        params = context.request.form_params
-        token = params["token"]
-        introspection_result = Authly.introspect(token)
-        ResponseHelper.write(context, 200, "application/json", introspection_result.to_json)
-      else
-      end
+      return unless ClientAuthentication.authenticate(context)
+
+      token = context.request.form_params["token"]
+      ResponseHelper.write(context, 200, "application/json", Authly.introspect(token).to_json)
     rescue e : Error
       ResponseHelper.write(context, e.code, "text/plain", e.message)
     rescue e : KeyError
