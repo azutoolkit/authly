@@ -2,7 +2,7 @@ module Authly
   # The pool, key prefix and error handling that the Redis stores share. Pass one connection to every store:
   #
   # ```
-  # redis = Authly::RedisConnection.new(url: ENV["REDIS_URL"], prefix: "myapp:authly:")
+  # redis = Authly::RedisConnection.new(prefix: "myapp:authly:") # url: REDIS_URL, else redis://127.0.0.1:6379
   # Authly.config.token_store = Authly::RedisTokenStore.new(redis)
   # ```
   #

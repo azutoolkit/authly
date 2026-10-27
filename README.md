@@ -1119,7 +1119,7 @@ until you require it:
 require "authly"
 require "authly/redis"
 
-redis = Authly::RedisConnection.new(url: ENV["REDIS_URL"], prefix: "myapp:authly:")
+redis = Authly::RedisConnection.new(prefix: "myapp:authly:") # url: REDIS_URL, else redis://127.0.0.1:6379
 
 Authly.configure do |config|
   config.token_store = Authly::RedisTokenStore.new(redis)
@@ -1134,7 +1134,8 @@ end
 
 Use one `RedisConnection` for every store: it is a connection pool (`pool_size: 5`, `pool_timeout: 5.0` seconds,
 `connect_timeout` and `command_timeout` of 2 seconds by default; connections open on first use). `url` defaults to
-`REDIS_URL`, then `redis://127.0.0.1:6379`; `rediss://` uses TLS.
+`REDIS_URL`, then `redis://127.0.0.1:6379`; `rediss://` uses TLS. One Lua script writes two keys, so Redis Cluster is not
+supported.
 
 - **Keys:** `<prefix><kind>:<SHA-256 of the id>`. No token, code or nonce appears in a key (nor in `MONITOR`, `SLOWLOG`
   or a key listing); values hold what the in-memory stores hold.
