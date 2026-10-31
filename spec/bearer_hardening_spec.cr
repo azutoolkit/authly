@@ -324,7 +324,7 @@ describe "access token audience and type" do
     other = BearerSpec.jwt(BearerSpec.payload({"token_type" => "id_token"}))
 
     [Authly::StrategyTokenVerifier.new, Authly::StrategyTokenVerifier.new(legacy_tokens: true)].each do |verifier|
-      verifier.verify(access.refresh_token).should be_nil
+      verifier.verify(access.refresh_token.not_nil!).should be_nil
       verifier.verify(other).should be_nil
     end
   end

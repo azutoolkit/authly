@@ -103,7 +103,7 @@ describe "client authentication at /introspect and /revoke (RFC 7662, RFC 7009)"
   end
 
   it "revokes a JWT refresh token for the client it was issued to, and not for another" do
-    refresh = Authly::AccessToken.new("1", "read", subject: "alice").refresh_token
+    refresh = Authly::AccessToken.new("1", "read", subject: "alice").refresh_token.not_nil!
 
     IntrospectRevokeSpec.post("/revoke", {"token" => refresh}, basic: "test_client:test_secret").status.should eq 200
     Authly.revoked?(refresh).should be_false
@@ -114,7 +114,7 @@ describe "client authentication at /introspect and /revoke (RFC 7662, RFC 7009)"
 
   it "revokes an opaque refresh token for the client it was issued to, and not for another" do
     IntrospectRevokeSpec.with_opaque_strategy do
-      refresh = Authly::AccessToken.new("1", "read", subject: "alice").refresh_token
+      refresh = Authly::AccessToken.new("1", "read", subject: "alice").refresh_token.not_nil!
 
       IntrospectRevokeSpec.post("/revoke", {"token" => refresh}, basic: "test_client:test_secret").status.should eq 200
       Authly.revoked?(refresh).should be_false

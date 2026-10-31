@@ -1,6 +1,12 @@
 module Authly
   module TokenGenerator
     abstract def generate_access_token(client_id : String, scope : String, sub : String, jti : String, cert_thumbprint : String? = nil) : String
+
+    def generate_access_token(client_id : String, scope : String, sub : String, jti : String, cert_thumbprint : String?, options : IssuanceOptions?, issued_at : Time, expires_at : Time) : String
+      raise Error.unsupported_token_type if options
+      generate_access_token(client_id, scope, sub, jti, cert_thumbprint)
+    end
+
     abstract def generate_refresh_token(client_id : String, jti : String) : String
 
     # A refresh token that remembers who it was issued for, so the access token a refresh
@@ -34,16 +40,20 @@ module Authly
     end
 
     def generate_access_token(client_id : String, scope : String, sub : String, jti : String, cert_thumbprint : String? = nil) : String
+      generate_access_token(client_id, scope, sub, jti, cert_thumbprint, nil, Time.utc, @config.access_ttl.from_now)
+    end
+
+    def generate_access_token(client_id : String, scope : String, sub : String, jti : String, cert_thumbprint : String?, options : IssuanceOptions?, issued_at : Time, expires_at : Time) : String
       payload = {
         "sub"        => sub,
         "iss"        => @config.issuer,
         "token_type" => "access_token",
         "cid"        => client_id,
-        "iat"        => Time.utc.to_unix,
-        "exp"        => @config.access_ttl.from_now.to_unix,
+        "iat"        => issued_at.to_unix,
+        "exp"        => expires_at.to_unix,
         "scope"      => scope,
         "jti"        => jti,
-      } of String => (String | Int64 | Hash(String, String))
+      } of String => (String | Int64 | Bool | Float64 | Hash(String, String))
 
       @config.token_audience.try { |audience| payload["aud"] = audience }
 
@@ -52,7 +62,14 @@ module Authly
         payload["cnf"] = {"x5t#S256" => cert_thumbprint}
       end
 
-      Authly.jwt_encode(payload)
+      if options
+        payload["aud"] = options.audience
+        options.additional_claims.each do |key, value|
+          raise ArgumentError.new("Reserved token claim") if IssuanceOptions::RESERVED.includes?(key)
+          payload[key] = value
+        end
+      end
+      Authly.jwt_encode(payload, @config)
     end
 
     def generate_refresh_token(client_id : String, jti : String) : String
@@ -95,6 +112,10 @@ module Authly
     end
 
     def generate_access_token(client_id : String, scope : String, sub : String, jti : String, cert_thumbprint : String? = nil) : String
+      Random::Secure.hex(32)
+    end
+
+    def generate_access_token(client_id : String, scope : String, sub : String, jti : String, cert_thumbprint : String?, options : IssuanceOptions?, issued_at : Time, expires_at : Time) : String
       Random::Secure.hex(32)
     end
 

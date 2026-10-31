@@ -18,6 +18,14 @@ module Authly
     # signed-in owner here, from its own session. It is the ONLY source of the subject: `user_id` and
     # `consent` request parameters are never read. While it is unset those endpoints refuse every request.
     property authenticate_user : OwnerAuthenticator? = nil
+    property render_consent : Proc(HTTP::Server::Context, AuthorizationRequest, String, String, Nil)? = nil
+    property userinfo : Proc(String, Hash(String, JSON::Any))? = nil
+    # Trusted host callback; never populated from OAuth request parameters.
+    property issuance_options : Proc(String, String, IssuanceOptions)? = nil
+    property? issue_refresh_tokens : Bool = true
+    property grant_types : Array(String) = %w[authorization_code client_credentials password refresh_token implicit urn:ietf:params:oauth:grant-type:device_code]
+    property signing_key_id : String? = nil
+    property verification_keys : Hash(String, String) = {} of String => String
 
     # Optional. When nobody is signed in, redirect to the URL this returns (a login page that sends the
     # owner back afterwards) instead of answering 401 `login_required`.

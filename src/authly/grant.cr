@@ -42,6 +42,7 @@ module Authly
 
   class GrantFactory
     def self.create(grant_type : String, **args) : GrantStrategy
+      raise Error.unsupported_grant_type unless Authly.config.grant_types.includes?(grant_type)
       case grant_type
       when "authorization_code"
         AuthorizationCode.new(
@@ -54,7 +55,8 @@ module Authly
       when "client_credentials"
         ClientCredentials.new(
           client_id: args[:client_id].to_s,
-          client_secret: args[:client_secret].to_s
+          client_secret: args[:client_secret].to_s,
+          scope: args.fetch(:scope, "").to_s
         )
       when "password"
         Password.new(
@@ -86,8 +88,10 @@ module Authly
     property code : String
     @client_id : String
     @cert_thumbprint : String?
+    @options : IssuanceOptions?
 
     def initialize(grant_type : String, **args)
+      @options = args[:options]?
       @grant_strategy = GrantFactory.create(grant_type, **args)
       @client_id = args.fetch(:client_id, "").to_s
       @code = args.fetch(:code, "").to_s
@@ -108,13 +112,14 @@ module Authly
     private def access_token
       AccessToken.new(
         @grant_strategy.client_id, scope, generate_id_token, @cert_thumbprint, @grant_strategy.subject,
-        @grant_strategy.refresh_family, @grant_strategy.refresh_scope, @grant_strategy.refresh_family_expires_at)
+        @grant_strategy.refresh_family, @grant_strategy.refresh_scope, @grant_strategy.refresh_family_expires_at, options: @options)
     end
 
     private def generate_id_token
-      if !@code.empty? && scope.includes? "openid"
+      if !@code.empty? && scope.split.includes?("openid")
         user_id = auth_code["user_id"].as_s
         payload = Authly.owners.id_token(user_id)
+        payload["nonce"] = auth_code["nonce"].as_s unless auth_code["nonce"]?.try(&.as_s?).to_s.empty?
         payload["iss"] = Authly.config.issuer
         payload["aud"] = @client_id
         Authly.jwt_encode(payload)

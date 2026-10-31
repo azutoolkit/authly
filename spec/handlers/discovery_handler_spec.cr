@@ -3,6 +3,7 @@ require "../spec_helper"
 describe Authly::DiscoveryHandler do
   it "returns OpenID Connect discovery metadata" do
     Authly.config.base_url = "https://auth.example.com"
+    Authly.config.issuer = "https://auth.example.com"
 
     io = IO::Memory.new
     response = HTTP::Server::Response.new(io)

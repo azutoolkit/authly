@@ -12,19 +12,20 @@ module Authly
     scope : String,
     code_challenge : String,
     challenge_method : String,
-    state : String do
+    state : String,
+    nonce : String = "" do
     def self.from_params(params : Hash(String, String)) : self
       new(
         params.fetch("client_id", ""), params.fetch("redirect_uri", ""), params.fetch("response_type", ""),
         params.fetch("response_mode", ""), params.fetch("scope", ""), params.fetch("code_challenge", ""),
-        params.fetch("code_challenge_method", ""), params.fetch("state", ""))
+        params.fetch("code_challenge_method", ""), params.fetch("state", ""), params.fetch("nonce", ""))
     end
 
     def to_claims : Hash(String, String)
       {
         "client_id" => client_id, "redirect_uri" => redirect_uri, "response_type" => response_type,
         "response_mode" => response_mode, "scope" => scope, "code_challenge" => code_challenge,
-        "code_challenge_method" => challenge_method, "state" => state,
+        "code_challenge_method" => challenge_method, "state" => state, "nonce" => nonce,
       }
     end
 
@@ -75,9 +76,13 @@ module Authly
 
       nonce = Random::Secure.hex(16)
       Authly.config.state_store.store(nonce, Authly.config.consent_ttl)
-      claims = request.to_claims.merge({"subject" => subject, "nonce" => nonce})
+      claims = request.to_claims.merge({"subject" => subject, "consent_nonce" => nonce})
       token = FormToken.issue(CONSENT, claims, Authly.config.consent_ttl)
-      ResponseHelper.write_page(context, 200, consent_page(context, request, subject, token))
+      if renderer = Authly.config.render_consent
+        renderer.call(context, request, subject, token)
+      else
+        ResponseHelper.write_page(context, 200, consent_page(context, request, subject, token))
+      end
     end
 
     private def self.decide(context, authenticator)
@@ -87,7 +92,7 @@ module Authly
       claims = FormToken.verify(CONSENT, context.request.form_params.fetch("consent_token", ""))
       return invalid_consent(context, 400) unless claims
       return invalid_consent(context, 403) unless claims["subject"]? == subject
-      return invalid_consent(context, 400) unless consume_nonce(claims["nonce"]?)
+      return invalid_consent(context, 400) unless consume_nonce(claims["consent_nonce"]?)
 
       request = AuthorizationRequest.from_params(claims)
       validate!(request)
@@ -152,6 +157,7 @@ module Authly
     private def self.validate!(request : AuthorizationRequest) : Nil
       raise Error.invalid_redirect_uri if request.redirect_uri.empty?
       raise Error.invalid_redirect_uri unless Authly.clients.valid_redirect?(request.client_id, request.redirect_uri)
+      raise Error.unsupported_grant_type unless Authly.config.grant_types.includes?(grant_type(request))
       raise Error.invalid_response_type unless ["code", "token"].includes?(request.response_type)
       raise Error(400).new(:unauthorized_client) unless Authly.clients.allowed_grant_type?(request.client_id, grant_type(request))
 
@@ -177,7 +183,7 @@ module Authly
         respond_with_token(context, request, token, use_jarm)
       else
         code = Authly.code(request.response_type, request.client_id, request.redirect_uri, request.scope,
-          request.code_challenge, request.challenge_method, subject)
+          request.code_challenge, request.challenge_method, subject, request.nonce)
         respond_with_code(context, request, code.to_s, use_jarm)
       end
     end
@@ -349,7 +355,10 @@ module Authly
         id_token: id_token
       )
 
-      # Return response based on mode
+      write_jarm_response(context, redirect_uri, mode, jwt_response)
+    end
+
+    private def self.write_jarm_response(context, redirect_uri : String, mode : String, jwt_response : String)
       case mode
       when "query.jwt"
         # JWT in query parameter

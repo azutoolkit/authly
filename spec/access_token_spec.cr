@@ -30,8 +30,8 @@ module Authly
       it "generates refresh token along with access token" do
         token = AccessToken.new("client_123", "read")
 
-        token.refresh_token.should_not be_nil
-        token.refresh_token.should_not be_empty
+        token.refresh_token.not_nil!.should_not be_nil
+        token.refresh_token.not_nil!.should_not be_empty
       end
 
       it "sets expiration time based on configured TTL" do
@@ -116,7 +116,7 @@ module Authly
       it "stores refresh token metadata separately" do
         token = AccessToken.new("client_123", "read")
 
-        refresh_payload = Authly.config.token_store.fetch(token.refresh_token)
+        refresh_payload = Authly.config.token_store.fetch(token.refresh_token.not_nil!)
         refresh_payload["sub"].should eq "client_123"
         refresh_payload["token_type"].should eq "refresh_token"
       end
@@ -126,7 +126,7 @@ module Authly
         token2 = AccessToken.new("client_1", "read")
 
         token1.access_token.should_not eq token2.access_token
-        token1.refresh_token.should_not eq token2.refresh_token
+        token1.refresh_token.not_nil!.should_not eq token2.refresh_token.not_nil!
       end
     end
 

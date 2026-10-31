@@ -28,7 +28,7 @@ module Authly
         token = AccessToken.new(client_id, scope)
 
         # JWT refresh tokens should be decodable
-        decoded, _header = Authly.jwt_decode(token.refresh_token)
+        decoded, _header = Authly.jwt_decode(token.refresh_token.not_nil!)
         decoded["sub"].should eq client_id
 
         Authly.config.token_strategy = original_strategy
@@ -162,8 +162,8 @@ module Authly
       strategy = JWTToken.new
 
       strategy.valid?(issued.access_token).should be_true
-      strategy.valid?(issued.refresh_token).should be_false
-      strategy.introspect(issued.refresh_token).should eq({"active" => false})
+      strategy.valid?(issued.refresh_token.not_nil!).should be_false
+      strategy.introspect(issued.refresh_token.not_nil!).should eq({"active" => false})
       strategy.introspect(issued.access_token)["active"].should be_true
     end
 
@@ -175,8 +175,8 @@ module Authly
         strategy = OpaqueToken.new
 
         strategy.valid?(issued.access_token).should be_true
-        strategy.valid?(issued.refresh_token).should be_false
-        strategy.introspect(issued.refresh_token).should eq({"active" => false})
+        strategy.valid?(issued.refresh_token.not_nil!).should be_false
+        strategy.introspect(issued.refresh_token.not_nil!).should eq({"active" => false})
         strategy.introspect(issued.access_token)["active"].should be_true
       ensure
         Authly.config.token_strategy = original
@@ -204,8 +204,8 @@ module Authly
 
     it "are not valid through Authly.valid? and Authly.introspect" do
       issued = AccessToken.new("1", "read", subject: "john")
-      Authly.valid?(issued.refresh_token).should be_false
-      Authly.introspect(issued.refresh_token).should eq({"active" => false})
+      Authly.valid?(issued.refresh_token.not_nil!).should be_false
+      Authly.introspect(issued.refresh_token.not_nil!).should eq({"active" => false})
     end
   end
 end

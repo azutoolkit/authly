@@ -99,7 +99,7 @@ module Authly
       AccessTokenHandler.handle(test_ctx.context)
 
       test_ctx.context.response.status_code.should eq 400
-      test_ctx.response_body.should eq "Invalid or unknown grant type"
+      JSON.parse(test_ctx.response_body)["error"].as_s.should eq "unsupported_grant_type"
     end
   end
 
@@ -324,7 +324,7 @@ module Authly
       form_data = {
         "client_id"     => "1",
         "client_secret" => "secret",
-        "refresh_token" => token.refresh_token,
+        "refresh_token" => token.refresh_token.not_nil!,
       }
       test_ctx = create_test_context("POST", "/oauth/refresh", form_data: form_data)
       RefreshTokenHandler.handle(test_ctx.context)
@@ -335,7 +335,7 @@ module Authly
       body["refresh_token"].should_not be_nil
     end
 
-    it "returns 400 for missing client_id parameter" do
+    it "returns 401 for missing client_id parameter" do
       form_data = {
         "client_secret" => "secret",
         "refresh_token" => "token",
@@ -343,12 +343,12 @@ module Authly
       test_ctx = create_test_context("POST", "/oauth/refresh", form_data: form_data)
       RefreshTokenHandler.handle(test_ctx.context)
 
-      test_ctx.context.response.status_code.should eq 400
+      test_ctx.context.response.status_code.should eq 401
       body = JSON.parse(test_ctx.response_body)
-      body["error"].should eq "missing_parameters"
+      body["error"].should eq "invalid_client"
     end
 
-    it "returns 400 for missing client_secret parameter" do
+    it "returns 401 for missing client_secret parameter" do
       form_data = {
         "client_id"     => "1",
         "refresh_token" => "token",
@@ -356,9 +356,9 @@ module Authly
       test_ctx = create_test_context("POST", "/oauth/refresh", form_data: form_data)
       RefreshTokenHandler.handle(test_ctx.context)
 
-      test_ctx.context.response.status_code.should eq 400
+      test_ctx.context.response.status_code.should eq 401
       body = JSON.parse(test_ctx.response_body)
-      body["error"].should eq "missing_parameters"
+      body["error"].should eq "invalid_client"
     end
 
     it "returns 400 for missing refresh_token parameter" do
@@ -380,7 +380,7 @@ module Authly
       form_data = {
         "client_id"     => "1",
         "client_secret" => "wrong_secret",
-        "refresh_token" => token.refresh_token,
+        "refresh_token" => token.refresh_token.not_nil!,
       }
       test_ctx = create_test_context("POST", "/oauth/refresh", form_data: form_data)
       RefreshTokenHandler.handle(test_ctx.context)
@@ -436,16 +436,10 @@ module Authly
 
   describe "IntrospectHandler - Enhanced Coverage" do
     it "returns active=false for expired token" do
-      # Create a token with very short TTL
-      original_ttl = Authly.config.access_ttl
-      Authly.config.access_ttl = -1.seconds # Already expired
-
-      token = Authly::AccessToken.new("1", "read")
-
-      # Restore original TTL
-      Authly.config.access_ttl = original_ttl
-
-      form_data = CLIENT_AUTH.merge({"token" => token.access_token})
+      original = Authly::AccessToken.new("1", "read")
+      claims = Authly.jwt_decode(original.access_token)[0].as_h
+      claims["exp"] = JSON::Any.new((Time.utc - 1.second).to_unix)
+      form_data = CLIENT_AUTH.merge({"token" => Authly.jwt_encode(claims)})
       test_ctx = create_test_context("POST", "/introspect", form_data: form_data)
       IntrospectHandler.handle(test_ctx.context)
 

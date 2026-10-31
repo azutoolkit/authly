@@ -60,7 +60,7 @@ module Authly
 
     def valid?(token) : Bool
       decoded_token, _header = Authly.jwt_decode(token)
-      return false if decoded_token["token_type"]?.try(&.as_s?) == REFRESH_TOKEN
+      return false unless decoded_token["token_type"]?.try(&.as_s?) == "access_token"
       return false if revoked?(token)
 
       exp = decoded_token["exp"].to_s.to_i64
@@ -75,7 +75,7 @@ module Authly
       payload, _header = Authly.jwt_decode(token)
 
       # A refresh token is not an access token (it is redeemed at the token endpoint only)
-      return {"active" => false} if payload["token_type"]?.try(&.as_s?) == REFRESH_TOKEN
+      return {"active" => false} unless payload["token_type"]?.try(&.as_s?) == "access_token"
 
       # Check if the token is revoked
       if revoked?(token)

@@ -4,8 +4,10 @@ module Authly
       # Extracting request parameters
       params = context.request.form_params
       grant_type = params.fetch("grant_type", "")
-      client_id = params.fetch("client_id", "")
-      client_secret = params.fetch("client_secret", "")
+      raise Error.unsupported_grant_type unless Authly.config.grant_types.includes?(grant_type)
+      client_id = ClientAuthentication.authenticate(context)
+      return unless client_id
+      _, client_secret = ClientAuthentication.credentials(context)
       redirect_uri = params.fetch("redirect_uri", "")
       username = params.fetch("username", "")
       password = params.fetch("password", "")
@@ -29,11 +31,13 @@ module Authly
         refresh_token: refresh_token,
         scope: scope,
         cert_thumbprint: cert_thumbprint,
+        options: Authly.config.issuance_options.try(&.call(client_id, grant_type)),
       )
 
+      context.response.headers["Cache-Control"] = "no-store"
       ResponseHelper.write(context, 200, "application/json", access_token.to_json)
     rescue e : Error
-      ResponseHelper.write(context, e.code, "text/plain", e.message)
+      ResponseHelper.write(context, e.code, "application/json", {error: e.type.to_s}.to_json)
     end
 
     private def self.extract_certificate_thumbprint(context : HTTP::Server::Context) : String?

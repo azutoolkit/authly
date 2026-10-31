@@ -8,7 +8,8 @@ module Authly
       scope : String = "",
       challenge : String = "",
       challenge_method : String = "",
-      user_id : String = ""
+      user_id : String = "",
+      nonce : String = ""
 
     def initialize(
       @type,
@@ -18,6 +19,7 @@ module Authly
       @challenge = "",
       @challenge_method = "",
       @user_id = "",
+      @nonce = "",
     )
     end
 
@@ -33,7 +35,7 @@ module Authly
     end
 
     def code
-      Code.new client_id, scope, redirect_uri, challenge, challenge_method, user_id
+      Code.new client_id, scope, redirect_uri, challenge, challenge_method, user_id, nonce
     end
 
     def token
@@ -46,7 +48,7 @@ module Authly
 
     private def grant_type_authorized?
       grant_type = @type == "code" ? "authorization_code" : "implicit"
-      Authly.clients.allowed_grant_type?(client_id, grant_type)
+      Authly.config.grant_types.includes?(grant_type) && Authly.clients.allowed_grant_type?(client_id, grant_type)
     end
   end
 end
