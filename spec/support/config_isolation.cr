@@ -7,7 +7,7 @@ class Authly::Configuration
   # Takes over every setting of `from`; lists are copied, since a spec may append to one in place.
   def restore(from : Configuration) : Nil
     {% for ivar in @type.instance_vars %}
-      {% if ivar.type <= Array %}
+      {% if ivar.type <= Array || ivar.type <= Hash %}
         @{{ ivar.id }} = from.@{{ ivar.id }}.dup
       {% elsif ivar.id == "clients" %}
         @clients = copy_of(from.@clients)

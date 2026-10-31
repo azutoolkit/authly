@@ -17,7 +17,11 @@ module Authly
       name = algorithm_name
       return [] of Hash(String, String) unless name
 
-      [PublicKey.parse(@config.public_key).to_jwk(name)]
+      if @config.verification_keys.empty?
+        [PublicKey.parse(@config.public_key).to_jwk(name).tap { |key| @config.signing_key_id.try { |id| key["kid"] = id } }]
+      else
+        @config.verification_keys.map { |id, pem| PublicKey.parse(pem).to_jwk(name).merge({"kid" => id}) }
+      end
     end
 
     def to_json(json : JSON::Builder) : Nil

@@ -49,7 +49,7 @@ module Authly
     end
 
     private def load_jwt(token : String) : Claims?
-      payload, _header = JWT.decode(token, @config.public_key, @config.algorithm, iss: @config.issuer)
+      payload, _header = Authly.decode_with(token, @config)
       claims = Claims.from(payload.as_h)
       claims if claims.id.try { |jti| !revoked?(jti) }
     end

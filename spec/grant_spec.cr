@@ -77,7 +77,7 @@ module Authly
 
       it "stays with the owner when the token is refreshed" do
         first = Grant.new("password", client_id: client_id, client_secret: client_secret, username: username, password: password).token
-        refreshed = Grant.new("refresh_token", client_id: client_id, client_secret: client_secret, refresh_token: first.refresh_token).token
+        refreshed = Grant.new("refresh_token", client_id: client_id, client_secret: client_secret, refresh_token: first.refresh_token.not_nil!).token
 
         refreshed.sub.should eq first.sub
       end
@@ -97,7 +97,7 @@ module Authly
       grant = Grant.new("refresh_token",
         client_id: client_id,
         client_secret: client_secret,
-        refresh_token: AccessToken.new(client_id, "read").refresh_token)
+        refresh_token: AccessToken.new(client_id, "read").refresh_token.not_nil!)
 
       token = grant.token
 

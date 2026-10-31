@@ -36,6 +36,7 @@ module Authly
 
     private def decode_code
       decoded = Authly.jwt_decode(@code).first
+      raise Error.invalid_grant unless decoded["client_id"]?.try(&.as_s?) == @client_id && decoded["token_type"]?.try(&.as_s?) == "authorization_code"
       @challenge = decoded["challenge"].as_s
       @method = decoded["method"].as_s
       @jti = decoded["jti"].as_s
@@ -61,6 +62,8 @@ module Authly
     end
 
     private def verify_challenge!
+      raise Error.invalid_grant if Authly.config.enforce_pkce? && challenge.empty?
+      raise Error.invalid_grant if !challenge.empty? && Authly.config.enforce_pkce_s256? && method != "S256"
       return if challenge.empty?
       raise Error.unauthorized_client if verifier.empty?
       raise Error.unauthorized_client unless code_challenge.valid?(verifier)

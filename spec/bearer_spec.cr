@@ -111,7 +111,7 @@ describe Authly::Handler::Bearer do
   end
 
   it "rejects a refresh token presented as an access token" do
-    refresh = Authly::AccessToken.new("test_client", "read:users", subject: "alice").refresh_token
+    refresh = Authly::AccessToken.new("test_client", "read:users", subject: "alice").refresh_token.not_nil!
     BearerSpec.with_server(BearerSpec.chain) do |client|
       BearerSpec.get(client, "/users", "Bearer #{refresh}").status_code.should eq 401
     end
@@ -309,7 +309,7 @@ describe "Bearer with opaque tokens" do
       claims = verifier.verify(access.access_token)
       claims.try(&.subject).should eq "bob"
       claims.try(&.scopes).should eq ["read:users"]
-      verifier.verify(access.refresh_token).should be_nil
+      verifier.verify(access.refresh_token.not_nil!).should be_nil
       verifier.verify("0" * 64).should be_nil
     ensure
       config.token_strategy, config.token_store = previous

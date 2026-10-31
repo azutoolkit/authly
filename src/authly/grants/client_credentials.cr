@@ -7,7 +7,11 @@ module Authly
       client_id
     end
 
-    def initialize(@client_id, @client_secret)
+    def granted_scope : String?
+      @scope
+    end
+
+    def initialize(@client_id, @client_secret, @scope : String = "")
     end
 
     def authorized? : Bool

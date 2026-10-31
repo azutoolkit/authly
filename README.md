@@ -1462,3 +1462,40 @@ Distributed under the MIT License. See `LICENSE` for more information.
 <div align="center">
   Made with ❤️ by the Crystal community
 </div>
+
+### Host-controlled issuance and signing-key rotation
+
+`Authly::IssuanceOptions` lets trusted application code set a resource audience,
+absolute expiration, and scalar application claims without changing global
+configuration between requests. Reserved JWT fields cannot be overridden.
+
+```crystal
+options = Authly::IssuanceOptions.new(
+  "https://api.example.test", Time.utc + 5.minutes,
+  {"sid" => "session-id"} of String => Authly::AdditionalClaim)
+token = Authly::AccessToken.new("client-id", "read", subject: "account:42", options: options)
+```
+
+Explicit options default to no refresh token. Existing issuance retains refresh
+behavior unless `config.issue_refresh_tokens = false`; `refresh_token` is now
+nullable and omitted from JSON when disabled. Set `config.grant_types` to the
+allowed grants as well; disabling issuance alone does not disable redemption.
+`config.issuance_options` is an optional trusted `(client_id, grant_type)` callback
+for token-endpoint issuance. Never populate its claims from unverified form data.
+
+For asymmetric rotation, set `signing_key_id`, the active private `secret_key`,
+and `verification_keys` (a kid-to-public-PEM map containing active and retiring
+keys). JWTs carry the active kid; verification rejects absent or unknown kids when
+the map is configured. JWKS publishes only those public keys. Keep retiring keys
+until every credential signed with them expires.
+
+`config.render_consent` receives the HTTP context, validated authorization request,
+verified subject, and signed consent token. It may render the host UI, but approval
+must POST the original token and decision to `/oauth/authorize`; it cannot bypass
+subject binding or single-use CSRF protection. OIDC nonce is kept separate from
+consent state and is preserved in the ID token.
+
+`config.userinfo` resolves a `Hash(String, JSON::Any)` from the verified subject,
+including boolean claims such as `email_verified`. The resolver cannot replace
+the authenticated subject or granted scopes. Account lifecycle, session validity,
+resource policy, shared-store atomicity, and browser protection remain host duties.

@@ -35,7 +35,14 @@ module Authly
       end
 
       # Extract user information based on scope
-      user_info = extract_user_info(token_data)
+      if resolver = Authly.config.userinfo
+        source = resolver.call(token_data["sub"].as_s)
+        source["sub"] = token_data["sub"]
+        source["scope"] = token_data["scope"]
+        user_info = extract_user_info(source)
+      else
+        user_info = extract_user_info(token_data)
+      end
 
       ResponseHelper.write(context, 200, "application/json", user_info.to_json)
     rescue e : Error

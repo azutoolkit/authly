@@ -89,7 +89,7 @@ module Authly
         code = Code.new(client_id, scope, uri).to_s
         authorization_code = AuthorizationCode.new("invalid_client", "invalid_client_secret", uri, code)
 
-        expect_raises Error, ERROR_MSG[:invalid_redirect_uri] do
+        expect_raises Error, ERROR_MSG[:invalid_grant] do
           authorization_code.authorized?
         end
       end

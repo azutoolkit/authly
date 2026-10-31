@@ -20,8 +20,10 @@ module Authly
       when "/oauth/par"
         handle_if_method(context, "POST") { PARHandler.handle(context) }
       when "/oauth/device/code"
+        return false unless Authly.config.grant_types.includes?("urn:ietf:params:oauth:grant-type:device_code")
         handle_if_method(context, "POST") { DeviceAuthorizationHandler.handle(context) }
       when "/device"
+        return false unless Authly.config.grant_types.includes?("urn:ietf:params:oauth:grant-type:device_code")
         handle_if_methods(context, ["GET", "POST"]) { DeviceVerificationHandler.handle(context) }
       when "/oauth/introspect", "/introspect"
         handle_if_method(context, "POST") { IntrospectHandler.handle(context) }
@@ -60,7 +62,7 @@ module Authly
 
     private def handle_token_endpoint(context) : Bool
       return false unless context.request.method == "POST"
-      if context.request.form_params["grant_type"] == "refresh_token"
+      if context.request.form_params["grant_type"]? == "refresh_token"
         RefreshTokenHandler.handle(context)
       else
         AccessTokenHandler.handle(context)

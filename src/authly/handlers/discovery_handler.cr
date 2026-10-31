@@ -4,7 +4,7 @@ module Authly
       base_url = Authly.config.base_url
 
       metadata = {
-        issuer:                                base_url,
+        issuer:                                Authly.config.issuer,
         authorization_endpoint:                "#{base_url}/oauth/authorize",
         token_endpoint:                        "#{base_url}/oauth/token",
         userinfo_endpoint:                     "#{base_url}/oauth/userinfo",
@@ -15,22 +15,14 @@ module Authly
         device_authorization_endpoint:         "#{base_url}/oauth/device/code",
         pushed_authorization_request_endpoint: "#{base_url}/oauth/par",
         scopes_supported:                      ["openid", "profile", "email", "address", "phone", "offline_access"],
-        response_types_supported:              ["code", "token", "id_token", "code token", "code id_token", "token id_token", "code token id_token"],
+        response_types_supported:              Authly.config.grant_types.includes?("implicit") ? ["code", "token"] : ["code"],
         response_modes_supported:              ["query", "fragment", "form_post", "query.jwt", "fragment.jwt", "form_post.jwt", "jwt"],
-        grant_types_supported:                 [
-          "authorization_code",
-          "implicit",
-          "password",
-          "client_credentials",
-          "refresh_token",
-          "urn:ietf:params:oauth:grant-type:device_code",
-        ],
+        grant_types_supported:                 Authly.config.grant_types,
         subject_types_supported:               ["public"],
         id_token_signing_alg_values_supported: supported_algorithms,
         token_endpoint_auth_methods_supported: [
           "client_secret_basic",
           "client_secret_post",
-          "none",
         ],
         code_challenge_methods_supported: pkce_methods,
         claims_supported:                 [

@@ -2,8 +2,9 @@ module Authly
   class RefreshTokenHandler
     def self.handle(context : HTTP::Server::Context)
       # Extract parameters from the request
-      client_id = context.request.form_params["client_id"]?
-      client_secret = context.request.form_params["client_secret"]?
+      client_id = ClientAuthentication.authenticate(context)
+      return unless client_id
+      _, client_secret = ClientAuthentication.credentials(context)
       refresh_token = context.request.form_params["refresh_token"]?
 
       # Ensure all required parameters are present

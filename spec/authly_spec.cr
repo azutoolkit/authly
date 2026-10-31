@@ -75,7 +75,7 @@ describe Authly do
         grant_type: "refresh_token",
         client_id: client_id,
         client_secret: client_secret,
-        refresh_token: a_token.refresh_token.to_s)
+        refresh_token: a_token.refresh_token.not_nil!.to_s)
 
       token.should be_a Authly::AccessToken
     end

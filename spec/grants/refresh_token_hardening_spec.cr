@@ -55,110 +55,110 @@ describe "Refresh token hardening" do
 
     it "refuses a revoked refresh token" do
       issued = Authly::AccessToken.new("1", "read")
-      Authly.revoke(issued.refresh_token)
-      RefreshSpec.rejected { RefreshSpec.refresh(issued.refresh_token) }
+      Authly.revoke(issued.refresh_token.not_nil!)
+      RefreshSpec.rejected { RefreshSpec.refresh(issued.refresh_token.not_nil!) }
     end
   end
 
   describe "client binding" do
     it "refuses a refresh token issued to another client" do
       issued = Authly::AccessToken.new("1", "read")
-      RefreshSpec.rejected { RefreshSpec.refresh(issued.refresh_token, client: "test_client", secret: "test_secret") }
+      RefreshSpec.rejected { RefreshSpec.refresh(issued.refresh_token.not_nil!, client: "test_client", secret: "test_secret") }
     end
 
     it "does not consume the token when another client tried it" do
       issued = Authly::AccessToken.new("1", "read")
-      RefreshSpec.rejected { RefreshSpec.refresh(issued.refresh_token, client: "test_client", secret: "test_secret") }
-      RefreshSpec.refresh(issued.refresh_token).access_token.should_not be_empty
+      RefreshSpec.rejected { RefreshSpec.refresh(issued.refresh_token.not_nil!, client: "test_client", secret: "test_secret") }
+      RefreshSpec.refresh(issued.refresh_token.not_nil!).access_token.should_not be_empty
     end
   end
 
   describe "rotation" do
     it "answers with a new refresh token and takes the old one out of use" do
       first = Authly::AccessToken.new("1", "read write", subject: "john")
-      second = RefreshSpec.refresh(first.refresh_token)
+      second = RefreshSpec.refresh(first.refresh_token.not_nil!)
 
-      second.refresh_token.should_not eq first.refresh_token
-      RefreshSpec.rejected { RefreshSpec.refresh(first.refresh_token) }
+      second.refresh_token.not_nil!.should_not eq first.refresh_token.not_nil!
+      RefreshSpec.rejected { RefreshSpec.refresh(first.refresh_token.not_nil!) }
     end
 
     it "lets the new refresh token be used in turn" do
       first = Authly::AccessToken.new("1", "read", subject: "john")
-      third = RefreshSpec.refresh(RefreshSpec.refresh(first.refresh_token).refresh_token)
+      third = RefreshSpec.refresh(RefreshSpec.refresh(first.refresh_token.not_nil!).refresh_token.not_nil!)
       third.access_token.should_not be_empty
     end
 
     it "redeems a refresh token once even when the store is asked twice" do
       issued = Authly::AccessToken.new("1", "read")
-      jti = Authly.jwt_decode(issued.refresh_token).first["jti"].as_s
+      jti = Authly.jwt_decode(issued.refresh_token.not_nil!).first["jti"].as_s
       results = Array.new(4) { Authly.config.token_store.consume(jti) }
       results.count(true).should eq 1
     end
 
     it "revokes the whole family when a consumed refresh token is presented again" do
       first = Authly::AccessToken.new("1", "read", subject: "john")
-      second = RefreshSpec.refresh(first.refresh_token)
+      second = RefreshSpec.refresh(first.refresh_token.not_nil!)
 
-      RefreshSpec.rejected { RefreshSpec.refresh(first.refresh_token) }
-      RefreshSpec.rejected { RefreshSpec.refresh(second.refresh_token) }
+      RefreshSpec.rejected { RefreshSpec.refresh(first.refresh_token.not_nil!) }
+      RefreshSpec.rejected { RefreshSpec.refresh(second.refresh_token.not_nil!) }
     end
 
     it "keeps the subject of the original grant" do
       first = Authly::AccessToken.new("1", "read", subject: "john")
-      RefreshSpec.refresh(first.refresh_token).sub.should eq "john"
+      RefreshSpec.refresh(first.refresh_token.not_nil!).sub.should eq "john"
     end
 
     it "keeps other families alone" do
       mine = Authly::AccessToken.new("1", "read", subject: "john")
       other = Authly::AccessToken.new("1", "read", subject: "john")
-      RefreshSpec.refresh(mine.refresh_token)
-      RefreshSpec.rejected { RefreshSpec.refresh(mine.refresh_token) }
-      RefreshSpec.refresh(other.refresh_token).access_token.should_not be_empty
+      RefreshSpec.refresh(mine.refresh_token.not_nil!)
+      RefreshSpec.rejected { RefreshSpec.refresh(mine.refresh_token.not_nil!) }
+      RefreshSpec.refresh(other.refresh_token.not_nil!).access_token.should_not be_empty
     end
   end
 
   describe "scope" do
     it "carries the original scope into the refreshed token" do
       first = Authly::AccessToken.new("1", "read write", subject: "john")
-      RefreshSpec.refresh(first.refresh_token).scope.should eq "read write"
+      RefreshSpec.refresh(first.refresh_token.not_nil!).scope.should eq "read write"
     end
 
     it "keeps the original scope through every rotation" do
       first = Authly::AccessToken.new("1", "read write", subject: "john")
-      second = RefreshSpec.refresh(first.refresh_token, scope: "read")
+      second = RefreshSpec.refresh(first.refresh_token.not_nil!, scope: "read")
       second.scope.should eq "read"
-      RefreshSpec.refresh(second.refresh_token).scope.should eq "read write"
+      RefreshSpec.refresh(second.refresh_token.not_nil!).scope.should eq "read write"
     end
 
     it "narrows the scope on request" do
       first = Authly::AccessToken.new("1", "read write", subject: "john")
-      RefreshSpec.refresh(first.refresh_token, scope: "write").scope.should eq "write"
+      RefreshSpec.refresh(first.refresh_token.not_nil!, scope: "write").scope.should eq "write"
     end
 
     it "refuses a scope the original grant did not have" do
       first = Authly::AccessToken.new("1", "read", subject: "john")
-      RefreshSpec.rejected(:invalid_scope) { RefreshSpec.refresh(first.refresh_token, scope: "read admin") }
+      RefreshSpec.rejected(:invalid_scope) { RefreshSpec.refresh(first.refresh_token.not_nil!, scope: "read admin") }
     end
 
     it "does not consume the token when the scope is refused" do
       first = Authly::AccessToken.new("1", "read", subject: "john")
-      RefreshSpec.rejected(:invalid_scope) { RefreshSpec.refresh(first.refresh_token, scope: "admin") }
-      RefreshSpec.refresh(first.refresh_token).scope.should eq "read"
+      RefreshSpec.rejected(:invalid_scope) { RefreshSpec.refresh(first.refresh_token.not_nil!, scope: "admin") }
+      RefreshSpec.refresh(first.refresh_token.not_nil!).scope.should eq "read"
     end
   end
 
   describe "absolute lifetime" do
     it "stamps a new family with its end and never lets a token outlive it" do
       first = Authly::AccessToken.new("1", "read", subject: "john")
-      claims = RefreshSpec.claims(first.refresh_token)
+      claims = RefreshSpec.claims(first.refresh_token.not_nil!)
       claims["fexp"].as_i64.should be_close((Time.utc + Authly.config.refresh_absolute_ttl).to_unix, 5)
       claims["exp"].as_i64.should be <= claims["fexp"].as_i64
     end
 
     it "carries the end of the family through every rotation" do
       first = Authly::AccessToken.new("1", "read", subject: "john")
-      second = RefreshSpec.refresh(first.refresh_token)
-      RefreshSpec.claims(second.refresh_token)["fexp"].should eq RefreshSpec.claims(first.refresh_token)["fexp"]
+      second = RefreshSpec.refresh(first.refresh_token.not_nil!)
+      RefreshSpec.claims(second.refresh_token.not_nil!)["fexp"].should eq RefreshSpec.claims(first.refresh_token.not_nil!)["fexp"]
     end
 
     it "keeps the end of the family when the setting changes in between" do
@@ -167,11 +167,11 @@ describe "Refresh token hardening" do
       first = Authly::AccessToken.new("1", "read", subject: "john")
       Authly.config.refresh_absolute_ttl = 20.days
       begin
-        second = RefreshSpec.refresh(first.refresh_token)
-        third = RefreshSpec.refresh(second.refresh_token)
-        fexp = RefreshSpec.claims(first.refresh_token)["fexp"]
-        RefreshSpec.claims(second.refresh_token)["fexp"].should eq fexp
-        RefreshSpec.claims(third.refresh_token)["fexp"].should eq fexp
+        second = RefreshSpec.refresh(first.refresh_token.not_nil!)
+        third = RefreshSpec.refresh(second.refresh_token.not_nil!)
+        fexp = RefreshSpec.claims(first.refresh_token.not_nil!)["fexp"]
+        RefreshSpec.claims(second.refresh_token.not_nil!)["fexp"].should eq fexp
+        RefreshSpec.claims(third.refresh_token.not_nil!)["fexp"].should eq fexp
       ensure
         Authly.config.refresh_absolute_ttl = previous
       end
@@ -181,7 +181,7 @@ describe "Refresh token hardening" do
       previous = Authly.config.refresh_absolute_ttl
       Authly.config.refresh_absolute_ttl = 30.minutes
       begin
-        claims = RefreshSpec.claims(Authly::AccessToken.new("1", "read", subject: "john").refresh_token)
+        claims = RefreshSpec.claims(Authly::AccessToken.new("1", "read", subject: "john").refresh_token.not_nil!)
         claims["exp"].as_i64.should eq claims["fexp"].as_i64
       ensure
         Authly.config.refresh_absolute_ttl = previous
@@ -201,30 +201,30 @@ describe "Refresh token hardening" do
 
       recent = RefreshSpec.forged({"token_type" => "refresh_token", "sub" => "john", "cid" => "1", "scope" => "read", "fid" => "recent",
                                    "iat" => Time.utc.to_unix})
-      RefreshSpec.claims(RefreshSpec.refresh(recent).refresh_token)["fexp"]?.should_not be_nil
+      RefreshSpec.claims(RefreshSpec.refresh(recent).refresh_token.not_nil!)["fexp"]?.should_not be_nil
     end
   end
 
   describe "revoking a refresh token" do
     it "revokes its whole family" do
       first = Authly::AccessToken.new("1", "read", subject: "john")
-      second = RefreshSpec.refresh(first.refresh_token)
+      second = RefreshSpec.refresh(first.refresh_token.not_nil!)
 
-      Authly.revoke(first.refresh_token)
-      RefreshSpec.rejected { RefreshSpec.refresh(second.refresh_token) }
+      Authly.revoke(first.refresh_token.not_nil!)
+      RefreshSpec.rejected { RefreshSpec.refresh(second.refresh_token.not_nil!) }
     end
 
     it "keeps other families alone" do
       mine = Authly::AccessToken.new("1", "read", subject: "john")
       other = Authly::AccessToken.new("1", "read", subject: "john")
-      Authly.revoke(mine.refresh_token)
-      RefreshSpec.refresh(other.refresh_token).access_token.should_not be_empty
+      Authly.revoke(mine.refresh_token.not_nil!)
+      RefreshSpec.refresh(other.refresh_token.not_nil!).access_token.should_not be_empty
     end
 
     it "does not touch a family when an access token is revoked" do
       issued = Authly::AccessToken.new("1", "read", subject: "john")
       Authly.revoke(issued.access_token)
-      RefreshSpec.refresh(issued.refresh_token).access_token.should_not be_empty
+      RefreshSpec.refresh(issued.refresh_token.not_nil!).access_token.should_not be_empty
     end
 
     it "stores the family revocation for refresh_ttl in a store that takes a TTL" do
@@ -233,8 +233,8 @@ describe "Refresh token hardening" do
       Authly.config.token_store = store
       begin
         issued = Authly::AccessToken.new("1", "read", subject: "john")
-        family = RefreshSpec.claims(issued.refresh_token)["fid"].as_s
-        Authly.revoke(issued.refresh_token)
+        family = RefreshSpec.claims(issued.refresh_token.not_nil!)["fid"].as_s
+        Authly.revoke(issued.refresh_token.not_nil!)
         store.ttls["refresh-family:#{family}"].should eq Authly.config.refresh_ttl
       ensure
         Authly.config.token_store = previous
@@ -247,8 +247,8 @@ describe "Refresh token hardening" do
       Authly.config.token_store = store
       begin
         first = Authly::AccessToken.new("1", "read", subject: "john")
-        RefreshSpec.refresh(first.refresh_token)
-        RefreshSpec.rejected { RefreshSpec.refresh(first.refresh_token) }
+        RefreshSpec.refresh(first.refresh_token.not_nil!)
+        RefreshSpec.rejected { RefreshSpec.refresh(first.refresh_token.not_nil!) }
         store.ttls.values.should eq [Authly.config.refresh_ttl]
       ensure
         Authly.config.token_store = previous
@@ -270,7 +270,7 @@ describe "Refresh token hardening" do
 
   describe "as an access token" do
     it "is refused by the userinfo endpoint" do
-      refresh = Authly::AccessToken.new("test_client", "openid profile", subject: "john").refresh_token
+      refresh = Authly::AccessToken.new("test_client", "openid profile", subject: "john").refresh_token.not_nil!
       io = IO::Memory.new
       response = HTTP::Server::Response.new(io)
       headers = HTTP::Headers{"Authorization" => "Bearer #{refresh}"}
