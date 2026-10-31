@@ -355,7 +355,10 @@ module Authly
         id_token: id_token
       )
 
-      # Return response based on mode
+      write_jarm_response(context, redirect_uri, mode, jwt_response)
+    end
+
+    private def self.write_jarm_response(context, redirect_uri : String, mode : String, jwt_response : String)
       case mode
       when "query.jwt"
         # JWT in query parameter

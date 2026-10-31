@@ -22,7 +22,7 @@ module Authly
     property userinfo : Proc(String, Hash(String, JSON::Any))? = nil
     # Trusted host callback; never populated from OAuth request parameters.
     property issuance_options : Proc(String, String, IssuanceOptions)? = nil
-    property issue_refresh_tokens : Bool = true
+    property? issue_refresh_tokens : Bool = true
     property grant_types : Array(String) = %w[authorization_code client_credentials password refresh_token implicit urn:ietf:params:oauth:grant-type:device_code]
     property signing_key_id : String? = nil
     property verification_keys : Hash(String, String) = {} of String => String

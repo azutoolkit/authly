@@ -19,12 +19,8 @@ module Authly
         handle_token_endpoint(context)
       when "/oauth/par"
         handle_if_method(context, "POST") { PARHandler.handle(context) }
-      when "/oauth/device/code"
-        return false unless Authly.config.grant_types.includes?("urn:ietf:params:oauth:grant-type:device_code")
-        handle_if_method(context, "POST") { DeviceAuthorizationHandler.handle(context) }
-      when "/device"
-        return false unless Authly.config.grant_types.includes?("urn:ietf:params:oauth:grant-type:device_code")
-        handle_if_methods(context, ["GET", "POST"]) { DeviceVerificationHandler.handle(context) }
+      when "/oauth/device/code", "/device"
+        handle_device_endpoint(context, path)
       when "/oauth/introspect", "/introspect"
         handle_if_method(context, "POST") { IntrospectHandler.handle(context) }
       when "/oauth/revoke", "/revoke"
@@ -45,6 +41,16 @@ module Authly
         JWKSHandler.handle(context)
       else
         DiscoveryHandler.handle(context)
+      end
+    end
+
+    private def handle_device_endpoint(context, path : String) : Bool
+      return false unless Authly.config.grant_types.includes?("urn:ietf:params:oauth:grant-type:device_code")
+
+      if path == "/oauth/device/code"
+        handle_if_method(context, "POST") { DeviceAuthorizationHandler.handle(context) }
+      else
+        handle_if_methods(context, ["GET", "POST"]) { DeviceVerificationHandler.handle(context) }
       end
     end
 

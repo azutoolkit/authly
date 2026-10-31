@@ -120,7 +120,7 @@ describe "issuer extension hooks" do
     config.verification_keys = {"active" => active.public_key.to_pem, "retiring" => old.public_key.to_pem}
     token = Authly::AccessToken.new("client", "read")
     Authly.jwt_decode(token.access_token)[1]["kid"].as_s.should eq "active"
-    Authly::JWKS.new.keys.map(&.["kid"]).sort.should eq %w[active retiring]
+    Authly::JWKS.new.keys.map(&.["kid"]).sort!.should eq %w[active retiring]
     Authly::JWKS.new.to_json.should_not contain("PRIVATE")
   end
 
@@ -139,7 +139,7 @@ describe "issuer extension hooks" do
   end
 
   it "loads UserInfo from the verified subject and does not let the hook replace it" do
-    Authly.config.userinfo = ->(subject : String) { {"sub" => JSON::Any.new("attacker"), "email" => JSON::Any.new("person@example.test"), "email_verified" => JSON::Any.new(true)} }
+    Authly.config.userinfo = ->(_subject : String) { {"sub" => JSON::Any.new("attacker"), "email" => JSON::Any.new("person@example.test"), "email_verified" => JSON::Any.new(true)} }
     token = Authly::AccessToken.new("client", "openid email", subject: "account:1")
     probe = AuthorizationSecuritySpec::Probe.new("GET", "/oauth/userinfo")
     probe.context.request.headers["Authorization"] = "Bearer #{token.access_token}"
