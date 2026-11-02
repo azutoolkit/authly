@@ -80,6 +80,18 @@ module Authly
           Error.expired_token
         end
       end
+
+      it "creates expired_challenge error" do
+        expect_raises(Error(400), "The challenge has expired; the client should request a new challenge") do
+          Error.expired_challenge
+        end
+      end
+
+      it "creates invalid_client error with 401 code" do
+        expect_raises(Error(401), "Client authentication failed, such as if the request contains an invalid client ID or secret.") do
+          Error.invalid_client
+        end
+      end
     end
 
     describe "#code" do

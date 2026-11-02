@@ -46,36 +46,47 @@ module Authly
       case grant_type
       when "authorization_code"
         AuthorizationCode.new(
-          client_id: args[:client_id].to_s,
-          client_secret: args[:client_secret].to_s,
+          client_id: args.fetch(:client_id, "").to_s,
+          client_secret: args.fetch(:client_secret, "").to_s,
           redirect_uri: args.fetch(:redirect_uri, "").to_s,
           code: args.fetch(:code, "").to_s,
           verifier: args.fetch(:verifier, "").to_s
         )
       when "client_credentials"
         ClientCredentials.new(
-          client_id: args[:client_id].to_s,
-          client_secret: args[:client_secret].to_s,
+          client_id: args.fetch(:client_id, "").to_s,
+          client_secret: args.fetch(:client_secret, "").to_s,
           scope: args.fetch(:scope, "").to_s
         )
       when "password"
         Password.new(
-          client_id: args[:client_id].to_s,
-          client_secret: args[:client_secret].to_s,
+          client_id: args.fetch(:client_id, "").to_s,
+          client_secret: args.fetch(:client_secret, "").to_s,
           username: args.fetch(:username, "").to_s,
           password: args.fetch(:password, "").to_s
         )
       when "refresh_token"
         RefreshToken.new(
-          client_id: args[:client_id].to_s,
-          client_secret: args[:client_secret].to_s,
+          client_id: args.fetch(:client_id, "").to_s,
+          client_secret: args.fetch(:client_secret, "").to_s,
           refresh_token: args.fetch(:refresh_token, "").to_s,
           requested_scope: args.fetch(:scope, nil).try(&.to_s)
         )
       when "urn:ietf:params:oauth:grant-type:device_code"
         DeviceCode.new(
-          client_id: args[:client_id].to_s,
+          client_id: args.fetch(:client_id, "").to_s,
           device_code: args.fetch(:device_code, "").to_s
+        )
+      when "challenge_response", "urn:ietf:params:oauth:grant-type:challenge"
+        ChallengeResponse.new(
+          client_id: args.fetch(:client_id, "").to_s,
+          client_secret: args.fetch(:client_secret, "").to_s,
+          challenge_id: args.fetch(:challenge_id, "").to_s,
+          response: args.fetch(:response, "").to_s,
+          scope: args.fetch(:scope, "").to_s,
+          key_id: args[:key_id]?.try(&.to_s),
+          algorithm: args[:algorithm]?.try(&.to_s),
+          grant_type: grant_type,
         )
       else
         raise Error.unsupported_grant_type

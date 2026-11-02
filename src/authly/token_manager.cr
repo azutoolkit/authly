@@ -185,28 +185,32 @@ module Authly
 
     def initialize(
       @config = Authly.config,
-      @token_manager : TokenStrategy = TokenStrategyFactory.create,
+      @token_manager : TokenStrategy? = nil,
     )
     end
 
+    private def token_manager : TokenStrategy
+      @token_manager || TokenStrategyFactory.create
+    end
+
     def revoke(token)
-      @token_manager.revoke(token)
+      token_manager.revoke(token)
     end
 
     def revoked?(token)
-      @token_manager.revoked?(token)
+      token_manager.revoked?(token)
     end
 
     def valid?(token)
-      @token_manager.valid?(token)
+      token_manager.valid?(token)
     end
 
     def introspect(token : String)
-      @token_manager.introspect(token)
+      token_manager.introspect(token)
     end
 
     def issued_to?(token : String, client_id : String) : Bool
-      @token_manager.issued_to?(token, client_id)
+      token_manager.issued_to?(token, client_id)
     end
   end
 end

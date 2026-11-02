@@ -12,8 +12,8 @@ Authly.configure do |config|
   config.authenticate_user = ->(context : HTTP::Server::Context) { context.request.headers["X-Test-User"]?.presence }
 end
 
-Authly.clients << Authly::Client.new("example", "secret", "https://www.example.com/callback", "1", "read write admin openid", "authorization_code client_credentials password refresh_token implicit")
-Authly.clients << Authly::Client.new("test_client", "test_secret", "https://example.com/callback", "test_client", "read write admin openid profile email", "authorization_code client_credentials password refresh_token implicit")
+Authly.clients << Authly::Client.new("example", "secret", "https://www.example.com/callback", "1", "read write admin openid", "authorization_code client_credentials password refresh_token implicit challenge_response urn:ietf:params:oauth:grant-type:challenge")
+Authly.clients << Authly::Client.new("test_client", "test_secret", "https://example.com/callback", "test_client", "read write admin openid profile email", "authorization_code client_credentials password refresh_token implicit challenge_response urn:ietf:params:oauth:grant-type:challenge")
 Authly.owners << Authly::Owner.new("username", "password")
 Authly.owners << Authly::Owner.new("john", "secret")
 

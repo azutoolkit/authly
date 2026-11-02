@@ -19,6 +19,8 @@ module Authly
         handle_token_endpoint(context)
       when "/oauth/par"
         handle_if_method(context, "POST") { PARHandler.handle(context) }
+      when "/oauth/challenge"
+        handle_challenge_endpoint(context)
       when "/oauth/device/code", "/device"
         handle_device_endpoint(context, path)
       when "/oauth/introspect", "/introspect"
@@ -52,6 +54,13 @@ module Authly
       else
         handle_if_methods(context, ["GET", "POST"]) { DeviceVerificationHandler.handle(context) }
       end
+    end
+
+    private def handle_challenge_endpoint(context) : Bool
+      return false unless Authly.config.grant_types.includes?("challenge_response") ||
+                          Authly.config.grant_types.includes?("urn:ietf:params:oauth:grant-type:challenge")
+
+      handle_if_method(context, "POST") { ChallengeHandler.handle(context) }
     end
 
     private def handle_if_method(context, expected_method : String, &)

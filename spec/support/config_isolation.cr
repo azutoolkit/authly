@@ -11,6 +11,8 @@ class Authly::Configuration
         @{{ ivar.id }} = from.@{{ ivar.id }}.dup
       {% elsif ivar.id == "clients" %}
         @clients = copy_of(from.@clients)
+      {% elsif ivar.id == "owners" %}
+        @owners = copy_of_owners(from.@owners)
       {% else %}
         @{{ ivar.id }} = from.@{{ ivar.id }}
       {% end %}
@@ -23,6 +25,14 @@ class Authly::Configuration
 
     copy = Clients.new
     clients.each { |client| copy << client }
+    copy
+  end
+
+  private def copy_of_owners(owners : AuthorizableOwner) : AuthorizableOwner
+    return owners unless owners.is_a?(Owners)
+
+    copy = Owners.new
+    owners.each { |owner| copy << owner }
     copy
   end
 
