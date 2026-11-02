@@ -34,6 +34,23 @@ module Authly
       when "/oauth/register"
         handle_registration_endpoint(context)
       else
+        handle_social_endpoint(context, path)
+      end
+    end
+
+    private def handle_social_endpoint(context, path : String) : Bool
+      return false unless path.starts_with?("/oauth/social/")
+
+      segments = path.lchop("/oauth/social/").split('/', remove_empty: true)
+      case segments.size
+      when 1
+        provider_name = segments[0]
+        handle_if_method(context, "GET") { SocialAuthHandler.handle_start(context, provider_name) }
+      when 2
+        return false unless segments[1] == "callback"
+        provider_name = segments[0]
+        handle_if_methods(context, ["GET", "POST"]) { SocialAuthHandler.handle_callback(context, provider_name) }
+      else
         false
       end
     end

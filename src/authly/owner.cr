@@ -3,9 +3,11 @@ module Authly
     property id : String = Random::Secure.hex(16)
     property username : String
     property password : String
+    property email : String? = nil
     property public_key : String? = nil
     property secret_key : String? = nil
     property key_id : String? = nil
+    property social_identities : Hash(String, String) = {} of String => String
 
     def initialize(
       @username : String,
@@ -14,6 +16,8 @@ module Authly
       @secret_key : String? = nil,
       @key_id : String? = nil,
       @id : String = Random::Secure.hex(16),
+      @email : String? = nil,
+      @social_identities : Hash(String, String) = {} of String => String,
     )
     end
   end
@@ -72,20 +76,32 @@ module Authly
 
     def find_owner(identifier : String) : Owner?
       find do |owner|
-        owner.username == identifier || owner.id == identifier || owner.key_id == identifier
+        owner.username == identifier || owner.id == identifier || owner.key_id == identifier || owner.email == identifier
       end
     end
 
-    def id_token(user_id : String) : Hash(String, String | Int64)
-      user = find! { |owner| owner.username == user_id || owner.id == user_id || owner.key_id == user_id }
-      {
+    def resolve_social_owner(profile : SocialProfile) : String?
+      matched = find do |owner|
+        owner.social_identities[profile.provider]? == profile.uid ||
+          (profile.email_verified? && !profile.email.to_s.empty? &&
+            (owner.email == profile.email || owner.username == profile.email))
+      end
+      matched.try(&.id)
+    end
 
+    def id_token(user_id : String) : Hash(String, String | Int64)
+      user = find! { |owner| owner.username == user_id || owner.id == user_id || owner.key_id == user_id || owner.email == user_id }
+      claims = {
         "user_id" => user.username,
         "sub"     => user.id,
         "iat"     => Time.utc.to_unix,
         "exp"     => Authly.config.access_ttl.from_now.to_unix,
         "iss"     => Authly.config.issuer,
       }
+      if email = user.email.presence
+        claims["email"] = email
+      end
+      claims
     end
 
     def each(& : Owner -> _)

@@ -16,7 +16,8 @@
 
 | Area | Supported Standards & Features |
 | :--- | :--- |
-| **OAuth 2.0 Grants** | Authorization Code (`authorization_code`), Client Credentials (`client_credentials`), Refresh Token (`refresh_token` with rotation & family reuse detection), Device Authorization (`urn:ietf:params:oauth:grant-type:device_code`), Cryptographic Challenge-Response (`challenge_response` / `urn:ietf:params:oauth:grant-type:challenge`), Password (`password`), Implicit (`implicit`) |
+| **OAuth 2.0 Grants** | Authorization Code (`authorization_code`), Client Credentials (`client_credentials`), Refresh Token (`refresh_token` with rotation & family reuse detection), Device Authorization (`urn:ietf:params:oauth:grant-type:device_code`), Cryptographic Challenge-Response (`challenge_response` / `urn:ietf:params:oauth:grant-type:challenge`), Social Sign-In (`social` / `urn:ietf:params:oauth:grant-type:social`), Password (`password`), Implicit (`implicit`) |
+| **Social Sign-In** | Built-in adapters for **Google**, **GitHub**, **Apple**, **Microsoft / Entra ID**, **Discord**, and generic OAuth2/OIDC providers (`GET /oauth/social/:provider`, `GET\|POST /oauth/social/:provider/callback`, and `POST /oauth/token`) |
 | **OpenID Connect** | `id_token` issuance (`nonce`, `acr`, `amr`, `auth_time`), `GET /oauth/userinfo`, OIDC Discovery (`/.well-known/openid-configuration`), OAuth 2.0 Authorization Server Metadata (`/.well-known/oauth-authorization-server` — RFC 8414), JWKS (`/.well-known/jwks.json` — RFC 7517) |
 | **FAPI & Advanced Security** | PKCE with `S256` enforcement (RFC 7636), Pushed Authorization Requests (`POST /oauth/par` — RFC 9126), JWT Secured Authorization Response Mode (JARM — RFC 9101), Certificate-Bound Access Tokens (`cnf.x5t#S256` mTLS — RFC 8705), Dynamic Client Registration (`POST /oauth/register` — RFC 7591) |
 | **Token Lifecycle** | `:jwt` (`HS*`, `RS*`, `ES*`) and `:opaque` token strategies, asymmetric key rotation (`signing_key_id` + `verification_keys`), Token Introspection (`POST /oauth/introspect` — RFC 7662), Token Revocation (`POST /oauth/revoke` — RFC 7009), host-controlled `IssuanceOptions` |
@@ -137,6 +138,7 @@ Practical recipes for configuring production features:
 - **[Enable FAPI & Advanced Security (PKCE, PAR, JARM, mTLS)](docs/how-to/fapi-and-advanced-security.md)** — Enforce `S256` PKCE, Pushed Authorization Requests (`POST /oauth/par`), JARM signed/encrypted responses, and certificate-bound tokens.
 - **[Configure Asymmetric Keys, Key Rotation & JWKS](docs/how-to/key-rotation-and-jwks.md)** — Sign with `RS256` / `ES256`, rotate keys without downtime via `verification_keys`, and customize claims with `IssuanceOptions`.
 - **[Configure Dynamic Client Registration & Device Authorization](docs/how-to/dynamic-client-registration.md)** — Enable RFC 7591 registration (`POST /oauth/register`) and RFC 8628 smart-TV/CLI device flows (`POST /oauth/device/code` & `/device`).
+- **[Configure Social Sign-In](docs/how-to/social-sign-in.md)** — Integrate Google, GitHub, Apple, Microsoft, Discord, and custom OAuth2/OIDC providers via redirect callbacks or `POST /oauth/token`.
 
 ### [Reference](docs/reference/README.md)
 Complete technical specifications:
@@ -163,6 +165,8 @@ Architectural overviews and security design:
 | `POST` | `/oauth/token` | Token issuance & refresh (`authorization_code`, `client_credentials`, `refresh_token`, `password`, `device_code`, `challenge_response`) |
 | `POST` | `/oauth/par` | Pushed Authorization Requests (RFC 9126) |
 | `POST` | `/oauth/challenge` | Cryptographic Challenge-Response nonce issuance |
+| `GET` | `/oauth/social/:provider` | Social Sign-In redirect initiation (PKCE + signed CSRF `state`) |
+| `GET`, `POST` | `/oauth/social/:provider/callback` | Social Sign-In provider callback |
 | `POST` | `/oauth/device/code` | Device Authorization code issuance (RFC 8628) |
 | `GET`, `POST` | `/device` | End-user device code verification page (RFC 8628) |
 | `POST` | `/oauth/introspect`, `/introspect` | Token Introspection (RFC 7662) |
