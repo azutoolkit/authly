@@ -88,6 +88,19 @@ module Authly
           algorithm: args[:algorithm]?.try(&.to_s),
           grant_type: grant_type,
         )
+      when "social", "urn:ietf:params:oauth:grant-type:social"
+        SocialGrant.new(
+          client_id: args.fetch(:client_id, "").to_s,
+          client_secret: args.fetch(:client_secret, "").to_s,
+          provider_name: args.fetch(:provider, "").to_s,
+          code: args.fetch(:code, "").to_s,
+          redirect_uri: args.fetch(:redirect_uri, "").to_s,
+          verifier: args.fetch(:verifier, "").to_s,
+          subject_token: args.fetch(:subject_token, "").to_s,
+          id_token: args.fetch(:id_token, "").to_s,
+          scope: args.fetch(:scope, "").to_s,
+          grant_type: grant_type,
+        )
       else
         raise Error.unsupported_grant_type
       end
@@ -127,10 +140,28 @@ module Authly
     end
 
     private def generate_id_token
-      if !@code.empty? && scope.split.includes?("openid")
+      return unless scope.split.includes?("openid")
+
+      if !@code.empty? && @grant_strategy.is_a?(AuthorizationCode)
         user_id = auth_code["user_id"].as_s
         payload = Authly.owners.id_token(user_id)
         payload["nonce"] = auth_code["nonce"].as_s unless auth_code["nonce"]?.try(&.as_s?).to_s.empty?
+        payload["iss"] = Authly.config.issuer
+        payload["aud"] = @client_id
+        Authly.jwt_encode(payload)
+      elsif sub = @grant_strategy.subject
+        payload =
+          begin
+            Authly.owners.id_token(sub)
+          rescue
+            {
+              "user_id" => sub,
+              "sub"     => sub,
+              "iat"     => Time.utc.to_unix,
+              "exp"     => Authly.config.access_ttl.from_now.to_unix,
+              "iss"     => Authly.config.issuer,
+            } of String => String | Int64
+          end
         payload["iss"] = Authly.config.issuer
         payload["aud"] = @client_id
         Authly.jwt_encode(payload)

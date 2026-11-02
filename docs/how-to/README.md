@@ -26,3 +26,7 @@ These guides show you how to solve specific problems in production—such as con
 {% content-ref url="dynamic-client-registration.md" %}
 [dynamic-client-registration.md](dynamic-client-registration.md)
 {% endcontent-ref %}
+
+{% content-ref url="social-sign-in.md" %}
+[social-sign-in.md](social-sign-in.md)
+{% endcontent-ref %}

@@ -23,7 +23,7 @@ module Authly
     # Trusted host callback; never populated from OAuth request parameters.
     property issuance_options : Proc(String, String, IssuanceOptions)? = nil
     property? issue_refresh_tokens : Bool = true
-    property grant_types : Array(String) = %w[authorization_code client_credentials password refresh_token implicit urn:ietf:params:oauth:grant-type:device_code challenge_response urn:ietf:params:oauth:grant-type:challenge]
+    property grant_types : Array(String) = %w[authorization_code client_credentials password refresh_token implicit urn:ietf:params:oauth:grant-type:device_code challenge_response urn:ietf:params:oauth:grant-type:challenge social urn:ietf:params:oauth:grant-type:social]
     property signing_key_id : String? = nil
     property verification_keys : Hash(String, String) = {} of String => String
 
@@ -116,6 +116,17 @@ module Authly
     property challenge_store : ChallengeStore = InMemoryChallengeStore.new
     property challenge_ttl : Time::Span = 60.seconds
     property challenge_max_attempts : Int32 = 1
+
+    # Social Sign-In Authentication
+    property social_providers : Hash(String, Social::Provider) = {} of String => Social::Provider
+    property social_owner_resolver : Proc(SocialProfile, String?)? = nil
+    property on_social_authenticated : Proc(HTTP::Server::Context, SocialProfile, String, AccessToken?, Nil)? = nil
+    property social_http_client : Social::HttpClient = Social::StdlibHttpClient.new
+    property social_state_ttl : Time::Span = 10.minutes
+
+    def register_social_provider(provider : Social::Provider) : Social::Provider
+      @social_providers[provider.name] = provider
+    end
 
     # JWT Secured Authorization Response Mode (JARM)
     property jarm_signing_key : String? = nil

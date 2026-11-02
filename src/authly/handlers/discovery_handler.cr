@@ -15,6 +15,7 @@ module Authly
         device_authorization_endpoint:         "#{base_url}/oauth/device/code",
         pushed_authorization_request_endpoint: "#{base_url}/oauth/par",
         challenge_endpoint:                    "#{base_url}/oauth/challenge",
+        social_providers_supported:            Authly.config.social_providers.keys,
         scopes_supported:                      ["openid", "profile", "email", "address", "phone", "offline_access"],
         response_types_supported:              Authly.config.grant_types.includes?("implicit") ? ["code", "token"] : ["code"],
         response_modes_supported:              ["query", "fragment", "form_post", "query.jwt", "fragment.jwt", "form_post.jwt", "jwt"],

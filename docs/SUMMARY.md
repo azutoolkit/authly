@@ -17,6 +17,7 @@
   * [Enable FAPI & Advanced Security (PKCE, PAR, JARM, mTLS)](how-to/fapi-and-advanced-security.md)
   * [Configure Asymmetric Keys, Key Rotation & JWKS](how-to/key-rotation-and-jwks.md)
   * [Configure Dynamic Client Registration & Device Flow](how-to/dynamic-client-registration.md)
+  * [Configure Social Sign-In (Google, GitHub, Apple, Microsoft, Discord)](how-to/social-sign-in.md)
 
 ## Reference
 

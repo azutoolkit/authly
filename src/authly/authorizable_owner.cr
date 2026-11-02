@@ -14,5 +14,9 @@ module Authly
     ) : Bool
       false
     end
+
+    def resolve_social_owner(profile : SocialProfile) : String?
+      nil
+    end
   end
 end

@@ -19,7 +19,7 @@ module Authly
       @redirect_uri,
       @id,
       @scopes = "read",
-      @grant_types = "authorization_code client_credentials password refresh_token challenge_response urn:ietf:params:oauth:grant-type:challenge",
+      @grant_types = "authorization_code client_credentials password refresh_token challenge_response urn:ietf:params:oauth:grant-type:challenge social urn:ietf:params:oauth:grant-type:social",
       @jarm_signing_alg = nil,
       @jarm_encryption_alg = nil,
       @jarm_encryption_enc = nil,

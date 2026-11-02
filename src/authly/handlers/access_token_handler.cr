@@ -19,6 +19,9 @@ module Authly
       response = params.fetch("response", "")
       key_id = params["key_id"]?
       algorithm = params["algorithm"]?
+      provider = params.fetch("provider", "")
+      subject_token = params.fetch("subject_token", params.fetch("access_token", ""))
+      id_token = params.fetch("id_token", "")
       scope = params["scope"]?
 
       # Extract certificate thumbprint for mTLS binding
@@ -39,6 +42,9 @@ module Authly
         response: response,
         key_id: key_id,
         algorithm: algorithm,
+        provider: provider,
+        subject_token: subject_token,
+        id_token: id_token,
         scope: scope,
         cert_thumbprint: cert_thumbprint,
         options: Authly.config.issuance_options.try(&.call(client_id, grant_type)),
@@ -51,7 +57,7 @@ module Authly
     end
 
     private def self.authenticate_client(context : HTTP::Server::Context, grant_type : String) : String?
-      if ChallengeResponse::GRANT_TYPES.includes?(grant_type)
+      if ChallengeResponse::GRANT_TYPES.includes?(grant_type) || SocialGrant::GRANT_TYPES.includes?(grant_type)
         has_basic = context.request.headers["Authorization"]?.try(&.matches?(/\ABasic(\s|\z)/i)) || false
         client_id, client_secret = ClientAuthentication.credentials(context)
         if has_basic || client_secret
