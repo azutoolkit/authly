@@ -23,7 +23,7 @@ module Authly
     # Trusted host callback; never populated from OAuth request parameters.
     property issuance_options : Proc(String, String, IssuanceOptions)? = nil
     property? issue_refresh_tokens : Bool = true
-    property grant_types : Array(String) = %w[authorization_code client_credentials password refresh_token implicit urn:ietf:params:oauth:grant-type:device_code]
+    property grant_types : Array(String) = %w[authorization_code client_credentials password refresh_token implicit urn:ietf:params:oauth:grant-type:device_code challenge_response urn:ietf:params:oauth:grant-type:challenge]
     property signing_key_id : String? = nil
     property verification_keys : Hash(String, String) = {} of String => String
 
@@ -111,6 +111,11 @@ module Authly
     property par_store : PARStore = InMemoryPARStore.new
     property par_ttl : Time::Span = 90.seconds
     property? require_par : Bool = false
+
+    # Challenge-Response Authentication
+    property challenge_store : ChallengeStore = InMemoryChallengeStore.new
+    property challenge_ttl : Time::Span = 60.seconds
+    property challenge_max_attempts : Int32 = 1
 
     # JWT Secured Authorization Response Mode (JARM)
     property jarm_signing_key : String? = nil

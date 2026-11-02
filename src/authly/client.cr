@@ -19,7 +19,7 @@ module Authly
       @redirect_uri,
       @id,
       @scopes = "read",
-      @grant_types = "authorization_code client_credentials password refresh_token",
+      @grant_types = "authorization_code client_credentials password refresh_token challenge_response urn:ietf:params:oauth:grant-type:challenge",
       @jarm_signing_alg = nil,
       @jarm_encryption_alg = nil,
       @jarm_encryption_enc = nil,
@@ -121,6 +121,32 @@ module Authly
       return unless the_client
 
       the_client.public_key
+    end
+
+    def valid_client?(client_id : String) : Bool
+      any? { |client| client.id == client_id }
+    end
+
+    def verify_challenge_response?(
+      challenge : String,
+      response : String,
+      client_id : String = "",
+      key_id : String? = nil,
+      algorithm : String? = nil,
+    ) : Bool
+      target_id = client_id.presence || key_id.presence
+      return false unless target_id
+
+      the_client = find { |client| client.id == target_id }
+      return false unless the_client
+
+      ChallengeVerifier.verify?(
+        challenge: challenge,
+        response: response,
+        public_key: the_client.public_key,
+        secret: the_client.secret,
+        algorithm: algorithm,
+      )
     end
   end
 end

@@ -29,5 +29,19 @@ module Authly
     def client_public_key(client_id : String) : String?
       nil
     end
+
+    def valid_client?(client_id : String) : Bool
+      false
+    end
+
+    def verify_challenge_response?(
+      challenge : String,
+      response : String,
+      client_id : String = "",
+      key_id : String? = nil,
+      algorithm : String? = nil,
+    ) : Bool
+      false
+    end
   end
 end
