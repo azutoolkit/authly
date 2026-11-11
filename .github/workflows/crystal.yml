@@ -1,23 +1,36 @@
 name: Crystal CI
+
+# Runs on pushes to master (and by hand). A push that touches only Markdown or the licence skips the whole workflow,
+# release included: there is nothing to test and nothing to release.
 on:
   push:
-    branches:
-      - master
+    branches: [master]
+    paths-ignore: ["**/*.md", "LICENSE"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One queue per ref: a run that is waiting is replaced by the newest push; a running one (it may be releasing) finishes.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     container:
       image: crystallang/crystal:1.22.1
 
     steps:
-      - uses: actions/checkout@v1
+      - uses: actions/checkout@v4
 
       - name: Install system dependencies
         run: |
           apt-get update
-          apt-get install -y libreadline-dev libevent-dev libssl-dev libxml2-dev libyaml-dev libgmp-dev
+          apt-get install -y --no-install-recommends libreadline-dev libevent-dev libssl-dev libxml2-dev libyaml-dev libgmp-dev
 
       - name: Install dependencies
         run: shards install
@@ -25,57 +38,89 @@ jobs:
       - name: Run Code Format
         run: crystal tool format ./src ./spec --check
 
+      # Built from the shard: the repository used to carry a macOS binary that cannot run here.
+      - name: Run Ameba Checks
+        run: crystal run lib/ameba/bin/ameba.cr
+
       - name: Run Authorization Service
         run: crystal ./spec/support/test_server.cr &
 
       # Everything under spec/, handlers included (spec/support has only helpers and one handler spec, all spec-safe)
       - name: Run Specs
         run: crystal spec
+
+  # Every push that passes the build is a release: the job writes the version into shard.yml, commits it to master,
+  # tags that commit and creates the GitHub release. If master is protected, set the RELEASE_TOKEN secret to a token
+  # that may push to it (without it the job uses GITHUB_TOKEN). The bump commit carries [skip ci].
   release:
     runs-on: ubuntu-latest
-    needs:
-      - build
-    if: ${{ success() }}
+    timeout-minutes: 10
+    needs: [build]
+    if: >-
+      github.event_name == 'push' &&
+      !contains(github.event.head_commit.message, 'chore: bump version')
+    permissions:
+      contents: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          token: ${{ secrets.RELEASE_TOKEN || github.token }}
 
       - name: Compute Release Version
         id: semver
-        uses: paulhatch/semantic-version@v4.0.2
+        uses: paulhatch/semantic-version@v6.0.5
         with:
           tag_prefix: "v"
           major_pattern: "(MAJOR)"
           minor_pattern: "(MINOR)"
-          # A string to determine the format of the version output
-          format: "${major}.${minor}.${patch}"
-          # If this is set to true, *every* commit will be treated as a new version.
+          version_format: "${major}.${minor}.${patch}"
           bump_each_commit: false
 
-      - name: Bump Shard Version
-        id: bump-shard
-        uses: fjogeleit/yaml-update-action@master
-        with:
-          valueFile: shard.yml
-          propertyPath: version
-          value: ${{steps.semver.outputs.version}}
-          commitChange: true
-          updateFile: true
-          targetBranch: master
-          masterBranchName: master
-          createPR: false
-          branch: master
-          message: Set shard version ${{ steps.semver.outputs.version }}
+      - name: Commit the version to shard.yml, tag it and push both to master
+        id: bump
+        env:
+          VERSION: ${{ steps.semver.outputs.version }}
+        run: |
+          tag="v$VERSION"
+          if git rev-parse -q --verify "refs/tags/$tag" >/dev/null; then
+            echo "$tag exists already, nothing to release"
+            exit 0
+          fi
+          master_moved() { [ "$(git ls-remote origin refs/heads/master | cut -f1)" != "$GITHUB_SHA" ]; }
+          if master_moved; then
+            echo "::notice::master moved past $GITHUB_SHA; the run of the newer push releases these commits"
+            exit 0
+          fi
+
+          sed -i -E "s/^version: .*/version: $VERSION/" shard.yml
+          grep -qx "version: $VERSION" shard.yml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if ! git diff --quiet shard.yml; then
+            git commit -m "chore: bump version to $VERSION [skip ci]" shard.yml
+          fi
+          git tag "$tag"
+
+          # Atomic: master gets the bump together with its tag, or neither changes.
+          if ! git push --atomic origin HEAD:refs/heads/master "refs/tags/$tag"; then
+            if master_moved; then
+              echo "::notice::master moved past $GITHUB_SHA during the release; the run of the newer push releases these commits"
+              exit 0
+            fi
+            echo "::error::Pushing the version bump to master was refused. If the branch protection refused it, set the RELEASE_TOKEN secret."
+            exit 1
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
       - name: Create Release
-        id: create_release
-        uses: actions/create-release@latest
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        if: steps.bump.outputs.tag != ''
+        uses: softprops/action-gh-release@v3
         with:
-          tag_name: ${{steps.semver.outputs.version_tag}}
-          release_name: Release v${{steps.semver.outputs.version}}
+          tag_name: ${{ steps.bump.outputs.tag }}
+          name: Release ${{ steps.bump.outputs.tag }}
           draft: false
           prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
