@@ -105,6 +105,38 @@ module Authly
       token.scope.should eq "read"
     end
 
+    it "creates an access token with a valid device code grant carrying the approved scope" do
+      device_data = DeviceCode.create_device_authorization(client_id, "read")
+      device_data.verified = true
+      device_data.user_id = username
+      Authly.config.device_code_store.update(device_data.device_code, device_data)
+
+      grant = Grant.new("urn:ietf:params:oauth:grant-type:device_code",
+        client_id: client_id,
+        client_secret: client_secret,
+        device_code: device_data.device_code)
+
+      token = grant.token
+
+      token.client_id.should eq client_id
+      token.scope.should eq "read"
+      Authly.jwt_decode(token.refresh_token.not_nil!).first["scope"].as_s.should eq "read"
+    end
+
+    it "raises error for a device code whose scope the client may not request" do
+      device_data = DeviceCode.create_device_authorization(client_id, "mars")
+      device_data.verified = true
+      device_data.user_id = username
+      Authly.config.device_code_store.update(device_data.device_code, device_data)
+
+      grant = Grant.new("urn:ietf:params:oauth:grant-type:device_code",
+        client_id: client_id,
+        client_secret: client_secret,
+        device_code: device_data.device_code)
+
+      expect_raises(Error, ERROR_MSG[:invalid_scope]) { grant.token }
+    end
+
     it "raises error for unsupported grant type" do
       expect_raises(Error) { Grant.new("unsupported_grant_type", client_id: client_id, client_secret: client_secret) }
     end

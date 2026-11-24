@@ -12,10 +12,20 @@ module Authly
     SLOW_DOWN_STEP = 5
 
     @user_id : String? = nil
+    # The scope approved for the device, read before redemption deletes the authorization.
+    @granted_scope : String? = nil
 
     def authorized? : Bool
       validate!
       true
+    end
+
+    # The scope the owner approved at the verification page. It is cached because the grant reads it once
+    # before redemption (to validate it) and once after, when the authorization is gone.
+    def granted_scope : String?
+      @granted_scope ||= Authly.config.device_code_store.fetch(@device_code).try(&.scope)
+    rescue
+      nil
     end
 
     # The owner who approved the device, so the token is about them and not about nobody.

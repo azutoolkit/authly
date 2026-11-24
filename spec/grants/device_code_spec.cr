@@ -76,6 +76,37 @@ module Authly
       end
     end
 
+    describe "#granted_scope" do
+      it "returns the scope stored on the device authorization" do
+        device_data = DeviceCode.create_device_authorization(client_id, scope)
+
+        DeviceCode.new(client_id, device_data.device_code).granted_scope.should eq scope
+      end
+
+      it "keeps the scope after the device code is deleted" do
+        device_data = DeviceCode.create_device_authorization(client_id, scope)
+        device_code_grant = DeviceCode.new(client_id, device_data.device_code)
+        device_code_grant.granted_scope.should eq scope
+
+        Authly.config.device_code_store.delete(device_data.device_code)
+
+        device_code_grant.granted_scope.should eq scope
+      end
+
+      it "keeps the scope across redemption, which deletes the authorization" do
+        device_data = DeviceCode.create_device_authorization(client_id, scope)
+        device_data.verified = true
+        device_data.user_id = "test_user"
+        Authly.config.device_code_store.update(device_data.device_code, device_data)
+        device_code_grant = DeviceCode.new(client_id, device_data.device_code)
+
+        device_code_grant.granted_scope.should eq scope
+        device_code_grant.authorized?.should be_true
+        Authly.config.device_code_store.fetch(device_data.device_code).should be_nil
+        device_code_grant.granted_scope.should eq scope
+      end
+    end
+
     describe "device code store" do
       it "fetches by user code" do
         device_data = DeviceCode.create_device_authorization(client_id, scope)
